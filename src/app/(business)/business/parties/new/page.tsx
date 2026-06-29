@@ -74,19 +74,19 @@ export default function NewPartyPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-xl">
+    <div className="space-y-4 w-full max-w-xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" render={<Link href="/business/parties" />}>
+        <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/business/parties" />}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <h1 className="text-2xl font-bold">파티 등록</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">파티 등록</h1>
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle className="text-base">파티 정보</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1.5">
               <Label>파티명 *</Label>
@@ -104,7 +104,7 @@ export default function NewPartyPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>일시 *</Label>
                 <Input type="datetime-local" {...register("date")} />
@@ -129,7 +129,7 @@ export default function NewPartyPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>남성 참가비 (원)</Label>
                 <Input type="number" min={0} {...register("priceMale", { valueAsNumber: true })} />
@@ -140,7 +140,7 @@ export default function NewPartyPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>성비</Label>
                 <Input placeholder="예) 남3:여3" {...register("genderRatio")} />
@@ -150,7 +150,7 @@ export default function NewPartyPage() {
                 <Select
                   defaultValue="APPROVAL"
                   onValueChange={(v) =>
-                    setValue("admissionMode", v as "INSTANT" | "APPROVAL")
+                    v && setValue("admissionMode", v as "INSTANT" | "APPROVAL")
                   }
                 >
                   <SelectTrigger>
@@ -173,7 +173,7 @@ export default function NewPartyPage() {
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
               <Button variant="outline" type="button" onClick={() => router.back()}>
                 취소
               </Button>

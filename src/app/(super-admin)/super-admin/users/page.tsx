@@ -58,15 +58,13 @@ export default async function UsersPage({ searchParams }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">유저 관리</h1>
-          <p className="text-sm text-muted-foreground">전체 {total.toLocaleString()}명</p>
-        </div>
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold">유저 관리</h1>
+        <p className="text-sm text-muted-foreground">전체 {total.toLocaleString()}명</p>
       </div>
 
-      <div className="rounded-md border bg-background">
-        <Table>
+      <div className="rounded-md border bg-background overflow-x-auto">
+        <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow>
               <TableHead>닉네임</TableHead>
@@ -91,16 +89,12 @@ export default async function UsersPage({ searchParams }: Props) {
                 </TableCell>
                 <TableCell>
                   {user.isBlocked ? (
-                    <Badge variant="destructive" className="text-xs">
-                      정지
-                    </Badge>
+                    <Badge variant="destructive" className="text-xs">정지</Badge>
                   ) : (
-                    <Badge variant="secondary" className="text-xs">
-                      정상
-                    </Badge>
+                    <Badge variant="secondary" className="text-xs">정상</Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                   {user.createdAt.toLocaleDateString("ko-KR")}
                 </TableCell>
                 <TableCell>

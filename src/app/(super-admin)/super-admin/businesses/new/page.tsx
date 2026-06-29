@@ -59,19 +59,19 @@ export default function NewBusinessPage() {
   };
 
   return (
-    <div className="space-y-4 max-w-xl">
+    <div className="space-y-4 w-full max-w-xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" render={<Link href="/super-admin/businesses" />}>
+        <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/super-admin/businesses" />}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <h1 className="text-2xl font-bold">업체 등록</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">업체 등록</h1>
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle className="text-base">업체 정보</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-1.5">
               <Label>업체명 *</Label>
@@ -84,14 +84,12 @@ export default function NewBusinessPage() {
               <Label>사업자등록번호</Label>
               <Input placeholder="000-00-00000" {...register("businessNumber")} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>담당자 이메일</Label>
                 <Input type="email" {...register("contactEmail")} />
                 {errors.contactEmail && (
-                  <p className="text-xs text-destructive">
-                    {errors.contactEmail.message}
-                  </p>
+                  <p className="text-xs text-destructive">{errors.contactEmail.message}</p>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -107,7 +105,7 @@ export default function NewBusinessPage() {
               <Label>업체 소개</Label>
               <Textarea rows={3} {...register("description")} />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
               <Button variant="outline" type="button" onClick={() => router.back()}>
                 취소
               </Button>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -12,11 +13,13 @@ import {
   LogOut,
   ChevronRight,
   BarChart3,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { AdminRole } from "@/generated/prisma";
 
 interface NavItem {
@@ -46,35 +49,42 @@ interface Props {
   businessName?: string;
 }
 
-export default function AdminSidebar({ role, name, email, businessName }: Props) {
+interface InnerProps extends Props {
+  onClose?: () => void;
+}
+
+function SidebarInner({ role, name, email, businessName, onClose }: InnerProps) {
   const pathname = usePathname();
   const navItems = role === "SUPER_ADMIN" ? superAdminNav : businessNav;
 
   return (
-    <aside className="flex flex-col w-60 border-r bg-background h-screen sticky top-0">
-      <div className="px-4 py-5 border-b">
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* 로고 */}
+      <div className="px-4 py-5 border-b shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">S</span>
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <span className="text-primary-foreground font-bold text-sm">D</span>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="font-semibold text-sm leading-none">Dopa Admin</p>
             {businessName && (
-              <p className="text-xs text-muted-foreground mt-0.5">{businessName}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">{businessName}</p>
             )}
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
+      {/* 네비게이션 */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const active = pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
+              onClick={onClose}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                 active
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -88,10 +98,11 @@ export default function AdminSidebar({ role, name, email, businessName }: Props)
         })}
       </nav>
 
-      <Separator />
-      <div className="px-3 py-3">
+      {/* 유저 정보 */}
+      <Separator className="shrink-0" />
+      <div className="px-3 py-3 shrink-0">
         <div className="flex items-center gap-2 px-3 py-2 mb-1">
-          <Avatar className="w-7 h-7">
+          <Avatar className="w-7 h-7 shrink-0">
             <AvatarFallback className="text-xs">
               {name.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -111,6 +122,51 @@ export default function AdminSidebar({ role, name, email, businessName }: Props)
           로그아웃
         </Button>
       </div>
+    </div>
+  );
+}
+
+/* 데스크톱 사이드바 (md 이상) */
+export default function AdminSidebar(props: Props) {
+  return (
+    <aside className="hidden md:flex flex-col w-60 border-r bg-background h-screen sticky top-0 shrink-0">
+      <SidebarInner {...props} />
     </aside>
+  );
+}
+
+/* 모바일/태블릿 헤더 (md 미만) */
+export function MobileHeader(props: Props) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-40 flex items-center h-14 border-b bg-background/95 backdrop-blur supports-backdrop-filter:backdrop-blur-sm px-3 md:hidden">
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger
+          className={cn(
+            "inline-flex items-center justify-center rounded-md w-9 h-9",
+            "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors -ml-1"
+          )}
+        >
+          <Menu className="w-5 h-5" />
+          <span className="sr-only">메뉴 열기</span>
+        </SheetTrigger>
+        <SheetContent side="left" className="p-0 gap-0" showCloseButton={false}>
+          <SidebarInner {...props} onClose={() => setOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <div className="ml-3 flex items-center gap-2 min-w-0">
+        <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center shrink-0">
+          <span className="text-primary-foreground font-bold text-[11px]">D</span>
+        </div>
+        <span className="font-semibold text-sm shrink-0">Dopa Admin</span>
+        {props.businessName && (
+          <span className="text-xs text-muted-foreground truncate">
+            · {props.businessName}
+          </span>
+        )}
+      </div>
+    </header>
   );
 }

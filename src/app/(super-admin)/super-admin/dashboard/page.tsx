@@ -57,8 +57,8 @@ export default async function SuperAdminDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">대시보드</h1>
-        <p className="text-sm text-muted-foreground">Spot 플랫폼 현황</p>
+        <h1 className="text-xl sm:text-2xl font-bold">대시보드</h1>
+        <p className="text-sm text-muted-foreground">Dopa 플랫폼 현황</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

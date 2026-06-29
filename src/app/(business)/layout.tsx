@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import AdminSidebar from "@/components/layout/AdminSidebar";
+import AdminSidebar, { MobileHeader } from "@/components/layout/AdminSidebar";
 
 export default async function BusinessLayout({
   children,
@@ -10,15 +10,22 @@ export default async function BusinessLayout({
   const session = await auth();
   if (!session || session.user.role !== "BUSINESS") redirect("/login");
 
+  const sidebarProps = {
+    role: "BUSINESS" as const,
+    name: session.user.name,
+    email: session.user.email,
+    businessName: session.user.businessName,
+  };
+
   return (
-    <div className="flex h-screen overflow-hidden">
-      <AdminSidebar
-        role="BUSINESS"
-        name={session.user.name}
-        email={session.user.email}
-        businessName={session.user.businessName}
-      />
-      <main className="flex-1 overflow-y-auto p-6 bg-slate-50">{children}</main>
+    <div className="flex flex-col md:flex-row md:h-screen">
+      <AdminSidebar {...sidebarProps} />
+      <div className="flex-1 flex flex-col min-w-0 md:overflow-hidden">
+        <MobileHeader {...sidebarProps} />
+        <main className="flex-1 md:overflow-y-auto p-4 sm:p-5 lg:p-6 bg-slate-50 dark:bg-slate-950">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

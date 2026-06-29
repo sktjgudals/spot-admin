@@ -1,4 +1,3 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import {
@@ -11,19 +10,46 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil } from "lucide-react";
+import { Plus } from "lucide-react";
+import PartyBusinessMapper from "./PartyBusinessMapper";
 
-export default async function BusinessPartiesPage() {
-  const session = await auth();
-  const businessId = session!.user.businessId!;
+interface SearchParams {
+  q?: string;
+}
 
-  const parties = await prisma.party.findMany({
-    where: { businessId },
-    orderBy: { date: "desc" },
-    include: {
-      _count: { select: { applications: true } },
-    },
-  });
+interface Props {
+  searchParams: Promise<SearchParams>;
+}
+
+export default async function SuperAdminPartiesPage({ searchParams }: Props) {
+  const params = await searchParams;
+
+  const where = params.q
+    ? {
+        OR: [
+          { title: { contains: params.q, mode: "insensitive" as const } },
+          { location: { contains: params.q, mode: "insensitive" as const } },
+        ],
+      }
+    : {};
+
+  const [parties, businesses] = await Promise.all([
+    prisma.party.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: 50,
+      include: {
+        admin: { select: { nickname: true, email: true } },
+        business: { select: { id: true, name: true } },
+        _count: { select: { applications: true } },
+      },
+    }),
+    prisma.business.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -32,14 +58,14 @@ export default async function BusinessPartiesPage() {
           <h1 className="text-xl sm:text-2xl font-bold">파티 관리</h1>
           <p className="text-sm text-muted-foreground">전체 {parties.length}개</p>
         </div>
-        <Button nativeButton={false} render={<Link href="/business/parties/new" />} className="sm:self-start">
+        <Button nativeButton={false} render={<Link href="/super-admin/parties/new" />} className="sm:self-start">
           <Plus className="w-4 h-4 mr-2" />
           파티 등록
         </Button>
       </div>
 
       <div className="rounded-md border bg-background overflow-x-auto">
-        <Table className="min-w-[560px]">
+        <Table className="min-w-[760px]">
           <TableHeader>
             <TableRow>
               <TableHead>파티명</TableHead>
@@ -47,14 +73,17 @@ export default async function BusinessPartiesPage() {
               <TableHead>장소</TableHead>
               <TableHead className="text-center">정원</TableHead>
               <TableHead className="text-center">신청</TableHead>
+              <TableHead>호스트</TableHead>
+              <TableHead>연결 업체</TableHead>
               <TableHead>상태</TableHead>
-              <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {parties.map((party) => (
               <TableRow key={party.id}>
-                <TableCell className="font-medium text-sm">{party.title}</TableCell>
+                <TableCell>
+                  <p className="font-medium text-sm whitespace-nowrap">{party.title}</p>
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                   {party.date.toLocaleDateString("ko-KR", {
                     month: "2-digit",
@@ -63,28 +92,29 @@ export default async function BusinessPartiesPage() {
                     minute: "2-digit",
                   })}
                 </TableCell>
-                <TableCell className="text-sm">{party.location}</TableCell>
+                <TableCell className="text-sm whitespace-nowrap">{party.location}</TableCell>
                 <TableCell className="text-sm text-center">
                   {party.currentCount}/{party.maxCapacity}
                 </TableCell>
                 <TableCell className="text-sm text-center">{party._count.applications}</TableCell>
+                <TableCell>
+                  <p className="text-sm whitespace-nowrap">{party.admin.nickname}</p>
+                  <p className="text-xs text-muted-foreground">{party.admin.email}</p>
+                </TableCell>
+                <TableCell>
+                  <PartyBusinessMapper
+                    partyId={party.id}
+                    currentBusinessId={party.business?.id ?? null}
+                    currentBusinessName={party.business?.name ?? null}
+                    businesses={businesses}
+                  />
+                </TableCell>
                 <TableCell>
                   {party.isActive ? (
                     <Badge variant="secondary" className="text-xs whitespace-nowrap">모집중</Badge>
                   ) : (
                     <Badge variant="outline" className="text-xs text-muted-foreground whitespace-nowrap">종료</Badge>
                   )}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    nativeButton={false}
-                    render={<Link href={`/business/parties/${party.id}/edit`} />}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
                 </TableCell>
               </TableRow>
             ))}

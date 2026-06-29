@@ -60,7 +60,7 @@ export default async function BusinessDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">대시보드</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">대시보드</h1>
         <p className="text-sm text-muted-foreground">
           {session!.user.businessName} 현황
         </p>

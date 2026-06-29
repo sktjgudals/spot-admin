@@ -52,14 +52,12 @@ export default async function ApplicationsPage({ searchParams }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">신청 관리</h1>
-        <p className="text-sm text-muted-foreground">
-          전체 {applications.length}건
-        </p>
+        <h1 className="text-xl sm:text-2xl font-bold">신청 관리</h1>
+        <p className="text-sm text-muted-foreground">전체 {applications.length}건</p>
       </div>
 
-      <div className="rounded-md border bg-background">
-        <Table>
+      <div className="rounded-md border bg-background overflow-x-auto">
+        <Table className="min-w-[680px]">
           <TableHeader>
             <TableRow>
               <TableHead>파티</TableHead>
@@ -75,39 +73,39 @@ export default async function ApplicationsPage({ searchParams }: Props) {
             {applications.map((app) => (
               <TableRow key={app.id}>
                 <TableCell>
-                  <p className="font-medium text-sm">{app.party.title}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="font-medium text-sm whitespace-nowrap">{app.party.title}</p>
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">
                     {app.party.date.toLocaleDateString("ko-KR")}
                   </p>
                 </TableCell>
                 <TableCell>
-                  <p className="font-medium text-sm">{app.user.nickname}</p>
+                  <p className="font-medium text-sm whitespace-nowrap">{app.user.nickname}</p>
                   <p className="text-xs text-muted-foreground">{app.user.email}</p>
                 </TableCell>
-                <TableCell className="text-sm">
+                <TableCell className="text-sm whitespace-nowrap">
                   ⭐ {app.user.averageRating.toFixed(1)}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
                   {app.message ?? "-"}
                 </TableCell>
                 <TableCell>
                   {app.status === "PENDING" && (
-                    <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300">
+                    <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-300 whitespace-nowrap">
                       대기
                     </Badge>
                   )}
                   {app.status === "APPROVED" && (
-                    <Badge className="text-xs bg-green-100 text-green-700 border-0">
+                    <Badge className="text-xs bg-green-100 text-green-700 border-0 whitespace-nowrap">
                       승인
                     </Badge>
                   )}
                   {app.status === "REJECTED" && (
-                    <Badge variant="destructive" className="text-xs">
+                    <Badge variant="destructive" className="text-xs whitespace-nowrap">
                       거절
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                   {app.createdAt.toLocaleDateString("ko-KR")}
                 </TableCell>
                 <TableCell>
