@@ -5,7 +5,7 @@ import { PrismaClient } from "../src/generated/prisma";
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = "super@spot.admin";
+  const email = "ceo@dopa.ing";
   const password = "SpotAdmin123!";
 
   const existing = await prisma.adminAccount.findUnique({ where: { email } });
@@ -26,7 +26,7 @@ async function main() {
   });
 
   console.log("✅ 슈퍼 어드민 계정 생성 완료");
-  console.log("   이메일:", email);
+  console.log("   이메일 :", email);
   console.log("   비밀번호:", password);
   console.log("   ⚠️  첫 로그인 후 반드시 비밀번호를 변경하세요!");
 }
