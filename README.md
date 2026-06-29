@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dopa Admin
 
-## Getting Started
+Dopa 서비스의 관리자 패널입니다. 슈퍼 어드민과 업체 어드민을 위한 풀스택 웹 애플리케이션입니다.
 
-First, run the development server:
+## 기술 스택
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Database**: PostgreSQL + Prisma ORM
+- **Auth**: NextAuth v5 (이메일/패스워드)
+- **UI**: shadcn/ui + Tailwind CSS v4
+- **Payments**: Toss Payments
+
+## 시작하기
+
+### 환경 변수 설정
+
+`.env` 파일을 생성하고 아래 변수를 설정하세요:
+
+```env
+DATABASE_URL=postgresql://...
+AUTH_SECRET=...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 설치 및 실행
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# DB 스키마 반영
+npm run db:push
 
-## Learn More
+# 시드 데이터 삽입 (슈퍼 어드민 계정 생성)
+npm run db:seed
 
-To learn more about Next.js, take a look at the following resources:
+# 개발 서버 실행 (http://localhost:3001)
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 역할
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| 역할 | 설명 |
+|------|------|
+| `SUPER_ADMIN` | 전체 관리 — 유저, 업체, 파티, 정산 |
+| `BUSINESS` | 소속 업체의 파티 및 정산만 관리 |
 
-## Deploy on Vercel
+## 주요 기능
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **유저 관리**: 가입 유저 조회, 차단/해제
+- **파티 관리**: 파티 생성·수정·삭제, 신청자 승인/거절
+- **업체 관리**: 업체 등록, 어드민 초대, 상태 관리
+- **정산 관리**: Toss Payments 기반 결제 및 정산 내역
+- **슈퍼 어드민**: 어드민 계정 생성, 업체 배정
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## DB 명령어
+
+```bash
+npm run db:push     # 스키마 변경사항 DB에 반영
+npm run db:seed     # 초기 데이터 삽입
+npm run db:studio   # Prisma Studio 실행
+```
