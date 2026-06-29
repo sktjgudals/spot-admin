@@ -56,7 +56,7 @@ export default function LoginPage() {
   return (
     <Card className="w-full max-w-sm">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Spot Admin</CardTitle>
+        <CardTitle className="text-2xl font-bold">Dopa Admin</CardTitle>
         <CardDescription>어드민 계정으로 로그인하세요</CardDescription>
       </CardHeader>
       <CardContent>

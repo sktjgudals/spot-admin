@@ -58,7 +58,7 @@ export default function AdminSidebar({ role, name, email, businessName }: Props)
             <span className="text-primary-foreground font-bold text-sm">S</span>
           </div>
           <div>
-            <p className="font-semibold text-sm leading-none">Spot Admin</p>
+            <p className="font-semibold text-sm leading-none">Dopa Admin</p>
             {businessName && (
               <p className="text-xs text-muted-foreground mt-0.5">{businessName}</p>
             )}
