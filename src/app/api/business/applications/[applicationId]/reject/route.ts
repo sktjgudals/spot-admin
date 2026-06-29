@@ -1,0 +1,39 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/api-auth";
+
+interface Params {
+  params: Promise<{ applicationId: string }>;
+}
+
+export async function POST(_req: NextRequest, { params }: Params) {
+  const { session, error } = await requireRole("BUSINESS");
+  if (error) return error;
+
+  const businessId = session.user.businessId;
+  const { applicationId } = await params;
+
+  const application = await prisma.application.findUnique({
+    where: { id: applicationId },
+    include: { party: true },
+  });
+
+  if (!application) {
+    return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
+  }
+
+  if (application.party.businessId !== businessId) {
+    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  }
+
+  if (application.status !== "PENDING") {
+    return NextResponse.json({ message: "이미 처리된 신청입니다" }, { status: 400 });
+  }
+
+  await prisma.application.update({
+    where: { id: applicationId },
+    data: { status: "REJECTED" },
+  });
+
+  return NextResponse.json({ success: true });
+}

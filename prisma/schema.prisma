@@ -1,0 +1,494 @@
+// ============================================================
+// Spot Admin – Prisma Schema
+// DB: PostgreSQL (same DB as spot-backend)
+// New models: AdminAccount, Business, Settlement, BusinessInvitation
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// Enums (copied from spot-backend)
+// ============================================================
+
+enum Provider {
+  KAKAO
+  NAVER
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  READ
+}
+
+enum DeviceType {
+  MOBILE
+  TABLET
+  WEB
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum AdmissionMode {
+  INSTANT
+  APPROVAL
+}
+
+// ============================================================
+// New Enums (admin-specific)
+// ============================================================
+
+enum AdminRole {
+  SUPER_ADMIN
+  BUSINESS
+}
+
+enum SettlementStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  READY
+  IN_PROGRESS
+  DONE
+  CANCELLED
+  PARTIAL_CANCELLED
+  ABORTED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  CARD
+  VIRTUAL_ACCOUNT
+  TRANSFER
+  MOBILE
+  GIFT_CERTIFICATE
+  FOREIGN_EASY_PAY
+}
+
+enum BusinessStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+// ============================================================
+// Existing Models (spot-backend — read only from admin)
+// ============================================================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  nickname     String
+  profileImage String?
+  socialId     String
+  provider     Provider
+  refreshToken String?
+
+  averageRating Float @default(0.0)
+  role          Role  @default(USER)
+
+  isBlocked    Boolean   @default(false)
+  blockedUntil DateTime?
+  blockReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile             UserProfile?
+  hostedParties       Party[]                  @relation("PartyAdmin")
+  applications        Application[]
+  ratingsGiven        UserRating[]             @relation("AdminRatings")
+  ratingsReceived     UserRating[]             @relation("TargetRatings")
+  partyRatings        PartyRating[]
+  notificationTokens  NotificationToken[]
+  notificationHistory NotificationHistory[]
+  notificationSetting UserNotificationSetting?
+  wishlists           Wishlist[]
+  payments            Payment[]
+
+  @@unique([socialId, provider])
+  @@index([email])
+  @@index([isBlocked])
+  @@map("users")
+}
+
+model UserProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  gender         String?
+  birthDate      DateTime?
+  city           String?
+  education      String?
+  company        String?
+  occupation     String?
+  height         Int?
+  weight         Int?
+  bio            String?
+  profileImages  String[]  @default([])
+  phone          String?
+  mbti           String?
+  instagramId    String?
+  smokingStatus  String?
+  drinkingStatus String?
+  maritalStatus  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_profiles")
+}
+
+model Party {
+  id           String   @id @default(cuid())
+  title        String
+  description  String
+  date         DateTime
+  location     String
+  maxCapacity  Int
+  currentCount Int      @default(0)
+  isActive     Boolean  @default(true)
+
+  requiredFields String[] @default([])
+
+  coverImage    String?
+  priceMale     Int     @default(0)
+  priceFemale   Int     @default(0)
+  genderRatio   String?
+  admissionMode AdmissionMode @default(APPROVAL)
+  averageRating Float         @default(0.0)
+  featuredUntil  DateTime?
+  featuredWeight Int           @default(0)
+
+  adminId String
+  admin   User   @relation("PartyAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+
+  // 파티를 업체에 연결 (선택적 — 어드민 앱에서 추가)
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications Application[]
+  partyRatings PartyRating[]
+  wishlists    Wishlist[]
+  settlements  Settlement[]
+  payments     Payment[]
+
+  @@index([adminId])
+  @@index([date])
+  @@index([featuredUntil])
+  @@index([businessId])
+  @@map("parties")
+}
+
+model Application {
+  id      String            @id @default(cuid())
+  status  ApplicationStatus @default(PENDING)
+  message String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  partyId String
+  party   Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, partyId])
+  @@index([userId])
+  @@index([partyId])
+  @@map("applications")
+}
+
+model UserRating {
+  id      String @id @default(cuid())
+  score   Int
+  comment String
+
+  targetUserId String
+  targetUser   User   @relation("TargetRatings", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  adminId String
+  admin   User   @relation("AdminRatings", fields: [adminId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([targetUserId, adminId])
+  @@index([targetUserId])
+  @@index([adminId])
+  @@map("user_ratings")
+}
+
+model PartyRating {
+  id      String  @id @default(cuid())
+  score   Int
+  comment String?
+
+  partyId String
+  party   Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([partyId, userId])
+  @@index([partyId])
+  @@index([userId])
+  @@map("party_ratings")
+}
+
+model NotificationToken {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String
+  deviceType DeviceType @default(MOBILE)
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([userId, token])
+  @@index([userId])
+  @@index([token])
+  @@map("notification_tokens")
+}
+
+model NotificationHistory {
+  id          String             @id @default(cuid())
+  userId      String
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  status      NotificationStatus @default(PENDING)
+  clickAction String?
+  jobId       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("notification_history")
+}
+
+model UserNotificationSetting {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  enableMarketing   Boolean   @default(false)
+  enableWishlist    Boolean   @default(false)
+  enableApplication Boolean   @default(true)
+  enableSystem      Boolean   @default(true)
+  nightAdConsent    Boolean   @default(false)
+  nightAdConsentAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("user_notification_settings")
+}
+
+model Wishlist {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  partyId String
+  party   Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, partyId])
+  @@index([userId])
+  @@index([partyId])
+  @@map("wishlist")
+}
+
+model DeletedUser {
+  id         String   @id @default(cuid())
+  originalId String
+  email      String
+  nickname   String
+  reason     String
+  deletedAt  DateTime @default(now())
+
+  @@index([originalId])
+  @@index([email])
+  @@map("deleted_users")
+}
+
+// ============================================================
+// New Admin Models
+// ============================================================
+
+/// 어드민 전용 계정 (이메일/패스워드 인증 — 소셜 로그인과 무관)
+model AdminAccount {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         AdminRole @default(BUSINESS)
+  isActive     Boolean   @default(true)
+
+  /// BUSINESS 역할이면 연결된 업체
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([businessId])
+  @@map("admin_accounts")
+}
+
+/// 업체 (파티를 운영하는 사업자)
+model Business {
+  id             String         @id @default(cuid())
+  name           String
+  description    String?
+  logoUrl        String?
+  contactEmail   String?
+  contactPhone   String?
+  address        String?
+  businessNumber String?
+  status         BusinessStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  admins      AdminAccount[]
+  parties     Party[]
+  settlements Settlement[]
+  invitations BusinessInvitation[]
+
+  @@index([status])
+  @@map("businesses")
+}
+
+/// 업체 어드민 초대 링크 (슈퍼 어드민 → 업체 이메일로 발송)
+model BusinessInvitation {
+  id         String   @id @default(cuid())
+  email      String
+  token      String   @unique @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  used       Boolean  @default(false)
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([email])
+  @@map("business_invitations")
+}
+
+/// Toss Payments 결제 (참가자 → 파티 결제)
+model Payment {
+  id        String        @id @default(cuid())
+  /// Toss Payments 주문 ID (orderId) — 고유해야 함
+  orderId   String        @unique
+  /// Toss Payments 결제 키 (확정 후 채워짐)
+  paymentKey String?      @unique
+  status    PaymentStatus @default(READY)
+  method    PaymentMethod?
+  amount    Int
+
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  partyId String
+  party   Party  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  /// 파티 결제 확정 시 자동 생성
+  settlementId String?     @unique
+  settlement   Settlement? @relation(fields: [settlementId], references: [id])
+
+  /// Toss API 원본 응답 JSON
+  tossRawResponse Json?
+
+  approvedAt  DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  transactions PaymentTransaction[]
+
+  @@index([userId])
+  @@index([partyId])
+  @@index([status])
+  @@index([orderId])
+  @@map("payments")
+}
+
+/// 결제 취소/부분취소 트랜잭션 이력
+model PaymentTransaction {
+  id        String @id @default(cuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  /// cancel | approve
+  type       String
+  /// 해당 트랜잭션 금액
+  amount     Int
+  /// 취소 사유 (cancel 시)
+  reason     String?
+  /// Toss 트랜잭션 키
+  transactionKey String?
+
+  createdAt DateTime @default(now())
+
+  @@index([paymentId])
+  @@map("payment_transactions")
+}
+
+/// 정산 (Toss Payments 연동 예정)
+model Settlement {
+  id         String           @id @default(cuid())
+  businessId String
+  business   Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  partyId    String
+  party      Party            @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  status     SettlementStatus @default(PENDING)
+
+  totalAmount    Int      @default(0)
+  feeAmount      Int      @default(0)
+  netAmount      Int      @default(0)
+  tossPaymentKey String?
+  settledAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payment Payment?
+
+  @@index([businessId])
+  @@index([partyId])
+  @@index([status])
+  @@map("settlements")
+}

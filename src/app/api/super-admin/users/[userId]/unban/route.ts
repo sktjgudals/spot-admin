@@ -1,0 +1,24 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireRole } from "@/lib/api-auth";
+
+interface Params {
+  params: Promise<{ userId: string }>;
+}
+
+export async function POST(_req: NextRequest, { params }: Params) {
+  const { error } = await requireRole("SUPER_ADMIN");
+  if (error) return error;
+
+  const { userId } = await params;
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return NextResponse.json({ message: "USER_NOT_FOUND" }, { status: 404 });
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { isBlocked: false, blockedUntil: null, blockReason: null },
+  });
+
+  return NextResponse.json({ success: true });
+}
