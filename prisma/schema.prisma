@@ -20,12 +20,14 @@ datasource db {
 enum Provider {
   KAKAO
   NAVER
+  APPLE
 }
 
 enum ApplicationStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELED
 }
 
 enum NotificationStatus {
@@ -303,6 +305,7 @@ model UserNotificationSetting {
 
   enableMarketing   Boolean   @default(false)
   enableWishlist    Boolean   @default(false)
+  enableSeatOpen    Boolean   @default(false)
   enableApplication Boolean   @default(true)
   enableSystem      Boolean   @default(true)
   nightAdConsent    Boolean   @default(false)
@@ -491,4 +494,20 @@ model Settlement {
   @@index([partyId])
   @@index([status])
   @@map("settlements")
+}
+
+/// 앱 홈 메인 배너 (테이블 소유권은 spot-backend 마이그레이션)
+model Banner {
+  id        String  @id @default(cuid())
+  title     String
+  imageUrl  String
+  linkUrl   String?
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("banners")
 }

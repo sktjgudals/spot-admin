@@ -7,6 +7,8 @@ export async function proxy(req: NextRequest) {
   const token = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
+    // Cloud Run(프록시 뒤)에서는 AUTH_URL 기반 secure 쿠키 자동 감지가 실패하므로 명시
+    secureCookie: process.env.NODE_ENV === "production",
   });
 
   const publicPaths = ["/login", "/invite"];

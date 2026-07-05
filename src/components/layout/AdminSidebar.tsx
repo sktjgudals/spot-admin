@@ -13,7 +13,9 @@ import {
   LogOut,
   ChevronRight,
   BarChart3,
+  Bell,
   Menu,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,8 @@ const superAdminNav: NavItem[] = [
   { href: "/super-admin/users", label: "유저 관리", icon: Users },
   { href: "/super-admin/businesses", label: "업체 관리", icon: Building2 },
   { href: "/super-admin/parties", label: "파티 관리", icon: PartyPopper },
+  { href: "/super-admin/notifications", label: "알림 발송", icon: Bell },
+  { href: "/super-admin/banners", label: "배너 관리", icon: ImageIcon },
 ];
 
 const businessNav: NavItem[] = [
