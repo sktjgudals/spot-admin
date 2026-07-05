@@ -1,0 +1,68 @@
+---
+description: spot-admin(Next.js 16) 프로젝트 전역 규칙 (스택·구조·DB 규칙·배포)
+alwaysApply: true
+---
+
+# spot-admin (Dopa Admin)
+
+Next.js 16 어드민 패널. 백엔드: `../spot-backend`, DB는 spot-backend와 공유.
+
+## ⚠️ 이 Next.js는 당신이 아는 Next.js가 아니다
+
+Next.js 16 — API·컨벤션·파일 구조가 학습 데이터와 다를 수 있음.
+코드를 쓰기 전에 `node_modules/next/dist/docs/`의 해당 가이드를 먼저 읽을 것. deprecation 경고 준수.
+
+## 스택
+
+Next.js 16 App Router · Prisma 7 (pg adapter) · NextAuth v5 (Credentials) · shadcn/ui · Tailwind
+
+## 구조
+
+```
+src/
+  app/(auth)/login          # 로그인
+  app/(super-admin)/super-admin/{dashboard,users,businesses,parties,notifications,banners}
+  app/(business)/business/{dashboard,parties,applications,settlements}
+  app/api/super-admin/**    # requireRole("SUPER_ADMIN") 가드 API 라우트
+  lib/{auth,api-auth,prisma,utils}.ts
+  proxy.ts                  # 미들웨어 (역할별 라우팅 가드)
+  components/ui/            # shadcn 컴포넌트
+```
+
+## DB 규칙 (중요)
+
+- **스키마 소스는 `../spot-backend/prisma/schema.prisma`.** 이 저장소의 schema.prisma는 읽기용 미러(서브셋).
+- **`prisma db push` 절대 금지** — 프로덕션 DB 파손 위험. 스키마 변경은 spot-backend 마이그레이션으로만 하고, 여기엔 모델만 미러링 후 `npx prisma generate`.
+- 데이터 조회/수정은 직접 Prisma 사용 (파티·유저·배너 페이지 패턴 참고). 푸시 발송 등 백엔드 로직이 필요한 건 `BACKEND_INTERNAL_URL` + `x-internal-api-key`로 프록시 (notifications API 라우트 참고).
+
+## 인증
+
+- NextAuth v5 Credentials → `AdminAccount` 테이블 (bcryptjs)
+- 프로덕션은 Cloud Run 프록시 뒤라 `AUTH_TRUST_HOST=true` 사용, **AUTH_URL 설정 금지** (호스트 자동 감지)
+- `src/proxy.ts`의 getToken엔 `secureCookie: NODE_ENV === "production"` 필수 (제거 시 프로덕션 로그인 루프)
+
+## 완료 체크
+
+```bash
+./node_modules/.bin/tsc --noEmit   # 통과 필수
+npm run build                       # 통과 필수
+npm run lint
+```
+
+## 배포 (Cloud Run, GCP spot-4749d, 서울)
+
+```bash
+# 이미지 빌드 (버전 태그 올려서)
+gcloud builds submit --tag asia-northeast3-docker.pkg.dev/spot-4749d/dopa/dopa-admin:vN \
+  --region asia-northeast3 --project spot-4749d
+# 배포
+gcloud run services update dopa-admin \
+  --image asia-northeast3-docker.pkg.dev/spot-4749d/dopa/dopa-admin:vN \
+  --region asia-northeast3 --project spot-4749d
+```
+
+- 서비스 URL: https://dopa-admin-407436072297.asia-northeast3.run.app
+- 커스텀 도메인(admin.dopa.ing)은 Cloudflare Worker 프록시 (`scripts/cloudflare-worker.js`)
+- **Firebase Hosting 경유 금지** — `__session` 외 쿠키를 제거해 로그인이 깨짐
+- 이미지 업로드는 GCS 공개 버킷 `dopa-assets` (SA에 권한 부여됨, ADC 사용)
+- 환경변수/시크릿: DATABASE_URL, AUTH_SECRET(=NEXTAUTH_SECRET), BACKEND_INTERNAL_API_KEY — Secret Manager 연결됨
