@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import NotificationForm from "./NotificationForm";
+import TestSendCard from "./TestSendCard";
 
 export default async function NotificationsPage() {
   const [userCount, parties] = await Promise.all([
@@ -28,6 +29,8 @@ export default async function NotificationsPage() {
           설정에 따라 필터링됩니다.
         </p>
       </div>
+
+      <TestSendCard />
 
       <NotificationForm
         userCount={userCount}
