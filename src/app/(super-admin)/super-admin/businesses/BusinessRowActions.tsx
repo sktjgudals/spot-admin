@@ -21,13 +21,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MoreHorizontal, Mail } from "lucide-react";
+import { MoreHorizontal, Mail, Percent } from "lucide-react";
 import { BusinessStatus } from "@/generated/prisma";
 
 interface Business {
   id: string;
   name: string;
   status: BusinessStatus;
+  feeRateBps: number;
 }
 
 export default function BusinessRowActions({ business }: { business: Business }) {
@@ -35,6 +36,32 @@ export default function BusinessRowActions({ business }: { business: Business })
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [feeOpen, setFeeOpen] = useState(false);
+  // 사용자에겐 %로 입력받고, 저장 시 bps(×100)로 변환한다.
+  const [feePercent, setFeePercent] = useState((business.feeRateBps / 100).toString());
+
+  const handleSaveFee = async () => {
+    const percent = Number(feePercent);
+    if (!Number.isFinite(percent) || percent < 0 || percent > 100) {
+      return toast.error("수수료는 0~100% 사이여야 합니다");
+    }
+    const feeRateBps = Math.round(percent * 100);
+    setLoading(true);
+    const res = await fetch(`/api/super-admin/businesses/${business.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feeRateBps }),
+    });
+    setLoading(false);
+    if (res.ok) {
+      toast.success(`${business.name} 수수료를 ${percent}%로 설정했습니다`);
+      setFeeOpen(false);
+      router.refresh();
+    } else {
+      const data = await res.json().catch(() => null);
+      toast.error(data?.message ?? "수수료 설정에 실패했습니다");
+    }
+  };
 
   const handleApprove = async () => {
     setLoading(true);
@@ -89,6 +116,10 @@ export default function BusinessRowActions({ business }: { business: Business })
             <Mail className="w-4 h-4 mr-2" />
             담당자 초대
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setFeeOpen(true)}>
+            <Percent className="w-4 h-4 mr-2" />
+            수수료 설정
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem className="text-destructive">
             업체 정지
@@ -118,6 +149,40 @@ export default function BusinessRowActions({ business }: { business: Business })
             </Button>
             <Button onClick={handleInvite} disabled={loading}>
               초대 링크 생성
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={feeOpen} onOpenChange={setFeeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{business.name} — 중개 수수료 설정</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label>수수료율 (%)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                placeholder="10"
+                value={feePercent}
+                onChange={(e) => setFeePercent(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                파트너 업체는 낮게 설정하세요. 예: 파트너 5%, 일반 10%. 결제 정산 시 이
+                비율만큼 플랫폼이 수수료로 차감합니다.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFeeOpen(false)}>
+              취소
+            </Button>
+            <Button onClick={handleSaveFee} disabled={loading}>
+              저장
             </Button>
           </DialogFooter>
         </DialogContent>

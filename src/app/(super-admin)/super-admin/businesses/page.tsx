@@ -43,6 +43,7 @@ export default async function BusinessesPage() {
               <TableHead>사업자번호</TableHead>
               <TableHead className="text-center">담당자</TableHead>
               <TableHead className="text-center">파티</TableHead>
+              <TableHead className="text-center">수수료</TableHead>
               <TableHead>상태</TableHead>
               <TableHead className="w-24">관리</TableHead>
             </TableRow>
@@ -66,6 +67,9 @@ export default async function BusinessesPage() {
                 </TableCell>
                 <TableCell className="text-center text-sm">{b._count.admins}</TableCell>
                 <TableCell className="text-center text-sm">{b._count.parties}</TableCell>
+                <TableCell className="text-center text-sm whitespace-nowrap">
+                  {(b.feeRateBps / 100).toFixed(b.feeRateBps % 100 === 0 ? 0 : 1)}%
+                </TableCell>
                 <TableCell>
                   <BusinessStatusBadge status={b.status} />
                 </TableCell>

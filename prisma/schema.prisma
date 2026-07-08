@@ -382,6 +382,10 @@ model Business {
   businessNumber String?
   status         BusinessStatus @default(PENDING)
 
+  /// 플랫폼 중개 수수료율 (basis points, 0~10000). 1000 = 10%.
+  /// 파트너/제휴 업체는 낮게(예: 500 = 5%) 설정한다. spot-backend 정산에서 사용.
+  feeRateBps Int @default(1000)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
