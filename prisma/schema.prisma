@@ -94,6 +94,14 @@ enum BusinessStatus {
   SUSPENDED
 }
 
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  COMPLETED
+  FAILED
+}
+
 // ============================================================
 // Existing Models (spot-backend — read only from admin)
 // ============================================================
@@ -389,13 +397,31 @@ model Business {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  admins      AdminAccount[]
-  parties     Party[]
-  settlements Settlement[]
-  invitations BusinessInvitation[]
+  admins           AdminAccount[]
+  parties          Party[]
+  settlements      Settlement[]
+  invitations      BusinessInvitation[]
+  refundPolicyTiers RefundPolicyTier[]
 
   @@index([status])
   @@map("businesses")
+}
+
+/// 업체별 환불 규정 단계.
+/// "파티 시작 hoursBeforeStart 시간 이상 남았을 때 refundPercent% 환불"을 의미한다.
+model RefundPolicyTier {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  hoursBeforeStart Int
+  refundPercent    Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId])
+  @@map("refund_policy_tiers")
 }
 
 /// 업체 어드민 초대 링크 (슈퍼 어드민 → 업체 이메일로 발송)
@@ -445,6 +471,7 @@ model Payment {
   updatedAt   DateTime  @updatedAt
 
   transactions PaymentTransaction[]
+  refunds      Refund[]
 
   @@index([userId])
   @@index([partyId])
@@ -498,6 +525,37 @@ model Settlement {
   @@index([partyId])
   @@index([status])
   @@map("settlements")
+}
+
+/// 환불 요청/이력. 스키마 소스는 spot-backend. (읽기/규정편집용 미러)
+model Refund {
+  id        String  @id @default(cuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  userId     String
+  partyId    String
+  businessId String?
+
+  amount        Int
+  refundPercent Int
+  status        RefundStatus @default(REQUESTED)
+  reason        String?
+  tossTransactionKey String?
+
+  requestedAt DateTime  @default(now())
+  decidedAt   DateTime?
+  decidedBy   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([paymentId])
+  @@index([userId])
+  @@index([partyId])
+  @@index([businessId])
+  @@index([status])
+  @@map("refunds")
 }
 
 /// 앱 홈 메인 배너 (테이블 소유권은 spot-backend 마이그레이션)
