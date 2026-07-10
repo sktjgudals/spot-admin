@@ -77,6 +77,12 @@ enum ChatSenderType {
   SYSTEM
 }
 
+enum ChatMessageType {
+  TEXT
+  IMAGE
+  VIDEO
+}
+
 // ============================================================
 // New Enums (admin-specific)
 // ============================================================
@@ -767,6 +773,11 @@ model ChatMessage {
   senderAdminId String?
 
   content         String
+  type            ChatMessageType @default(TEXT)
+  mediaUrl        String?
+  thumbnailUrl    String?
+  mediaWidth      Int?
+  mediaHeight     Int?
   clientMessageId String?
 
   createdAt DateTime @default(now())

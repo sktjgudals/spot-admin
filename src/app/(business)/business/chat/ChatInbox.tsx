@@ -27,6 +27,9 @@ interface ChatMessage {
   senderType: "USER" | "BUSINESS" | "SYSTEM";
   senderNickname: string | null;
   content: string;
+  type?: "TEXT" | "IMAGE" | "VIDEO";
+  mediaUrl?: string | null;
+  thumbnailUrl?: string | null;
   createdAt: string;
 }
 
@@ -278,16 +281,36 @@ function ChatThread({ room, onRead }: { room: BizRoom; onRead: () => void }) {
                     : "items-start",
                 )}
               >
-                <div
-                  className={cn(
-                    "rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words",
-                    m.senderType === "BUSINESS"
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-muted rounded-bl-sm",
-                  )}
-                >
-                  {m.content}
-                </div>
+                {m.type === "IMAGE" && m.mediaUrl ? (
+                  <a href={m.mediaUrl} target="_blank" rel="noreferrer">
+                    {/* R2 커스텀 도메인 원본 그대로 — next/image 최적화 불필요 */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={m.mediaUrl}
+                      alt="첨부 이미지"
+                      className="max-w-[240px] max-h-[240px] rounded-xl object-cover"
+                    />
+                  </a>
+                ) : m.type === "VIDEO" && m.mediaUrl ? (
+                  <video
+                    src={m.mediaUrl}
+                    poster={m.thumbnailUrl ?? undefined}
+                    controls
+                    preload="metadata"
+                    className="max-w-[280px] rounded-xl"
+                  />
+                ) : (
+                  <div
+                    className={cn(
+                      "rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap break-words",
+                      m.senderType === "BUSINESS"
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : "bg-muted rounded-bl-sm",
+                    )}
+                  >
+                    {m.content}
+                  </div>
+                )}
                 <span className="text-[10px] text-muted-foreground mt-1">
                   {formatTime(m.createdAt)}
                 </span>
