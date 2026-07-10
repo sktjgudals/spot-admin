@@ -1,0 +1,79 @@
+name: Deploy to Cloud Run
+
+# main 푸시 → 타입체크/빌드 → 이미지 빌드(Cloud Build) → Cloud Run 배포
+#
+# 인증: Workload Identity Federation (키 파일 불필요 — github-pool/github-provider).
+#       ⚠️ 최초 1회 GCP 설정 필요(README/PR 설명 참고):
+#         - WIF provider 조건에 sktjgudals/spot-admin 허용
+#         - dopa-deployer@ 에 spot-admin repo workloadIdentityUser 바인딩
+#         - dopa-deployer@ 에 dopa-admin@ serviceAccountUser 부여
+# 시크릿/ENV: Cloud Run 서비스에 이미 저장되어 있으므로 이미지만 교체(마이그레이션 없음).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+env:
+  PROJECT_ID: spot-4749d
+  REGION: asia-northeast3
+  IMAGE: asia-northeast3-docker.pkg.dev/spot-4749d/dopa/dopa-admin
+  SERVICE: dopa-admin
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-admin-production
+  cancel-in-progress: false
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: DATABASE_URL="postgresql://ci:ci@localhost:5432/ci" npx prisma generate
+      - run: npx tsc --noEmit
+
+  deploy:
+    needs: build-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/407436072297/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: dopa-deployer@spot-4749d.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build image (Cloud Build)
+        run: |
+          gcloud builds submit \
+            --tag $IMAGE:${{ github.sha }} \
+            --region $REGION --project $PROJECT_ID
+
+      - name: Deploy Cloud Run service
+        run: |
+          gcloud run deploy $SERVICE \
+            --image $IMAGE:${{ github.sha }} \
+            --region $REGION --project $PROJECT_ID
+
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe $SERVICE --region $REGION --project $PROJECT_ID --format='value(status.url)')
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+            case "$STATUS" in
+              200|301|302|307|308) echo "✓ admin OK ($STATUS)"; exit 0 ;;
+            esac
+            echo "attempt $i: HTTP $STATUS — retry in 5s"; sleep 5
+          done
+          echo "✗ admin smoke test failed"; exit 1
