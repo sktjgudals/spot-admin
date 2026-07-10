@@ -54,6 +54,15 @@ enum AdmissionMode {
   APPROVAL
 }
 
+/// 업체 커스텀 신청 폼 질문 유형
+enum FormFieldType {
+  TEXT
+  TEXTAREA
+  NUMBER
+  SELECT
+  MULTISELECT
+}
+
 // ============================================================
 // New Enums (admin-specific)
 // ============================================================
@@ -136,6 +145,7 @@ model User {
   notificationSetting UserNotificationSetting?
   wishlists           Wishlist[]
   payments            Payment[]
+  businessFormAnswers UserBusinessFormAnswer[]
 
   @@unique([socialId, provider])
   @@index([email])
@@ -187,6 +197,7 @@ model Party {
   priceMale     Int     @default(0)
   priceFemale   Int     @default(0)
   genderRatio   String?
+  category      String?
   admissionMode AdmissionMode @default(APPROVAL)
   averageRating Float         @default(0.0)
   featuredUntil  DateTime?
@@ -207,6 +218,7 @@ model Party {
   wishlists    Wishlist[]
   settlements  Settlement[]
   payments     Payment[]
+  formFields   PartyFormField[]
 
   @@index([adminId])
   @@index([date])
@@ -228,6 +240,8 @@ model Application {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  answers ApplicationAnswer[]
 
   @@unique([userId, partyId])
   @@index([userId])
@@ -353,6 +367,24 @@ model DeletedUser {
   @@map("deleted_users")
 }
 
+/// 회원탈퇴 별도 테이블 (spot-backend 미러링 — 같은 DB). 재가입 차단 + 1년 후 파기.
+model WithdrawnUser {
+  id                 String   @id @default(cuid())
+  originalId         String
+  socialId           String
+  provider           Provider
+  email              String
+  nickname           String
+  reason             String?
+  withdrawnAt        DateTime @default(now())
+  rejoinBlockedUntil DateTime
+  purgeAt            DateTime
+
+  @@index([socialId, provider])
+  @@index([purgeAt])
+  @@map("withdrawn_users")
+}
+
 // ============================================================
 // New Admin Models
 // ============================================================
@@ -402,6 +434,7 @@ model Business {
   settlements      Settlement[]
   invitations      BusinessInvitation[]
   refundPolicyTiers RefundPolicyTier[]
+  formFields       BusinessFormField[]
 
   @@index([status])
   @@map("businesses")
@@ -464,6 +497,9 @@ model Payment {
 
   /// Toss API 원본 응답 JSON
   tossRawResponse Json?
+
+  /// 유료 파티 커스텀 신청 폼 답변 (spot-backend 미러링)
+  formAnswers Json?
 
   approvedAt  DateTime?
   cancelledAt DateTime?
@@ -572,4 +608,87 @@ model Banner {
 
   @@index([isActive, sortOrder])
   @@map("banners")
+}
+
+// ============================================================
+// 업체 커스텀 신청 폼 (spot-backend schema.prisma 미러링 — 같은 DB)
+// ============================================================
+
+model BusinessFormField {
+  id         String        @id @default(cuid())
+  businessId String
+  business   Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  label      String
+  type       FormFieldType @default(TEXT)
+  options    String[]      @default([])
+  required   Boolean       @default(false)
+  order      Int           @default(0)
+  archived   Boolean       @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partyLinks         PartyFormField[]
+  applicationAnswers ApplicationAnswer[]
+  userAnswers        UserBusinessFormAnswer[]
+
+  @@index([businessId])
+  @@map("business_form_fields")
+}
+
+model PartyFormField {
+  id       String            @id @default(cuid())
+  partyId  String
+  party    Party             @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  fieldId  String
+  field    BusinessFormField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  order    Int               @default(0)
+  required Boolean?
+
+  @@unique([partyId, fieldId])
+  @@index([partyId])
+  @@map("party_form_fields")
+}
+
+model ApplicationAnswer {
+  id            String            @id @default(cuid())
+  applicationId String
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fieldId       String
+  field         BusinessFormField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  value         String
+
+  createdAt DateTime @default(now())
+
+  @@unique([applicationId, fieldId])
+  @@index([applicationId])
+  @@map("application_answers")
+}
+
+model UserBusinessFormAnswer {
+  id         String            @id @default(cuid())
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessId String
+  fieldId    String
+  field      BusinessFormField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  value      String
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([userId, fieldId])
+  @@index([userId, businessId])
+  @@map("user_business_form_answers")
+}
+
+/// 운영 중 변경 가능한 런타임 설정 (spot-backend 미러링 — 같은 DB).
+model AppSetting {
+  key         String   @id
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@map("app_settings")
 }

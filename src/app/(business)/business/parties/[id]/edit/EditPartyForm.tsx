@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Card,
@@ -23,24 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-
-const schema = z.object({
-  title: z.string().min(1, "파티명을 입력하세요"),
-  description: z.string().min(1, "파티 소개를 입력하세요"),
-  date: z.string().min(1, "날짜를 선택하세요"),
-  location: z.string().min(1, "장소를 입력하세요"),
-  maxCapacity: z.number().min(2, "최소 2명 이상"),
-  priceMale: z.number().min(0),
-  priceFemale: z.number().min(0),
-  genderRatio: z.string().optional(),
-  category: z.string().optional(),
-  admissionMode: z.enum(["INSTANT", "APPROVAL"]),
-  coverImage: z.string().optional(),
-});
-
-type FormValues = z.infer<typeof schema>;
 
 interface FormFieldItem {
   id: string;
@@ -49,63 +30,81 @@ interface FormFieldItem {
   required: boolean;
 }
 
-export default function NewPartyPage() {
+interface Defaults {
+  title: string;
+  description: string;
+  date: string;
+  location: string;
+  maxCapacity: number;
+  priceMale: number;
+  priceFemale: number;
+  genderRatio: string;
+  category: string;
+  admissionMode: "INSTANT" | "APPROVAL";
+  coverImage: string;
+  isActive: boolean;
+  formFieldIds: string[];
+}
+
+export default function EditPartyForm({
+  partyId,
+  formFields,
+  defaults,
+}: {
+  partyId: string;
+  formFields: FormFieldItem[];
+  defaults: Defaults;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [formFields, setFormFields] = useState<FormFieldItem[]>([]);
-  const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
+  const [form, setForm] = useState<Defaults>(defaults);
 
-  useEffect(() => {
-    fetch("/api/business/forms")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: FormFieldItem[]) => setFormFields(data))
-      .catch(() => setFormFields([]));
-  }, []);
+  const set = <K extends keyof Defaults>(key: K, value: Defaults[K]) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
 
   const toggleField = (id: string) =>
-    setSelectedFieldIds((prev) =>
-      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]
+    set(
+      "formFieldIds",
+      form.formFieldIds.includes(id)
+        ? form.formFieldIds.filter((f) => f !== id)
+        : [...form.formFieldIds, id]
     );
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { admissionMode: "APPROVAL", priceMale: 0, priceFemale: 0 },
-  });
-
-  const onSubmit = async (data: FormValues) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
-    const res = await fetch("/api/business/parties", {
-      method: "POST",
+    const res = await fetch(`/api/business/parties/${partyId}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...data,
-        date: new Date(data.date).toISOString(),
-        formFieldIds: selectedFieldIds,
+        ...form,
+        date: new Date(form.date).toISOString(),
       }),
     });
     setLoading(false);
 
     if (res.ok) {
-      toast.success("파티가 등록되었습니다");
+      toast.success("파티가 수정되었습니다");
       router.push("/business/parties");
+      router.refresh();
     } else {
       const err = await res.json().catch(() => ({}));
-      toast.error(err.message ?? "파티 등록에 실패했습니다");
+      toast.error(err.message ?? "수정에 실패했습니다");
     }
   };
 
   return (
     <div className="space-y-4 w-full max-w-xl">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" nativeButton={false} render={<Link href="/business/parties" />}>
+        <Button
+          variant="ghost"
+          size="icon"
+          nativeButton={false}
+          render={<Link href="/business/parties" />}
+        >
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <h1 className="text-xl sm:text-2xl font-bold">파티 등록</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">파티 수정</h1>
       </div>
 
       <Card>
@@ -113,74 +112,111 @@ export default function NewPartyPage() {
           <CardTitle className="text-base">파티 정보</CardTitle>
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={onSubmit} className="space-y-4">
+            {/* 노출/비노출 */}
+            <label className="flex items-center justify-between rounded-md border p-3">
+              <div>
+                <span className="text-sm font-medium">파티 노출</span>
+                <p className="text-xs text-muted-foreground">
+                  끄면 앱 목록에서 숨겨집니다 (신청/상세는 유지).
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                className="h-5 w-5"
+                checked={form.isActive}
+                onChange={(e) => set("isActive", e.target.checked)}
+              />
+            </label>
+
             <div className="space-y-1.5">
               <Label>파티명 *</Label>
-              <Input placeholder="예) 2030 소개팅 파티" {...register("title")} />
-              {errors.title && (
-                <p className="text-xs text-destructive">{errors.title.message}</p>
-              )}
+              <Input
+                value={form.title}
+                onChange={(e) => set("title", e.target.value)}
+              />
             </div>
 
             <div className="space-y-1.5">
               <Label>파티 소개 *</Label>
-              <Textarea rows={4} {...register("description")} />
-              {errors.description && (
-                <p className="text-xs text-destructive">{errors.description.message}</p>
-              )}
+              <Textarea
+                rows={4}
+                value={form.description}
+                onChange={(e) => set("description", e.target.value)}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>일시 *</Label>
-                <Input type="datetime-local" {...register("date")} />
-                {errors.date && (
-                  <p className="text-xs text-destructive">{errors.date.message}</p>
-                )}
+                <Input
+                  type="datetime-local"
+                  value={form.date}
+                  onChange={(e) => set("date", e.target.value)}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>최대 인원 *</Label>
-                <Input type="number" min={2} {...register("maxCapacity", { valueAsNumber: true })} />
-                {errors.maxCapacity && (
-                  <p className="text-xs text-destructive">{errors.maxCapacity.message}</p>
-                )}
+                <Input
+                  type="number"
+                  min={2}
+                  value={form.maxCapacity}
+                  onChange={(e) => set("maxCapacity", Number(e.target.value))}
+                />
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label>장소 *</Label>
-              <Input placeholder="예) 서울 강남구 역삼동" {...register("location")} />
-              {errors.location && (
-                <p className="text-xs text-destructive">{errors.location.message}</p>
-              )}
+              <Input
+                value={form.location}
+                onChange={(e) => set("location", e.target.value)}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>남성 참가비 (원)</Label>
-                <Input type="number" min={0} {...register("priceMale", { valueAsNumber: true })} />
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.priceMale}
+                  onChange={(e) => set("priceMale", Number(e.target.value))}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>여성 참가비 (원)</Label>
-                <Input type="number" min={0} {...register("priceFemale", { valueAsNumber: true })} />
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.priceFemale}
+                  onChange={(e) => set("priceFemale", Number(e.target.value))}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>카테고리</Label>
-                <Input placeholder="예) 솔로파티" {...register("category")} />
+                <Input
+                  placeholder="예) 솔로파티"
+                  value={form.category}
+                  onChange={(e) => set("category", e.target.value)}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>성비</Label>
-                <Input placeholder="예) 남3:여3" {...register("genderRatio")} />
+                <Input
+                  value={form.genderRatio}
+                  onChange={(e) => set("genderRatio", e.target.value)}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>입장 방식</Label>
                 <Select
-                  defaultValue="APPROVAL"
+                  value={form.admissionMode}
                   onValueChange={(v) =>
-                    v && setValue("admissionMode", v as "INSTANT" | "APPROVAL")
+                    v && set("admissionMode", v as "INSTANT" | "APPROVAL")
                   }
                 >
                   <SelectTrigger>
@@ -198,12 +234,12 @@ export default function NewPartyPage() {
               <Label>커버 이미지 URL</Label>
               <Input
                 type="url"
-                placeholder="https://..."
-                {...register("coverImage")}
+                value={form.coverImage}
+                onChange={(e) => set("coverImage", e.target.value)}
               />
             </div>
 
-            {/* 신청 폼 선택 — 신청자에게 받을 질문 */}
+            {/* 신청 폼 선택 */}
             <div className="space-y-2 rounded-md border p-3">
               <div className="flex items-center justify-between">
                 <Label>신청 폼 질문</Label>
@@ -213,7 +249,7 @@ export default function NewPartyPage() {
               </div>
               {formFields.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  등록된 질문이 없습니다. &lsquo;질문 관리&rsquo;에서 먼저 추가하세요.
+                  등록된 질문이 없습니다.
                 </p>
               ) : (
                 <div className="space-y-1.5">
@@ -222,7 +258,7 @@ export default function NewPartyPage() {
                       <input
                         type="checkbox"
                         className="h-4 w-4"
-                        checked={selectedFieldIds.includes(f.id)}
+                        checked={form.formFieldIds.includes(f.id)}
                         onChange={() => toggleField(f.id)}
                       />
                       {f.label}
@@ -238,7 +274,7 @@ export default function NewPartyPage() {
                 취소
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "등록 중..." : "파티 등록"}
+                {loading ? "저장 중..." : "저장"}
               </Button>
             </div>
           </form>

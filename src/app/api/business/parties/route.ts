@@ -54,12 +54,31 @@ export async function POST(req: NextRequest) {
       priceMale: body.priceMale ?? 0,
       priceFemale: body.priceFemale ?? 0,
       genderRatio: body.genderRatio || null,
+      category: body.category || null,
       admissionMode: body.admissionMode ?? "APPROVAL",
       coverImage: body.coverImage || null,
+      isActive: body.isActive ?? true, // 기본 노출
       adminId: hostUser.id,
       businessId,
     },
   });
+
+  const formFieldIds: string[] = Array.isArray(body.formFieldIds)
+    ? body.formFieldIds
+    : [];
+  if (formFieldIds.length > 0) {
+    // 선택한 질문이 이 업체 소유인지 검증 후 연결
+    const owned = await prisma.businessFormField.findMany({
+      where: { id: { in: formFieldIds }, businessId },
+      select: { id: true },
+    });
+    const validIds = new Set(owned.map((f) => f.id));
+    await prisma.partyFormField.createMany({
+      data: formFieldIds
+        .filter((fid) => validIds.has(fid))
+        .map((fid, idx) => ({ partyId: party.id, fieldId: fid, order: idx })),
+    });
+  }
 
   return NextResponse.json(party, { status: 201 });
 }

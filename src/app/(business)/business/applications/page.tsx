@@ -46,6 +46,9 @@ export default async function ApplicationsPage({ searchParams }: Props) {
         },
       },
       party: { select: { id: true, title: true, date: true } },
+      answers: {
+        select: { id: true, value: true, field: { select: { label: true } } },
+      },
     },
   });
 
@@ -64,6 +67,7 @@ export default async function ApplicationsPage({ searchParams }: Props) {
               <TableHead>신청자</TableHead>
               <TableHead>평점</TableHead>
               <TableHead>신청 메시지</TableHead>
+              <TableHead>폼 답변</TableHead>
               <TableHead>상태</TableHead>
               <TableHead>신청일</TableHead>
               <TableHead className="w-28">처리</TableHead>
@@ -87,6 +91,22 @@ export default async function ApplicationsPage({ searchParams }: Props) {
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
                   {app.message ?? "-"}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground max-w-[220px]">
+                  {app.answers.length === 0 ? (
+                    "-"
+                  ) : (
+                    <ul className="space-y-0.5">
+                      {app.answers.map((ans) => (
+                        <li key={ans.id}>
+                          <span className="font-medium text-foreground">
+                            {ans.field.label}:
+                          </span>{" "}
+                          {formatAnswer(ans.value)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </TableCell>
                 <TableCell>
                   {app.status === "PENDING" && (
@@ -120,4 +140,15 @@ export default async function ApplicationsPage({ searchParams }: Props) {
       </div>
     </div>
   );
+}
+
+/** MULTISELECT는 JSON 배열 문자열로 저장 — 표시용으로 정규화 */
+function formatAnswer(value: string): string {
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.join(", ");
+  } catch {
+    // 일반 문자열
+  }
+  return value;
 }

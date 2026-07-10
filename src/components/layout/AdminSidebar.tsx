@@ -17,6 +17,8 @@ import {
   Menu,
   Receipt,
   Image as ImageIcon,
+  ClipboardList,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,11 +41,13 @@ const superAdminNav: NavItem[] = [
   { href: "/super-admin/payments", label: "결제/환불", icon: Receipt },
   { href: "/super-admin/notifications", label: "알림 발송", icon: Bell },
   { href: "/super-admin/banners", label: "배너 관리", icon: ImageIcon },
+  { href: "/super-admin/config", label: "런타임 설정", icon: Settings },
 ];
 
 const businessNav: NavItem[] = [
   { href: "/business/dashboard", label: "대시보드", icon: LayoutDashboard },
   { href: "/business/parties", label: "파티 관리", icon: PartyPopper },
+  { href: "/business/forms", label: "신청 폼 관리", icon: ClipboardList },
   { href: "/business/applications", label: "신청 관리", icon: FileText },
   { href: "/business/payments", label: "결제/환불", icon: Receipt },
   { href: "/business/settlements", label: "정산", icon: BarChart3 },

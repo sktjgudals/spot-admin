@@ -9,9 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil } from "lucide-react";
+import PartyVisibilityToggle from "./PartyVisibilityToggle";
 
 export default async function BusinessPartiesPage() {
   const session = await auth();
@@ -47,7 +47,7 @@ export default async function BusinessPartiesPage() {
               <TableHead>장소</TableHead>
               <TableHead className="text-center">정원</TableHead>
               <TableHead className="text-center">신청</TableHead>
-              <TableHead>상태</TableHead>
+              <TableHead>노출</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -69,11 +69,10 @@ export default async function BusinessPartiesPage() {
                 </TableCell>
                 <TableCell className="text-sm text-center">{party._count.applications}</TableCell>
                 <TableCell>
-                  {party.isActive ? (
-                    <Badge variant="secondary" className="text-xs whitespace-nowrap">모집중</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs text-muted-foreground whitespace-nowrap">종료</Badge>
-                  )}
+                  <PartyVisibilityToggle
+                    partyId={party.id}
+                    initialVisible={party.isActive}
+                  />
                 </TableCell>
                 <TableCell>
                   <Button
