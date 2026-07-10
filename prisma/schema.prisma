@@ -63,6 +63,20 @@ enum FormFieldType {
   MULTISELECT
 }
 
+/// 채팅방 유형: PARTY=파티 그룹채팅 · DM=유저↔유저 · BIZ_DM=유저↔업체
+enum ChatRoomType {
+  PARTY
+  DM
+  BIZ_DM
+}
+
+/// 메시지 발신 주체
+enum ChatSenderType {
+  USER
+  BUSINESS
+  SYSTEM
+}
+
 // ============================================================
 // New Enums (admin-specific)
 // ============================================================
@@ -146,6 +160,8 @@ model User {
   wishlists           Wishlist[]
   payments            Payment[]
   businessFormAnswers UserBusinessFormAnswer[]
+  chatMemberships     ChatRoomMember[]
+  chatMessages        ChatMessage[]
 
   @@unique([socialId, provider])
   @@index([email])
@@ -219,6 +235,7 @@ model Party {
   settlements  Settlement[]
   payments     Payment[]
   formFields   PartyFormField[]
+  chatRoom     ChatRoom?
 
   @@index([adminId])
   @@index([date])
@@ -330,6 +347,7 @@ model UserNotificationSetting {
   enableSeatOpen    Boolean   @default(false)
   enableApplication Boolean   @default(true)
   enableSystem      Boolean   @default(true)
+  enableChat        Boolean   @default(true)
   nightAdConsent    Boolean   @default(false)
   nightAdConsentAt  DateTime?
 
@@ -435,6 +453,7 @@ model Business {
   invitations      BusinessInvitation[]
   refundPolicyTiers RefundPolicyTier[]
   formFields       BusinessFormField[]
+  chatRooms        ChatRoom[]
 
   @@index([status])
   @@map("businesses")
@@ -683,6 +702,80 @@ model UserBusinessFormAnswer {
 }
 
 /// 운영 중 변경 가능한 런타임 설정 (spot-backend 미러링 — 같은 DB).
+// ============================================================
+// Chat (파티 그룹채팅 · 유저 DM · 업체 DM) — spot-backend와 동기화 유지
+// ============================================================
+
+model ChatRoom {
+  id   String       @id @default(cuid())
+  type ChatRoomType
+
+  partyId String? @unique
+  party   Party?  @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  /// DM: "dm:{작은 userId}:{큰 userId}" · BIZ_DM: "biz:{businessId}:{userId}"
+  pairKey String? @unique
+
+  lastMessageAt      DateTime?
+  lastMessagePreview String?
+
+  /// BIZ_DM 업체 측 읽음 기준 seq — 어드민 수신함 안읽음 배지용
+  businessLastReadSeq BigInt @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members  ChatRoomMember[]
+  messages ChatMessage[]
+
+  @@index([type, lastMessageAt])
+  @@index([businessId])
+  @@map("chat_rooms")
+}
+
+model ChatRoomMember {
+  id     String   @id @default(cuid())
+  roomId String
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  lastReadSeq BigInt    @default(0)
+  leftAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomId, userId])
+  @@index([userId])
+  @@map("chat_room_members")
+}
+
+model ChatMessage {
+  id  String @id @default(cuid())
+  seq BigInt @unique @default(autoincrement())
+
+  roomId String
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  senderType    ChatSenderType @default(USER)
+  senderId      String?
+  sender        User?          @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  senderAdminId String?
+
+  content         String
+  clientMessageId String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([roomId, clientMessageId])
+  @@index([roomId, seq])
+  @@map("chat_messages")
+}
+
 model AppSetting {
   key         String   @id
   value       String

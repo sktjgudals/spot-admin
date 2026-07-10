@@ -15,6 +15,7 @@ import {
   BarChart3,
   Bell,
   Menu,
+  MessageSquare,
   Receipt,
   Image as ImageIcon,
   ClipboardList,
@@ -49,6 +50,7 @@ const businessNav: NavItem[] = [
   { href: "/business/parties", label: "파티 관리", icon: PartyPopper },
   { href: "/business/forms", label: "신청 폼 관리", icon: ClipboardList },
   { href: "/business/applications", label: "신청 관리", icon: FileText },
+  { href: "/business/chat", label: "채팅 문의", icon: MessageSquare },
   { href: "/business/payments", label: "결제/환불", icon: Receipt },
   { href: "/business/settlements", label: "정산", icon: BarChart3 },
 ];
