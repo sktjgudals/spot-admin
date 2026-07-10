@@ -776,6 +776,26 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
+/// 유저 채팅방 삭제 스냅샷 보관 — spot-backend 미러
+model ChatRoomArchive {
+  id                 String       @id @default(cuid())
+  archivedByUserId   String
+  originalRoomId     String
+  roomType           ChatRoomType
+  partyId            String?
+  businessId         String?
+  pairKey            String?
+  title              String?
+  lastMessageAt      DateTime?
+  lastMessagePreview String?
+  messagesJson       Json
+  archivedAt         DateTime     @default(now())
+
+  @@index([archivedByUserId, archivedAt])
+  @@index([originalRoomId])
+  @@map("chat_room_archives")
+}
+
 model AppSetting {
   key         String   @id
   value       String
