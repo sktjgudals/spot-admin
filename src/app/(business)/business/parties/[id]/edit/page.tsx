@@ -25,6 +25,12 @@ export default async function EditPartyPage({ params }: Props) {
     select: { id: true, label: true, type: true, required: true },
   });
 
+  const categories = await prisma.partyCategory.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true, name: true },
+  });
+
   // datetime-local 입력용으로 로컬 타임존 기준 문자열 변환
   const d = party.date;
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -34,6 +40,7 @@ export default async function EditPartyPage({ params }: Props) {
     <EditPartyForm
       partyId={party.id}
       formFields={formFields}
+      categories={categories}
       defaults={{
         title: party.title,
         description: party.description,
@@ -43,7 +50,7 @@ export default async function EditPartyPage({ params }: Props) {
         priceMale: party.priceMale,
         priceFemale: party.priceFemale,
         genderRatio: party.genderRatio ?? "",
-        category: party.category ?? "",
+        categoryId: party.categoryId ?? "",
         admissionMode: party.admissionMode,
         coverImage: party.coverImage ?? "",
         isActive: party.isActive,

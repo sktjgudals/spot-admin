@@ -63,6 +63,23 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (typeof body.priceFemale === "number") data.priceFemale = body.priceFemale;
   if ("genderRatio" in body) data.genderRatio = body.genderRatio || null;
   if ("category" in body) data.category = body.category || null;
+  // categoryId 지정 시 이름 사본(category)도 함께 갱신, 빈 값이면 연결 해제
+  if ("categoryId" in body) {
+    if (body.categoryId) {
+      const category = await prisma.partyCategory.findUnique({
+        where: { id: body.categoryId },
+        select: { name: true },
+      });
+      if (!category) {
+        return NextResponse.json({ message: "카테고리를 찾을 수 없습니다" }, { status: 404 });
+      }
+      data.categoryId = body.categoryId;
+      data.category = category.name;
+    } else {
+      data.categoryId = null;
+      data.category = null;
+    }
+  }
   if (body.admissionMode) data.admissionMode = body.admissionMode;
   if ("coverImage" in body) data.coverImage = body.coverImage || null;
   if (typeof body.isActive === "boolean") data.isActive = body.isActive; // 노출/비노출

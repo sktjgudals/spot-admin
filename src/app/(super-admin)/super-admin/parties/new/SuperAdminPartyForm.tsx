@@ -32,6 +32,7 @@ const schema = z.object({
   coverImage: z.string().optional(),
   adminId: z.string().min(1, "호스트를 선택하세요"),
   businessId: z.string().optional(),
+  categoryId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -39,9 +40,14 @@ type FormValues = z.infer<typeof schema>;
 interface Props {
   businesses: { id: string; name: string; contactEmail: string | null }[];
   hostCandidates: { id: string; nickname: string; email: string }[];
+  categories: { id: string; name: string }[];
 }
 
-export default function SuperAdminPartyForm({ businesses, hostCandidates }: Props) {
+export default function SuperAdminPartyForm({
+  businesses,
+  hostCandidates,
+  categories,
+}: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -142,6 +148,27 @@ export default function SuperAdminPartyForm({ businesses, hostCandidates }: Prop
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>카테고리</Label>
+            <Select
+              onValueChange={(v) =>
+                v && setValue("categoryId", v === "none" ? undefined : (v as string))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="카테고리 미지정" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">미지정</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

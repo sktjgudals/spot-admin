@@ -16,6 +16,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "호스트 유저를 찾을 수 없습니다" }, { status: 404 });
   }
 
+  // 카테고리 선택 시 이름을 category(비정규화·구버전 앱 호환)에 함께 저장
+  let categoryName: string | null = null;
+  if (body.categoryId) {
+    const category = await prisma.partyCategory.findUnique({
+      where: { id: body.categoryId },
+      select: { name: true },
+    });
+    if (!category) {
+      return NextResponse.json({ message: "카테고리를 찾을 수 없습니다" }, { status: 404 });
+    }
+    categoryName = category.name;
+  }
+
   const party = await prisma.party.create({
     data: {
       title: body.title,
@@ -26,6 +39,8 @@ export async function POST(req: NextRequest) {
       priceMale: body.priceMale ?? 0,
       priceFemale: body.priceFemale ?? 0,
       genderRatio: body.genderRatio || null,
+      category: categoryName,
+      categoryId: body.categoryId || null,
       admissionMode: body.admissionMode ?? "APPROVAL",
       coverImage: body.coverImage || null,
       adminId: body.adminId,

@@ -203,6 +203,28 @@ model UserProfile {
   @@map("user_profiles")
 }
 
+enum PartyCategoryStatus {
+  FIXED
+  NORMAL
+}
+
+/// 파티 카테고리 — 홈 메인 노출(FIXED)·검색 필터·파티 등록 선택지 (spot-backend 미러)
+model PartyCategory {
+  id        String              @id @default(cuid())
+  name      String              @unique
+  status    PartyCategoryStatus @default(NORMAL)
+  sortOrder Int                 @default(0)
+  isActive  Boolean             @default(true)
+  iconUrl   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parties Party[]
+
+  @@map("party_categories")
+}
+
 model Party {
   id           String   @id @default(cuid())
   title        String
@@ -219,7 +241,10 @@ model Party {
   priceMale     Int     @default(0)
   priceFemale   Int     @default(0)
   genderRatio   String?
+  /// categoryId의 이름 사본 (구버전 앱 호환)
   category      String?
+  categoryId    String?
+  categoryRef   PartyCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   admissionMode AdmissionMode @default(APPROVAL)
   averageRating Float         @default(0.0)
   featuredUntil  DateTime?

@@ -35,7 +35,7 @@ const schema = z.object({
   priceMale: z.number().min(0),
   priceFemale: z.number().min(0),
   genderRatio: z.string().optional(),
-  category: z.string().optional(),
+  categoryId: z.string().optional(),
   admissionMode: z.enum(["INSTANT", "APPROVAL"]),
   coverImage: z.string().optional(),
 });
@@ -49,17 +49,27 @@ interface FormFieldItem {
   required: boolean;
 }
 
+interface CategoryItem {
+  id: string;
+  name: string;
+}
+
 export default function NewPartyPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formFields, setFormFields] = useState<FormFieldItem[]>([]);
   const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
 
   useEffect(() => {
     fetch("/api/business/forms")
       .then((r) => (r.ok ? r.json() : []))
       .then((data: FormFieldItem[]) => setFormFields(data))
       .catch(() => setFormFields([]));
+    fetch("/api/party-categories")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: CategoryItem[]) => setCategories(data))
+      .catch(() => setCategories([]));
   }, []);
 
   const toggleField = (id: string) =>
@@ -169,7 +179,23 @@ export default function NewPartyPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>카테고리</Label>
-                <Input placeholder="예) 솔로파티" {...register("category")} />
+                <Select
+                  onValueChange={(v) =>
+                    v && setValue("categoryId", v === "none" ? undefined : (v as string))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="미지정" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">미지정</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>성비</Label>

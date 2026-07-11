@@ -30,6 +30,11 @@ interface FormFieldItem {
   required: boolean;
 }
 
+interface CategoryItem {
+  id: string;
+  name: string;
+}
+
 interface Defaults {
   title: string;
   description: string;
@@ -39,7 +44,7 @@ interface Defaults {
   priceMale: number;
   priceFemale: number;
   genderRatio: string;
-  category: string;
+  categoryId: string;
   admissionMode: "INSTANT" | "APPROVAL";
   coverImage: string;
   isActive: boolean;
@@ -49,10 +54,12 @@ interface Defaults {
 export default function EditPartyForm({
   partyId,
   formFields,
+  categories,
   defaults,
 }: {
   partyId: string;
   formFields: FormFieldItem[];
+  categories: CategoryItem[];
   defaults: Defaults;
 }) {
   const router = useRouter();
@@ -198,11 +205,24 @@ export default function EditPartyForm({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>카테고리</Label>
-                <Input
-                  placeholder="예) 솔로파티"
-                  value={form.category}
-                  onChange={(e) => set("category", e.target.value)}
-                />
+                <Select
+                  value={form.categoryId || "none"}
+                  onValueChange={(v) =>
+                    v && set("categoryId", v === "none" ? "" : v)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="미지정" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">미지정</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label>성비</Label>
