@@ -70,6 +70,7 @@ export default async function UsersPage({ searchParams }: Props) {
               <TableHead>닉네임</TableHead>
               <TableHead>이메일</TableHead>
               <TableHead>가입</TableHead>
+              <TableHead>권한</TableHead>
               <TableHead>상태</TableHead>
               <TableHead>가입일</TableHead>
               <TableHead className="w-24">관리</TableHead>
@@ -86,6 +87,15 @@ export default async function UsersPage({ searchParams }: Props) {
                   <Badge variant="outline" className="text-xs">
                     {user.provider}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  {user.role === "SUPER_ADMIN" ? (
+                    <Badge className="text-xs">슈퍼 어드민</Badge>
+                  ) : user.role === "ADMIN" ? (
+                    <Badge variant="secondary" className="text-xs">업체 어드민</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs">일반</Badge>
+                  )}
                 </TableCell>
                 <TableCell>
                   {user.isBlocked ? (

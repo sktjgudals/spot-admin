@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -23,11 +24,20 @@ import { Label } from "@/components/ui/label";
 import { MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type UserRole = "USER" | "ADMIN" | "SUPER_ADMIN";
+
+const ROLE_LABEL: Record<UserRole, string> = {
+  USER: "일반 유저",
+  ADMIN: "업체 어드민",
+  SUPER_ADMIN: "슈퍼 어드민",
+};
+
 interface User {
   id: string;
   nickname: string;
   email: string;
   isBlocked: boolean;
+  role: UserRole;
 }
 
 export default function UserActions({ user }: { user: User }) {
@@ -69,6 +79,17 @@ export default function UserActions({ user }: { user: User }) {
     }
   };
 
+  const handleRole = async (role: UserRole) => {
+    if (role === user.role) return;
+    const res = await callApi(`/api/super-admin/users/${user.id}/role`, { role });
+    if (res.ok) {
+      toast.success(`${user.nickname} 권한을 ${ROLE_LABEL[role]}(으)로 변경했습니다`);
+      router.refresh();
+    } else {
+      toast.error("권한 변경에 실패했습니다");
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -87,6 +108,20 @@ export default function UserActions({ user }: { user: User }) {
               계정 정지
             </DropdownMenuItem>
           )}
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className="text-xs text-muted-foreground">
+            권한 부여
+          </DropdownMenuLabel>
+          {(Object.keys(ROLE_LABEL) as UserRole[]).map((r) => (
+            <DropdownMenuItem
+              key={r}
+              disabled={loading || r === user.role}
+              onClick={() => handleRole(r)}
+            >
+              {ROLE_LABEL[r]}
+              {r === user.role && " ✓"}
+            </DropdownMenuItem>
+          ))}
           <DropdownMenuSeparator />
           <DropdownMenuItem className="text-destructive">
             회원 탈퇴
