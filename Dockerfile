@@ -16,6 +16,9 @@ COPY . .
 # 빌드 시 DB 접속은 없지만 Prisma/코드 평가용 더미 URL 주입
 ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 ENV NEXT_TELEMETRY_DISABLED=1
+# Client bundle embeds NEXT_PUBLIC_* at build time (optional; server uses runtime SENTRY_DSN)
+ARG NEXT_PUBLIC_SENTRY_DSN=
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 RUN npx prisma generate && npm run build
 
 # ============================================================
