@@ -168,6 +168,7 @@ model User {
   businessFormAnswers UserBusinessFormAnswer[]
   chatMemberships     ChatRoomMember[]
   chatMessages        ChatMessage[]
+  inquiries           Inquiry[]
 
   @@unique([socialId, provider])
   @@index([email])
@@ -245,6 +246,20 @@ model PraiseTag {
 
   @@index([category, sortOrder])
   @@map("praise_tags")
+}
+
+/// 유저 1:1 문의 (마이페이지 > 문의하기) — spot-backend 미러
+model Inquiry {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message    String
+  contact    String?
+  isResolved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([isResolved, createdAt])
+  @@map("inquiries")
 }
 
 model Party {
