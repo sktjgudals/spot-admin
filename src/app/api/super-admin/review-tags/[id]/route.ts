@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
 
-const CATEGORIES = ["CONVERSATION", "MOOD", "MANNER"] as const;
-
-/** 칭찬 태그 수정 — label(문구)·category(타입)·sortOrder·isActive 부분 갱신 */
+/** 칭찬 태그 수정 — label(문구)·categoryId(카테고리 이동)·sortOrder·isActive 부분 갱신 */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -20,11 +18,15 @@ export async function PATCH(
   if (typeof body.label === "string" && body.label.trim()) {
     data.label = body.label.trim();
   }
-  if (
-    typeof body.category === "string" &&
-    (CATEGORIES as readonly string[]).includes(body.category)
-  ) {
-    data.category = body.category;
+  if (typeof body.categoryId === "string" && body.categoryId) {
+    const category = await prisma.praiseTagCategory.findUnique({
+      where: { id: body.categoryId },
+      select: { id: true },
+    });
+    if (!category) {
+      return NextResponse.json({ message: "존재하지 않는 카테고리입니다" }, { status: 400 });
+    }
+    data.categoryId = body.categoryId;
   }
   if (Number.isInteger(body.sortOrder)) data.sortOrder = body.sortOrder;
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
