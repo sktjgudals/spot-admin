@@ -88,8 +88,9 @@ export default function BusinessRowActions({ business }: { business: Business })
     setLoading(false);
     if (res.ok) {
       const data = await res.json();
+      const inviteUrl = `${window.location.origin}${data.path ?? `/invite/${data.token}`}`;
       toast.success("초대 링크가 생성되었습니다");
-      await navigator.clipboard.writeText(data.inviteUrl).catch(() => null);
+      await navigator.clipboard.writeText(inviteUrl).catch(() => null);
       toast.info("초대 링크가 클립보드에 복사되었습니다");
       setInviteOpen(false);
       setInviteEmail("");

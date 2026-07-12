@@ -30,8 +30,9 @@ export async function POST(req: NextRequest, { params }: Params) {
     },
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
-  const inviteUrl = `${baseUrl}/invite/${invitation.token}`;
-
-  return NextResponse.json({ inviteUrl, expiresAt }, { status: 201 });
+  // 절대 URL은 클라이언트가 window.location.origin으로 붙인다 (localhost 폴백 방지)
+  return NextResponse.json(
+    { token: invitation.token, path: `/invite/${invitation.token}`, expiresAt },
+    { status: 201 },
+  );
 }
