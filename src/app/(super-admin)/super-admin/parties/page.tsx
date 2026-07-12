@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import PartyBusinessMapper from "./PartyBusinessMapper";
+import StartPartyButton from "@/components/start-party-button";
 
 interface SearchParams {
   q?: string;
@@ -76,6 +77,7 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
               <TableHead>호스트</TableHead>
               <TableHead>연결 업체</TableHead>
               <TableHead>상태</TableHead>
+              <TableHead className="text-right">관리</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -115,6 +117,12 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
                   ) : (
                     <Badge variant="outline" className="text-xs text-muted-foreground whitespace-nowrap">종료</Badge>
                   )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <StartPartyButton
+                    endpoint={`/api/super-admin/parties/${party.id}/start`}
+                    partyTitle={party.title}
+                  />
                 </TableCell>
               </TableRow>
             ))}

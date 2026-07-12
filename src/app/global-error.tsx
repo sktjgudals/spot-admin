@@ -12,6 +12,17 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     Sentry.captureException(error);
+    // Slack([admin (client)]) 알림 — 실패는 무시.
+    void fetch("/api/observability/error", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: error.message || "브라우저 오류",
+        detail: error.stack,
+        digest: error.digest,
+        path: typeof window !== "undefined" ? window.location.pathname : undefined,
+      }),
+    }).catch(() => {});
   }, [error]);
 
   return (

@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil } from "lucide-react";
 import PartyVisibilityToggle from "./PartyVisibilityToggle";
+import StartPartyButton from "@/components/start-party-button";
 
 export default async function BusinessPartiesPage() {
   const session = await auth();
@@ -75,15 +76,21 @@ export default async function BusinessPartiesPage() {
                   />
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    nativeButton={false}
-                    render={<Link href={`/business/parties/${party.id}/edit`} />}
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <StartPartyButton
+                      endpoint={`/api/business/parties/${party.id}/start`}
+                      partyTitle={party.title}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      nativeButton={false}
+                      render={<Link href={`/business/parties/${party.id}/edit`} />}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
