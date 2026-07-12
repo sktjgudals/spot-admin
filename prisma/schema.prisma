@@ -253,17 +253,19 @@ model PraiseTag {
   @@map("praise_tags")
 }
 
-/// 유저 1:1 문의 (마이페이지 > 문의하기) — spot-backend 미러
+/// 유저/웹 1:1 문의 — spot-backend 미러 (APP: 앱, WEB: dopa-web)
 model Inquiry {
   id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   message    String
   contact    String?
+  source     String   @default("APP")
   isResolved Boolean  @default(false)
   createdAt  DateTime @default(now())
 
   @@index([isResolved, createdAt])
+  @@index([source, createdAt])
   @@map("inquiries")
 }
 

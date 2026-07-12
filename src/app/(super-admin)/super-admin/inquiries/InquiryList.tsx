@@ -13,6 +13,7 @@ interface InquiryItem {
   email: string;
   message: string;
   contact: string | null;
+  source: string;
   isResolved: boolean;
   createdAt: string;
 }
@@ -63,8 +64,19 @@ export default function InquiryList({ initialItems }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{i.nickname}</span>
               <span className="text-xs text-muted-foreground">{i.email}</span>
+              {i.source === "WEB" ? (
+                <Badge variant="outline" className="text-xs">
+                  웹
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs">
+                  앱
+                </Badge>
+              )}
               {i.isResolved ? (
-                <Badge variant="secondary" className="text-xs">처리완료</Badge>
+                <Badge variant="secondary" className="text-xs">
+                  처리완료
+                </Badge>
               ) : (
                 <Badge className="text-xs">미처리</Badge>
               )}

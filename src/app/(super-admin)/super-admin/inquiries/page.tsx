@@ -15,7 +15,7 @@ export default async function InquiriesPage() {
       <div>
         <h1 className="text-xl sm:text-2xl font-bold">문의 관리</h1>
         <p className="text-sm text-muted-foreground">
-          앱 마이페이지 &gt; 문의하기로 접수된 1:1 문의입니다. 미처리{" "}
+          앱 마이페이지 문의와 dopa-web 공개 문의가 함께 표시됩니다. 미처리{" "}
           <b>{openCount}</b>건.
         </p>
       </div>
@@ -23,10 +23,12 @@ export default async function InquiriesPage() {
       <InquiryList
         initialItems={inquiries.map((i) => ({
           id: i.id,
-          nickname: i.user.nickname,
-          email: i.user.email,
+          nickname:
+            i.user?.nickname ?? (i.source === "WEB" ? "웹 문의" : "앱 유저"),
+          email: i.user?.email ?? i.contact ?? "-",
           message: i.message,
           contact: i.contact,
+          source: i.source,
           isResolved: i.isResolved,
           createdAt: i.createdAt.toISOString(),
         }))}
