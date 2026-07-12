@@ -8,6 +8,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
@@ -75,7 +76,11 @@ export default function BusinessSignupForm({ token, email }: Props) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="password">비밀번호</Label>
-            <Input id="password" type="password" {...register("password")} />
+            <PasswordInput
+              id="password"
+              autoComplete="new-password"
+              {...register("password")}
+            />
             {errors.password && (
               <p className="text-xs text-destructive">
                 {errors.password.message}
@@ -84,9 +89,9 @@ export default function BusinessSignupForm({ token, email }: Props) {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="passwordConfirm">비밀번호 확인</Label>
-            <Input
+            <PasswordInput
               id="passwordConfirm"
-              type="password"
+              autoComplete="new-password"
               {...register("passwordConfirm")}
             />
             {errors.passwordConfirm && (
