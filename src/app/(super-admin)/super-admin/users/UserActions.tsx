@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -109,19 +110,21 @@ export default function UserActions({ user }: { user: User }) {
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-xs text-muted-foreground">
-            권한 부여
-          </DropdownMenuLabel>
-          {(Object.keys(ROLE_LABEL) as UserRole[]).map((r) => (
-            <DropdownMenuItem
-              key={r}
-              disabled={loading || r === user.role}
-              onClick={() => handleRole(r)}
-            >
-              {ROLE_LABEL[r]}
-              {r === user.role && " ✓"}
-            </DropdownMenuItem>
-          ))}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              권한 부여
+            </DropdownMenuLabel>
+            {(Object.keys(ROLE_LABEL) as UserRole[]).map((r) => (
+              <DropdownMenuItem
+                key={r}
+                disabled={loading || r === user.role}
+                onClick={() => handleRole(r)}
+              >
+                {ROLE_LABEL[r]}
+                {r === user.role && " ✓"}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem className="text-destructive">
             회원 탈퇴
