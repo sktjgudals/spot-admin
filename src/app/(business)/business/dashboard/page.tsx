@@ -3,28 +3,138 @@ import { prisma } from "@/lib/prisma";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PartyPopper, Users, Clock, CheckCircle } from "lucide-react";
+import {
+  PartyPopper,
+  Users,
+  Clock,
+  CheckCircle,
+  Percent,
+  Eye,
+  FileText,
+} from "lucide-react";
+import {
+  DashboardMonthChart,
+  type DailySeriesPoint,
+} from "./DashboardMonthChart";
+
+/** Asia/Seoul 기준 이번 달 1일 00:00 ~ 다음달 1일 00:00 (UTC Date) */
+function kstMonthRange(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const y = Number(parts.find((p) => p.type === "year")?.value);
+  const m = Number(parts.find((p) => p.type === "month")?.value);
+  const start = new Date(Date.UTC(y, m - 1, 1));
+  const end = new Date(Date.UTC(y, m, 1));
+  return { start, end, year: y, month: m };
+}
+
+function formatMd(d: Date) {
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
+}
+
+function buildDayBuckets(start: Date, end: Date): Map<string, DailySeriesPoint> {
+  const map = new Map<string, DailySeriesPoint>();
+  for (let t = start.getTime(); t < end.getTime(); t += 86_400_000) {
+    const d = new Date(t);
+    const key = d.toISOString().slice(0, 10);
+    map.set(key, { date: formatMd(d), applications: 0, views: 0 });
+  }
+  return map;
+}
 
 export default async function BusinessDashboard() {
   const session = await auth();
   const businessId = session!.user.businessId!;
+  const { start, end, year, month } = kstMonthRange();
 
-  const [totalParties, totalApplications, pendingApplications, approvedApplications] =
-    await Promise.all([
-      prisma.party.count({ where: { businessId } }),
-      prisma.application.count({
-        where: { party: { businessId } },
-      }),
-      prisma.application.count({
-        where: { party: { businessId }, status: "PENDING" },
-      }),
-      prisma.application.count({
-        where: { party: { businessId }, status: "APPROVED" },
-      }),
-    ]);
+  const [
+    business,
+    totalParties,
+    totalApplications,
+    pendingApplications,
+    approvedApplications,
+    monthApplications,
+    monthViews,
+    applicationRows,
+    viewRows,
+  ] = await Promise.all([
+    prisma.business.findUnique({
+      where: { id: businessId },
+      select: { feeRateBps: true, name: true },
+    }),
+    prisma.party.count({ where: { businessId } }),
+    prisma.application.count({
+      where: { party: { businessId } },
+    }),
+    prisma.application.count({
+      where: { party: { businessId }, status: "PENDING" },
+    }),
+    prisma.application.count({
+      where: { party: { businessId }, status: "APPROVED" },
+    }),
+    prisma.application.count({
+      where: {
+        party: { businessId },
+        createdAt: { gte: start, lt: end },
+      },
+    }),
+    prisma.partyDailyStat.aggregate({
+      where: {
+        party: { businessId },
+        date: { gte: start, lt: end },
+      },
+      _sum: { viewCount: true },
+    }),
+    prisma.application.findMany({
+      where: {
+        party: { businessId },
+        createdAt: { gte: start, lt: end },
+      },
+      select: { createdAt: true },
+    }),
+    prisma.partyDailyStat.findMany({
+      where: {
+        party: { businessId },
+        date: { gte: start, lt: end },
+      },
+      select: { date: true, viewCount: true },
+    }),
+  ]);
+
+  const buckets = buildDayBuckets(start, end);
+
+  for (const row of applicationRows) {
+    // createdAt → KST 캘린더 날짜
+    const kstKey = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(row.createdAt);
+    const b = buckets.get(kstKey);
+    if (b) b.applications += 1;
+  }
+
+  for (const row of viewRows) {
+    const key = row.date.toISOString().slice(0, 10);
+    const b = buckets.get(key);
+    if (b) b.views += row.viewCount;
+  }
+
+  const chartData = [...buckets.values()];
+  const monthViewTotal = monthViews._sum.viewCount ?? 0;
+  const feePercent = ((business?.feeRateBps ?? 1000) / 100).toLocaleString(
+    "ko-KR",
+    { maximumFractionDigits: 2 },
+  );
 
   const cards = [
     {
@@ -33,6 +143,28 @@ export default async function BusinessDashboard() {
       sub: "등록된 파티 수",
       icon: PartyPopper,
       color: "text-purple-500",
+    },
+    {
+      title: "이번 달 신청",
+      value: monthApplications,
+      sub: `${year}.${month} 신규 신청`,
+      icon: FileText,
+      color: "text-indigo-500",
+    },
+    {
+      title: "이번 달 조회",
+      value: monthViewTotal,
+      sub: "파티 상세 조회수",
+      icon: Eye,
+      color: "text-teal-500",
+    },
+    {
+      title: "중개 수수료",
+      value: `${feePercent}%`,
+      sub: `요율 ${business?.feeRateBps ?? 1000} bps`,
+      icon: Percent,
+      color: "text-amber-500",
+      isText: true,
     },
     {
       title: "전체 신청",
@@ -62,7 +194,7 @@ export default async function BusinessDashboard() {
       <div>
         <h1 className="text-xl sm:text-2xl font-bold">대시보드</h1>
         <p className="text-sm text-muted-foreground">
-          {session!.user.businessName} 현황
+          {session!.user.businessName ?? business?.name} 현황
         </p>
       </div>
 
@@ -76,12 +208,37 @@ export default async function BusinessDashboard() {
               <card.icon className={`w-4 h-4 ${card.color}`} />
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{card.value.toLocaleString()}</p>
+              <p className="text-2xl font-bold">
+                {"isText" in card && card.isText
+                  ? card.value
+                  : Number(card.value).toLocaleString()}
+              </p>
               <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            이번 달 신청 · 조회 ({year}.{String(month).padStart(2, "0")})
+          </CardTitle>
+          <CardDescription>
+            일별 신청 건수와 파티 상세 조회수입니다. 조회수는 앱에서 상세를 연
+            시점부터 집계됩니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {monthApplications === 0 && monthViewTotal === 0 ? (
+            <p className="text-sm text-muted-foreground py-10 text-center">
+              이번 달 아직 신청·조회 데이터가 없습니다.
+            </p>
+          ) : (
+            <DashboardMonthChart data={chartData} />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
