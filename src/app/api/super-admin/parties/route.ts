@@ -43,6 +43,11 @@ export async function POST(req: NextRequest) {
       categoryId: body.categoryId || null,
       admissionMode: body.admissionMode ?? "APPROVAL",
       coverImage: body.coverImage || null,
+      images: Array.isArray(body.images)
+        ? body.images.filter(
+            (u: unknown): u is string => typeof u === "string" && u.length > 0,
+          )
+        : [],
       adminId: body.adminId,
       businessId: body.businessId || null,
     },

@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
-import { assertBusinessHost } from "@/lib/business-hosts";
+import {
+  assertBusinessHost,
+  getBusinessHostCandidates,
+} from "@/lib/business-hosts";
+
+function parseImages(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((u): u is string => typeof u === "string" && u.length > 0);
+}
 
 export async function POST(req: NextRequest) {
   const { session, error } = await requireRole("BUSINESS");
@@ -17,23 +25,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "필수 항목 누락" }, { status: 400 });
   }
 
-  // 업체 어드민 계정을 파티 호스트(adminId)로 사용하기 위해
-  // 업체에 연결된 spot User 계정이 없으므로 임시로 업체 소유 파티에 가상 User를 쓸 수 없음.
-  // -> spot-backend의 User 없이는 adminId FK를 채울 수 없음.
-  // 실제 구현시: 업체 어드민이 연결된 User.id를 adminAccount에 추가하거나
-  //              별도 업체 전용 User를 생성하는 방식 필요.
-  // 여기서는 업체 정보에서 연결된 첫 번째 User(호스트)를 찾는 방식으로 처리.
-
   const business = await prisma.business.findUnique({
     where: { id: businessId },
-    include: { admins: { take: 1 } },
   });
 
   if (!business) {
     return NextResponse.json({ message: "업체를 찾을 수 없습니다" }, { status: 404 });
   }
 
-  // 호스트: body.adminId 우선, 없으면 contactEmail 매칭 User (레거시)
+  // 호스트: body.adminId 우선, 없으면 후보 1명일 때만 자동 지정
   let hostUserId: string | null = null;
   if (typeof body.adminId === "string" && body.adminId) {
     const hostCheck = await assertBusinessHost(businessId, body.adminId);
@@ -42,10 +42,10 @@ export async function POST(req: NextRequest) {
     }
     hostUserId = body.adminId;
   } else {
-    const hostUser = business.contactEmail
-      ? await prisma.user.findUnique({ where: { email: business.contactEmail } })
-      : null;
-    hostUserId = hostUser?.id ?? null;
+    const candidates = await getBusinessHostCandidates(businessId);
+    if (candidates.length === 1) {
+      hostUserId = candidates[0].id;
+    }
   }
 
   if (!hostUserId) {
@@ -71,6 +71,8 @@ export async function POST(req: NextRequest) {
     categoryName = category.name;
   }
 
+  const images = parseImages(body.images);
+
   const party = await prisma.party.create({
     data: {
       title: body.title,
@@ -85,7 +87,8 @@ export async function POST(req: NextRequest) {
       categoryId: body.categoryId || null,
       admissionMode: body.admissionMode ?? "APPROVAL",
       coverImage: body.coverImage || null,
-      isActive: body.isActive ?? true, // 기본 노출
+      images,
+      isActive: body.isActive ?? true,
       adminId: hostUserId,
       businessId,
     },
@@ -95,7 +98,6 @@ export async function POST(req: NextRequest) {
     ? body.formFieldIds
     : [];
   if (formFieldIds.length > 0) {
-    // 선택한 질문이 이 업체 소유인지 검증 후 연결
     const owned = await prisma.businessFormField.findMany({
       where: { id: { in: formFieldIds }, businessId },
       select: { id: true },

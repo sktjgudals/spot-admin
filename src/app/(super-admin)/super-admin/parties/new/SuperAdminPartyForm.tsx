@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PartyImageUploader } from "@/components/party-image-uploader";
 
 const schema = z.object({
   title: z.string().min(1, "파티명을 입력하세요"),
@@ -30,6 +31,7 @@ const schema = z.object({
   genderRatio: z.string().optional(),
   admissionMode: z.enum(["INSTANT", "APPROVAL"]),
   coverImage: z.string().optional(),
+  images: z.array(z.string()).optional(),
   adminId: z.string().min(1, "호스트를 선택하세요"),
   businessId: z.string().optional(),
   categoryId: z.string().optional(),
@@ -55,18 +57,33 @@ export default function SuperAdminPartyForm({
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { admissionMode: "APPROVAL", priceMale: 0, priceFemale: 0 },
+    defaultValues: {
+      admissionMode: "APPROVAL",
+      priceMale: 0,
+      priceFemale: 0,
+      coverImage: "",
+      images: [],
+    },
   });
+
+  const coverImage = watch("coverImage") ?? "";
+  const images = watch("images") ?? [];
 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
     const res = await fetch("/api/super-admin/parties", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...data, date: new Date(data.date).toISOString() }),
+      body: JSON.stringify({
+        ...data,
+        date: new Date(data.date).toISOString(),
+        coverImage: data.coverImage || null,
+        images: data.images ?? [],
+      }),
     });
     setLoading(false);
 
@@ -172,8 +189,24 @@ export default function SuperAdminPartyForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label>커버 이미지 URL</Label>
-            <Input type="url" placeholder="https://..." {...register("coverImage")} />
+            <Label>커버 이미지</Label>
+            <PartyImageUploader
+              mode="single"
+              value={coverImage}
+              onChange={(url) => setValue("coverImage", url)}
+              uploadUrl="/api/super-admin/parties/media-upload-url"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>상세 이미지</Label>
+            <PartyImageUploader
+              mode="multiple"
+              value={images}
+              onChange={(urls) => setValue("images", urls)}
+              uploadUrl="/api/super-admin/parties/media-upload-url"
+              maxFiles={10}
+            />
           </div>
 
           <div className="space-y-1.5">

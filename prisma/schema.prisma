@@ -345,6 +345,10 @@ model Party {
   requiredFields String[] @default([])
 
   coverImage    String?
+
+  /// 상세 이미지 캐러셀 (coverImage 외 추가 이미지)
+  images String[] @default([])
+
   priceMale     Int     @default(0)
   priceFemale   Int     @default(0)
   genderRatio   String?

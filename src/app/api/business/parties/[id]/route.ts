@@ -83,6 +83,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
   if (body.admissionMode) data.admissionMode = body.admissionMode;
   if ("coverImage" in body) data.coverImage = body.coverImage || null;
+  if (Array.isArray(body.images)) {
+    data.images = body.images.filter(
+      (u: unknown): u is string => typeof u === "string" && u.length > 0,
+    );
+  }
   if (typeof body.isActive === "boolean") data.isActive = body.isActive; // 노출/비노출
 
   if (typeof body.adminId === "string" && body.adminId) {

@@ -59,6 +59,7 @@ export default async function EditPartyPage({ params }: Props) {
         categoryId: party.categoryId ?? "",
         admissionMode: party.admissionMode,
         coverImage: party.coverImage ?? "",
+        images: party.images ?? [],
         isActive: party.isActive,
         formFieldIds: party.formFields.map((f) => f.fieldId),
         adminId: party.adminId,
