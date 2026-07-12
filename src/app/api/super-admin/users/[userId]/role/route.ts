@@ -28,10 +28,27 @@ export async function POST(
     return NextResponse.json({ message: "USER_NOT_FOUND" }, { status: 404 });
   }
 
+  const role = body.role;
+  // 업체 어드민(ADMIN) 지정 시 담당 업체 필수 — 나머지 권한은 업체 연결 해제
+  let businessId: string | null = null;
+  if (role === "ADMIN") {
+    if (typeof body?.businessId !== "string" || !body.businessId) {
+      return NextResponse.json({ message: "업체를 선택해주세요" }, { status: 400 });
+    }
+    const biz = await prisma.business.findUnique({
+      where: { id: body.businessId },
+      select: { id: true },
+    });
+    if (!biz) {
+      return NextResponse.json({ message: "업체를 찾을 수 없습니다" }, { status: 404 });
+    }
+    businessId = biz.id;
+  }
+
   await prisma.user.update({
     where: { id: userId },
-    data: { role: body.role },
+    data: { role, businessId },
   });
 
-  return NextResponse.json({ success: true, role: body.role });
+  return NextResponse.json({ success: true, role, businessId });
 }

@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import UserActions from "./UserActions";
 
 interface SearchParams {
@@ -79,7 +80,14 @@ export default async function UsersPage({ searchParams }: Props) {
           <TableBody>
             {users.map((user) => (
               <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.nickname}</TableCell>
+                <TableCell className="font-medium">
+                  <Link
+                    href={`/super-admin/users/${user.id}`}
+                    className="hover:underline"
+                  >
+                    {user.nickname}
+                  </Link>
+                </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {user.email}
                 </TableCell>

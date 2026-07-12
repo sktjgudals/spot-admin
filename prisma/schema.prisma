@@ -170,9 +170,14 @@ model User {
   chatMessages        ChatMessage[]
   inquiries           Inquiry[]
 
+  // 업체 어드민(role=ADMIN) 지정 시 담당 업체
+  businessId      String?
+  managedBusiness Business? @relation("BusinessAdminUsers", fields: [businessId], references: [id], onDelete: SetNull)
+
   @@unique([socialId, provider])
   @@index([email])
   @@index([isBlocked])
+  @@index([businessId])
   @@map("users")
 }
 
@@ -522,6 +527,7 @@ model Business {
   refundPolicyTiers RefundPolicyTier[]
   formFields       BusinessFormField[]
   chatRooms        ChatRoom[]
+  adminUsers       User[]               @relation("BusinessAdminUsers")
 
   @@index([status])
   @@map("businesses")
