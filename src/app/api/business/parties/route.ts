@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
+import { assertBusinessHost } from "@/lib/business-hosts";
 
 export async function POST(req: NextRequest) {
   const { session, error } = await requireRole("BUSINESS");
@@ -32,15 +33,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "업체를 찾을 수 없습니다" }, { status: 404 });
   }
 
-  // spot DB에서 업체 이메일로 일치하는 User 찾기 (연결 호스트)
-  const hostUser = business.contactEmail
-    ? await prisma.user.findUnique({ where: { email: business.contactEmail } })
-    : null;
+  // 호스트: body.adminId 우선, 없으면 contactEmail 매칭 User (레거시)
+  let hostUserId: string | null = null;
+  if (typeof body.adminId === "string" && body.adminId) {
+    const hostCheck = await assertBusinessHost(businessId, body.adminId);
+    if (!hostCheck.ok) {
+      return NextResponse.json({ message: hostCheck.message }, { status: 400 });
+    }
+    hostUserId = body.adminId;
+  } else {
+    const hostUser = business.contactEmail
+      ? await prisma.user.findUnique({ where: { email: business.contactEmail } })
+      : null;
+    hostUserId = hostUser?.id ?? null;
+  }
 
-  if (!hostUser) {
+  if (!hostUserId) {
     return NextResponse.json(
-      { message: "파티 호스트 연결을 위한 spot 계정이 없습니다. 업체 담당자의 spot 앱 계정 이메일을 업체 contactEmail에 설정해 주세요." },
-      { status: 400 }
+      {
+        message:
+          "파티 호스트를 지정할 수 없습니다. 담당자를 선택하거나, 업체 contactEmail에 spot 앱 계정 이메일을 설정해 주세요.",
+      },
+      { status: 400 },
     );
   }
 
@@ -72,7 +86,7 @@ export async function POST(req: NextRequest) {
       admissionMode: body.admissionMode ?? "APPROVAL",
       coverImage: body.coverImage || null,
       isActive: body.isActive ?? true, // 기본 노출
-      adminId: hostUser.id,
+      adminId: hostUserId,
       businessId,
     },
   });

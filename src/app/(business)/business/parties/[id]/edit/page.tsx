@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getBusinessHostCandidates } from "@/lib/business-hosts";
 import { notFound } from "next/navigation";
 import EditPartyForm from "./EditPartyForm";
 
@@ -14,22 +15,26 @@ export default async function EditPartyPage({ params }: Props) {
 
   const party = await prisma.party.findUnique({
     where: { id },
-    include: { formFields: { select: { fieldId: true }, orderBy: { order: "asc" } } },
+    include: {
+      formFields: { select: { fieldId: true }, orderBy: { order: "asc" } },
+    },
   });
 
   if (!party || party.businessId !== businessId) notFound();
 
-  const formFields = await prisma.businessFormField.findMany({
-    where: { businessId, archived: false },
-    orderBy: { order: "asc" },
-    select: { id: true, label: true, type: true, required: true },
-  });
-
-  const categories = await prisma.partyCategory.findMany({
-    where: { isActive: true },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: { id: true, name: true },
-  });
+  const [formFields, categories, hostCandidates] = await Promise.all([
+    prisma.businessFormField.findMany({
+      where: { businessId, archived: false },
+      orderBy: { order: "asc" },
+      select: { id: true, label: true, type: true, required: true },
+    }),
+    prisma.partyCategory.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { id: true, name: true },
+    }),
+    getBusinessHostCandidates(businessId, { includeUserId: party.adminId }),
+  ]);
 
   // datetime-local 입력용으로 로컬 타임존 기준 문자열 변환
   const d = party.date;
@@ -41,6 +46,7 @@ export default async function EditPartyPage({ params }: Props) {
       partyId={party.id}
       formFields={formFields}
       categories={categories}
+      hostCandidates={hostCandidates}
       defaults={{
         title: party.title,
         description: party.description,
@@ -55,6 +61,7 @@ export default async function EditPartyPage({ params }: Props) {
         coverImage: party.coverImage ?? "",
         isActive: party.isActive,
         formFieldIds: party.formFields.map((f) => f.fieldId),
+        adminId: party.adminId,
       }}
     />
   );

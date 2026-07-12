@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
+import { assertBusinessHost } from "@/lib/business-hosts";
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -83,6 +84,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (body.admissionMode) data.admissionMode = body.admissionMode;
   if ("coverImage" in body) data.coverImage = body.coverImage || null;
   if (typeof body.isActive === "boolean") data.isActive = body.isActive; // 노출/비노출
+
+  if (typeof body.adminId === "string" && body.adminId) {
+    const hostCheck = await assertBusinessHost(
+      businessId!,
+      body.adminId,
+      owned.party!.adminId,
+    );
+    if (!hostCheck.ok) {
+      return NextResponse.json({ message: hostCheck.message }, { status: 400 });
+    }
+    data.adminId = body.adminId;
+  }
 
   // 파티 커스텀 폼 선택 재구성 (전달된 경우에만)
   const formFieldIds: string[] | undefined = Array.isArray(body.formFieldIds)
