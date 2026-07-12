@@ -23,6 +23,7 @@ import {
   Tags,
   ThumbsUp,
   Inbox,
+  Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ const superAdminNav: NavItem[] = [
   { href: "/super-admin/parties", label: "파티 관리", icon: PartyPopper },
   { href: "/super-admin/categories", label: "카테고리 관리", icon: Tags },
   { href: "/super-admin/review-tags", label: "리뷰 태그 관리", icon: ThumbsUp },
+  { href: "/super-admin/coupons", label: "쿠폰 관리", icon: Ticket },
   { href: "/super-admin/inquiries", label: "문의 관리", icon: Inbox },
   { href: "/super-admin/payments", label: "결제/환불", icon: Receipt },
   { href: "/super-admin/notifications", label: "알림 발송", icon: Bell },

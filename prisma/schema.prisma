@@ -169,6 +169,7 @@ model User {
   chatMemberships     ChatRoomMember[]
   chatMessages        ChatMessage[]
   inquiries           Inquiry[]
+  coupons             UserCoupon[]
 
   // 업체 어드민(role=ADMIN) 지정 시 담당 업체
   businessId      String?
@@ -229,6 +230,60 @@ model PartyCategory {
   parties Party[]
 
   @@map("party_categories")
+}
+
+/// 쿠폰 템플릿 — 어드민 정의. CLAIMABLE=앱 노출·유저 수령, SYSTEM=레퍼럴 자동 발급 (spot-backend 미러)
+model CouponTemplate {
+  id             String             @id @default(cuid())
+  title          String
+  description    String?
+  discountAmount Int
+  validDays      Int                @default(30)
+  kind           CouponTemplateKind @default(CLAIMABLE)
+  isActive       Boolean            @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  coupons UserCoupon[]
+
+  @@map("coupon_templates")
+}
+
+enum CouponTemplateKind {
+  CLAIMABLE
+  SYSTEM
+}
+
+/// 유저 보유 쿠폰 (spot-backend 미러)
+model UserCoupon {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateId String
+  template   CouponTemplate @relation(fields: [templateId], references: [id])
+
+  status    UserCouponStatus @default(ACTIVE)
+  source    CouponSource     @default(CLAIM)
+  issuedAt  DateTime         @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  @@index([userId, status])
+  @@index([userId, templateId, source])
+  @@map("user_coupons")
+}
+
+enum UserCouponStatus {
+  ACTIVE
+  USED
+  EXPIRED
+}
+
+enum CouponSource {
+  CLAIM
+  REFERRAL
+  ADMIN
 }
 
 /// 칭찬 태그 카테고리 — 이름·정렬 관리, name이 앱 섹션 제목 (spot-backend 미러)
