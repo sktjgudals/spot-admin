@@ -12,7 +12,7 @@ export default async function BusinessFormsPage() {
   });
 
   return (
-    <div className="space-y-4 w-full max-w-2xl">
+    <div className="space-y-4 w-full max-w-3xl">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold">신청 폼 관리</h1>
         <p className="text-sm text-muted-foreground">
@@ -28,6 +28,7 @@ export default async function BusinessFormsPage() {
           type: f.type,
           options: f.options,
           required: f.required,
+          order: f.order,
         }))}
       />
     </div>
