@@ -55,6 +55,7 @@ const superAdminNav: NavItem[] = [
 
 const businessNav: NavItem[] = [
   { href: "/business/dashboard", label: "대시보드", icon: LayoutDashboard },
+  { href: "/business/profile", label: "업체 프로필", icon: Building2 },
   { href: "/business/parties", label: "파티 관리", icon: PartyPopper },
   { href: "/business/forms", label: "신청 폼 관리", icon: ClipboardList },
   { href: "/business/applications", label: "신청 관리", icon: FileText },

@@ -591,7 +591,11 @@ model Business {
   id             String         @id @default(cuid())
   name           String
   description    String?
+  /// 앱 업체 프로필 한줄 소개(태그라인)
+  tagline        String?
   logoUrl        String?
+  /// 앱 업체 프로필 상단 커버 이미지
+  coverUrl       String?
   contactEmail   String?
   contactPhone   String?
   address        String?
