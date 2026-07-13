@@ -42,6 +42,7 @@ const superAdminNav: NavItem[] = [
   { href: "/super-admin/dashboard", label: "대시보드", icon: LayoutDashboard },
   { href: "/super-admin/users", label: "유저 관리", icon: Users },
   { href: "/super-admin/businesses", label: "업체 관리", icon: Building2 },
+  { href: "/super-admin/business-role-requests", label: "권한 신청", icon: ClipboardList },
   { href: "/super-admin/parties", label: "파티 관리", icon: PartyPopper },
   { href: "/super-admin/categories", label: "카테고리 관리", icon: Tags },
   { href: "/super-admin/review-tags", label: "리뷰 태그 관리", icon: ThumbsUp },

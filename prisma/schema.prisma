@@ -123,6 +123,12 @@ enum BusinessStatus {
   SUSPENDED
 }
 
+enum BusinessRoleRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum RefundStatus {
   REQUESTED
   APPROVED
@@ -170,6 +176,7 @@ model User {
   chatMessages        ChatMessage[]
   inquiries           Inquiry[]
   coupons             UserCoupon[]
+  businessRoleRequests BusinessRoleRequest[]
 
   // 업체 어드민(role=ADMIN) 지정 시 담당 업체
   businessId      String?
@@ -341,6 +348,10 @@ model Party {
   maxCapacity  Int
   currentCount Int      @default(0)
   isActive     Boolean  @default(true)
+
+  /// Soft close — 하드 삭제 대신 목록/참가 차단
+  closedAt     DateTime?
+  closedReason String?
 
   requiredFields String[] @default([])
 
@@ -594,8 +605,19 @@ model Business {
   /// 앱 업체 프로필 한줄 소개(태그라인)
   tagline        String?
   logoUrl        String?
-  /// 앱 업체 프로필 상단 커버 이미지
+  /// 앱 업체 프로필 상단 커버 이미지 (coverImages[0] 사본, 구버전 호환)
   coverUrl       String?
+  /// 다중 커버 (캐러셀)
+  coverImages    String[] @default([])
+
+  /// 참가자 PartyRating 롤업
+  averageRating Float @default(0.0)
+  reviewCount   Int   @default(0)
+  temperature   Float @default(36.5)
+  followerCount Int   @default(0)
+  /// 솔로파티 참여 요건
+  participationGuide String?
+
   contactEmail   String?
   contactPhone   String?
   address        String?
@@ -620,6 +642,24 @@ model Business {
 
   @@index([status])
   @@map("businesses")
+}
+
+model BusinessRoleRequest {
+  id           String                    @id @default(cuid())
+  userId       String
+  user         User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String
+  reason       String?
+  status       BusinessRoleRequestStatus @default(PENDING)
+  businessId   String?
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  @@index([userId, status])
+  @@index([status, createdAt])
+  @@map("business_role_requests")
 }
 
 /// 업체별 환불 규정 단계.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
 import { assertBusinessHost } from "@/lib/business-hosts";
+import { proxyBackendInternal } from "@/lib/backend-internal";
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -88,7 +89,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       (u: unknown): u is string => typeof u === "string" && u.length > 0,
     );
   }
-  if (typeof body.isActive === "boolean") data.isActive = body.isActive; // 노출/비노출
+  if (typeof body.isActive === "boolean") {
+    data.isActive = body.isActive;
+    if (body.isActive) {
+      data.closedAt = null;
+      data.closedReason = null;
+    } else {
+      data.closedAt = new Date();
+      data.closedReason = "업체에 의해 비노출 처리됨";
+    }
+  }
 
   if (typeof body.adminId === "string" && body.adminId) {
     const hostCheck = await assertBusinessHost(
@@ -126,6 +136,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       });
     }
   });
+
+  // Soft Close 시 채팅방 소켓 kick
+  if (body.isActive === false) {
+    await proxyBackendInternal(`/internal/chat/party/${id}/close`, {});
+  }
 
   return NextResponse.json({ success: true });
 }

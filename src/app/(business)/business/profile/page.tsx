@@ -17,10 +17,19 @@ export default async function BusinessProfilePage() {
       description: true,
       logoUrl: true,
       coverUrl: true,
+      coverImages: true,
+      participationGuide: true,
       _count: { select: { parties: { where: { isActive: true } } } },
     },
   });
   if (!business) redirect("/business/dashboard");
+
+  const coverImages =
+    business.coverImages.length > 0
+      ? business.coverImages
+      : business.coverUrl
+        ? [business.coverUrl]
+        : [];
 
   return (
     <div className="w-full max-w-5xl space-y-4">
@@ -38,6 +47,8 @@ export default async function BusinessProfilePage() {
           description: business.description,
           logoUrl: business.logoUrl,
           coverUrl: business.coverUrl,
+          coverImages,
+          participationGuide: business.participationGuide,
           activePartyCount: business._count.parties,
         }}
       />

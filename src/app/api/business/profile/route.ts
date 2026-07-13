@@ -4,6 +4,17 @@ import { requireRole } from "@/lib/api-auth";
 
 const MAX_TAGLINE = 80;
 const MAX_DESCRIPTION = 2000;
+const MAX_PARTICIPATION_GUIDE = 2000;
+const MAX_COVER_IMAGES = 10;
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
 
 /** 업체 어드민 — 자기 업체 프로필 조회 */
 export async function GET() {
@@ -24,6 +35,8 @@ export async function GET() {
       description: true,
       logoUrl: true,
       coverUrl: true,
+      coverImages: true,
+      participationGuide: true,
       status: true,
       _count: { select: { parties: { where: { isActive: true } } } },
     },
@@ -32,6 +45,13 @@ export async function GET() {
     return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
   }
 
+  const coverImages =
+    business.coverImages.length > 0
+      ? business.coverImages
+      : business.coverUrl
+        ? [business.coverUrl]
+        : [];
+
   return NextResponse.json({
     id: business.id,
     name: business.name,
@@ -39,6 +59,8 @@ export async function GET() {
     description: business.description,
     logoUrl: business.logoUrl,
     coverUrl: business.coverUrl,
+    coverImages,
+    participationGuide: business.participationGuide,
     status: business.status,
     activePartyCount: business._count.parties,
   });
@@ -64,6 +86,8 @@ export async function PATCH(req: NextRequest) {
     description?: string | null;
     logoUrl?: string | null;
     coverUrl?: string | null;
+    coverImages?: string[];
+    participationGuide?: string | null;
   } = {};
 
   if ("tagline" in body) {
@@ -97,6 +121,23 @@ export async function PATCH(req: NextRequest) {
     data.description = typeof v === "string" ? v.trim() || null : null;
   }
 
+  if ("participationGuide" in body) {
+    const v = body.participationGuide;
+    if (v !== null && typeof v !== "string") {
+      return NextResponse.json(
+        { message: "participationGuide must be string|null" },
+        { status: 400 },
+      );
+    }
+    if (typeof v === "string" && v.length > MAX_PARTICIPATION_GUIDE) {
+      return NextResponse.json(
+        { message: `participationGuide는 ${MAX_PARTICIPATION_GUIDE}자 이하여야 합니다` },
+        { status: 400 },
+      );
+    }
+    data.participationGuide = typeof v === "string" ? v.trim() || null : null;
+  }
+
   if ("logoUrl" in body) {
     const v = body.logoUrl;
     if (v !== null && typeof v !== "string") {
@@ -105,12 +146,33 @@ export async function PATCH(req: NextRequest) {
     data.logoUrl = typeof v === "string" ? v.trim() || null : null;
   }
 
-  if ("coverUrl" in body) {
+  if ("coverImages" in body) {
+    const v = body.coverImages;
+    if (!Array.isArray(v)) {
+      return NextResponse.json({ message: "coverImages must be string[]" }, { status: 400 });
+    }
+    if (v.length > MAX_COVER_IMAGES) {
+      return NextResponse.json(
+        { message: `coverImages는 최대 ${MAX_COVER_IMAGES}장입니다` },
+        { status: 400 },
+      );
+    }
+    const urls = v.map((item) => (typeof item === "string" ? item.trim() : ""));
+    if (urls.some((url) => url && !isHttpUrl(url))) {
+      return NextResponse.json({ message: "coverImages URL이 올바르지 않습니다" }, { status: 400 });
+    }
+    data.coverImages = urls.filter(Boolean);
+    data.coverUrl = data.coverImages[0] ?? null;
+  }
+
+  if ("coverUrl" in body && !("coverImages" in body)) {
     const v = body.coverUrl;
     if (v !== null && typeof v !== "string") {
       return NextResponse.json({ message: "coverUrl must be string|null" }, { status: 400 });
     }
-    data.coverUrl = typeof v === "string" ? v.trim() || null : null;
+    const url = typeof v === "string" ? v.trim() || null : null;
+    data.coverUrl = url;
+    data.coverImages = url ? [url] : [];
   }
 
   if (Object.keys(data).length === 0) {
@@ -127,6 +189,8 @@ export async function PATCH(req: NextRequest) {
       description: true,
       logoUrl: true,
       coverUrl: true,
+      coverImages: true,
+      participationGuide: true,
     },
   });
 

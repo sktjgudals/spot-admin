@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import PartyBusinessMapper from "./PartyBusinessMapper";
 import StartPartyButton from "@/components/start-party-button";
+import ClosePartyButton from "@/components/close-party-button";
 
 interface SearchParams {
   q?: string;
@@ -119,10 +120,17 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
                   )}
                 </TableCell>
                 <TableCell className="text-right">
-                  <StartPartyButton
-                    endpoint={`/api/super-admin/parties/${party.id}/start`}
-                    partyTitle={party.title}
-                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <StartPartyButton
+                      endpoint={`/api/super-admin/parties/${party.id}/start`}
+                      partyTitle={party.title}
+                    />
+                    <ClosePartyButton
+                      partyId={party.id}
+                      partyTitle={party.title}
+                      isActive={party.isActive}
+                    />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

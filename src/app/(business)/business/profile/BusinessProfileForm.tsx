@@ -16,6 +16,8 @@ export type BusinessProfileInitial = {
   description: string | null;
   logoUrl: string | null;
   coverUrl: string | null;
+  coverImages: string[];
+  participationGuide: string | null;
   activePartyCount: number;
 };
 
@@ -24,10 +26,20 @@ export default function BusinessProfileForm({
 }: {
   initial: BusinessProfileInitial;
 }) {
+  const initialCovers =
+    initial.coverImages.length > 0
+      ? initial.coverImages
+      : initial.coverUrl
+        ? [initial.coverUrl]
+        : [];
+
   const [tagline, setTagline] = useState(initial.tagline ?? "");
   const [description, setDescription] = useState(initial.description ?? "");
+  const [participationGuide, setParticipationGuide] = useState(
+    initial.participationGuide ?? "",
+  );
   const [logoUrl, setLogoUrl] = useState(initial.logoUrl ?? "");
-  const [coverUrl, setCoverUrl] = useState(initial.coverUrl ?? "");
+  const [coverImages, setCoverImages] = useState<string[]>(initialCovers);
   const [saving, setSaving] = useState(false);
 
   async function onSave() {
@@ -39,8 +51,9 @@ export default function BusinessProfileForm({
         body: JSON.stringify({
           tagline,
           description,
+          participationGuide,
           logoUrl: logoUrl || null,
-          coverUrl: coverUrl || null,
+          coverImages,
         }),
       });
       if (!res.ok) {
@@ -54,6 +67,8 @@ export default function BusinessProfileForm({
       setSaving(false);
     }
   }
+
+  const previewCover = coverImages[0] ?? null;
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
@@ -94,6 +109,21 @@ export default function BusinessProfileForm({
         </div>
 
         <div className="space-y-1.5">
+          <Label htmlFor="participationGuide">참여 요건</Label>
+          <Textarea
+            id="participationGuide"
+            value={participationGuide}
+            maxLength={2000}
+            rows={6}
+            placeholder="예: 참여 연령 25~35세, 캐주얼 복장, 지각 시 입장 제한"
+            onChange={(e) => setParticipationGuide(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground text-right">
+            {participationGuide.length}/2000
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
           <Label>로고</Label>
           <PartyImageUploader
             mode="single"
@@ -104,12 +134,13 @@ export default function BusinessProfileForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label>커버 이미지</Label>
+          <Label>커버 이미지 (최대 10장)</Label>
           <PartyImageUploader
-            mode="single"
-            value={coverUrl}
-            onChange={setCoverUrl}
+            mode="multiple"
+            value={coverImages}
+            onChange={setCoverImages}
             uploadUrl="/api/business/parties/media-upload-url"
+            maxFiles={10}
           />
         </div>
 
@@ -129,8 +160,10 @@ export default function BusinessProfileForm({
         name={initial.name}
         tagline={tagline}
         description={description}
+        participationGuide={participationGuide}
         logoUrl={logoUrl || null}
-        coverUrl={coverUrl || null}
+        coverUrl={previewCover}
+        coverCount={coverImages.length}
         activePartyCount={initial.activePartyCount}
       />
     </div>
@@ -141,15 +174,19 @@ function PhoneMockup({
   name,
   tagline,
   description,
+  participationGuide,
   logoUrl,
   coverUrl,
+  coverCount,
   activePartyCount,
 }: {
   name: string;
   tagline: string;
   description: string;
+  participationGuide: string;
   logoUrl: string | null;
   coverUrl: string | null;
+  coverCount: number;
   activePartyCount: number;
 }) {
   return (
@@ -165,6 +202,11 @@ function PhoneMockup({
               <div className="flex h-full items-center justify-center text-xs text-zinc-500">
                 커버 이미지
               </div>
+            )}
+            {coverCount > 1 && (
+              <span className="absolute bottom-2 right-2 rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] text-white">
+                1/{coverCount}
+              </span>
             )}
             <div className="absolute -bottom-8 left-4">
               <div className="h-16 w-16 overflow-hidden rounded-2xl border-4 border-white bg-zinc-100 shadow">
@@ -185,6 +227,11 @@ function PhoneMockup({
               {tagline.trim() || "한줄 소개가 여기에 표시됩니다"}
             </p>
             <p className="text-[11px] text-zinc-400">활성 파티 {activePartyCount}개</p>
+            {participationGuide.trim() && (
+              <p className="line-clamp-3 whitespace-pre-wrap text-[11px] leading-relaxed text-zinc-600">
+                {participationGuide.trim()}
+              </p>
+            )}
             <p className="line-clamp-6 whitespace-pre-wrap text-xs leading-relaxed text-zinc-700">
               {description.trim() || "상세 소개가 여기에 표시됩니다"}
             </p>
