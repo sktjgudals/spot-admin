@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Provider, Role } from "@/generated/prisma";
 
 export type HostCandidate = {
   id: string;
@@ -6,13 +7,40 @@ export type HostCandidate = {
   email: string;
 };
 
-/**
- * 업체 파티 호스트(Party.adminId = User.id) 후보.
- * - User.businessId 가 업체인 앱 계정
- * - AdminAccount(BUSINESS) 이메일과 일치하는 User
- * - Business.contactEmail 과 일치하는 User
- * - includeUserId: 현재 호스트가 후보에 없어도 목록에 포함
- */
+/** 파티 기술 소유자(Party.adminId). 앱 UI 미노출. */
+export async function ensureTechnicalPartyHost(
+  businessId: string,
+  businessName: string,
+): Promise<string> {
+  const socialId = `biz_tech_${businessId}`;
+  const email = `biz-tech-${businessId}@system.dopa.local`;
+
+  const existing = await prisma.user.findUnique({
+    where: { socialId_provider: { socialId, provider: Provider.KAKAO } },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const byEmail = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (byEmail) return byEmail.id;
+
+  const created = await prisma.user.create({
+    data: {
+      email,
+      nickname: `${businessName} (시스템)`,
+      socialId,
+      provider: Provider.KAKAO,
+      role: Role.USER,
+      businessId,
+    },
+    select: { id: true },
+  });
+  return created.id;
+}
+
 export async function getBusinessHostCandidates(
   businessId: string,
   options?: { includeUserId?: string | null },

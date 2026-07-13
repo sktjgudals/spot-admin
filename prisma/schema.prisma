@@ -123,6 +123,11 @@ enum BusinessStatus {
   SUSPENDED
 }
 
+enum BusinessKind {
+  INDIVIDUAL
+  COMPANY
+}
+
 enum BusinessRoleRequestStatus {
   PENDING
   APPROVED
@@ -378,9 +383,9 @@ model Party {
   adminId String
   admin   User   @relation("PartyAdmin", fields: [adminId], references: [id], onDelete: Cascade)
 
-  // 파티를 업체에 연결 (선택적 — 어드민 앱에서 추가)
-  businessId String?
-  business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  /// 운영 업체 (필수 — 개인 호스트 파티 없음)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -601,6 +606,7 @@ model AdminAccount {
 model Business {
   id             String         @id @default(cuid())
   name           String
+  kind           BusinessKind   @default(COMPANY)
   description    String?
   /// 앱 업체 프로필 한줄 소개(태그라인)
   tagline        String?

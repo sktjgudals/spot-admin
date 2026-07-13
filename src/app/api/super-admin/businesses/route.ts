@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
   const business = await prisma.business.create({
     data: {
       name: body.name,
+      kind: body.kind === "INDIVIDUAL" ? "INDIVIDUAL" : "COMPANY",
       businessNumber: body.businessNumber || null,
       contactEmail: body.contactEmail || null,
       contactPhone: body.contactPhone || null,

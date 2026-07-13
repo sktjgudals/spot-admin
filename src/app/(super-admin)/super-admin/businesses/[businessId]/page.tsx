@@ -8,6 +8,8 @@ import { ChevronLeft } from "lucide-react";
 import BusinessStatusBadge from "../BusinessStatusBadge";
 import BusinessRowActions from "../BusinessRowActions";
 import RefundPolicyEditor from "./RefundPolicyEditor";
+import BusinessAdminsManager from "./BusinessAdminsManager";
+import BusinessKindEditor from "./BusinessKindEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +26,15 @@ export default async function BusinessDetailPage({ params }: Props) {
       refundPolicyTiers: { orderBy: { hoursBeforeStart: "desc" } },
       _count: { select: { admins: true, parties: true, settlements: true } },
       admins: {
-        select: { id: true, email: true, name: true, role: true },
-        take: 10,
+        where: { role: "BUSINESS" },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          isActive: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "asc" },
       },
     },
   });
@@ -49,6 +58,9 @@ export default async function BusinessDetailPage({ params }: Props) {
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold truncate">{business.name}</h1>
               <BusinessStatusBadge status={business.status} />
+              <Badge variant="outline" className="text-xs">
+                {business.kind === "INDIVIDUAL" ? "개인 사업자" : "일반 업체"}
+              </Badge>
             </div>
             <p className="text-sm text-muted-foreground truncate">
               {business.contactEmail ?? "연락 이메일 없음"}
@@ -70,6 +82,7 @@ export default async function BusinessDetailPage({ params }: Props) {
           <CardTitle className="text-base">업체 정보</CardTitle>
         </CardHeader>
         <CardContent className="text-sm space-y-2">
+          <BusinessKindEditor businessId={business.id} initialKind={business.kind} />
           <Row label="사업자번호" value={business.businessNumber ?? "-"} />
           <Row label="연락처" value={business.contactPhone ?? "-"} />
           <Row label="주소" value={business.address ?? "-"} />
@@ -79,7 +92,7 @@ export default async function BusinessDetailPage({ params }: Props) {
               business.feeRateBps % 100 === 0 ? 0 : 1,
             )}%`}
           />
-          <Row label="담당자" value={`${business._count.admins}명`} />
+          <Row label="웹 어드민" value={`${business._count.admins}명`} />
           <Row label="파티" value={`${business._count.parties}개`} />
           <Row label="정산" value={`${business._count.settlements}건`} />
           {business.description && (
@@ -91,28 +104,10 @@ export default async function BusinessDetailPage({ params }: Props) {
         </CardContent>
       </Card>
 
-      {business.admins.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">담당자</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            {business.admins.map((a) => (
-              <div key={a.id} className="flex items-center justify-between gap-2">
-                <span>
-                  {a.name ?? a.email}
-                  {a.name && (
-                    <span className="text-muted-foreground ml-2 text-xs">{a.email}</span>
-                  )}
-                </span>
-                <Badge variant="outline" className="text-xs">
-                  {a.role}
-                </Badge>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      <BusinessAdminsManager
+        businessId={business.id}
+        initialAdmins={business.admins}
+      />
 
       <RefundPolicyEditor
         businessId={business.id}

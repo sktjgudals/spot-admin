@@ -21,6 +21,7 @@ import { ArrowLeft } from "lucide-react";
 
 const schema = z.object({
   name: z.string().min(1, "업체명을 입력하세요"),
+  kind: z.enum(["INDIVIDUAL", "COMPANY"]),
   businessNumber: z.string().optional(),
   contactEmail: z.string().email("올바른 이메일").optional().or(z.literal("")),
   contactPhone: z.string().optional(),
@@ -38,7 +39,10 @@ export default function NewBusinessPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { kind: "COMPANY" },
+  });
 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
@@ -79,6 +83,16 @@ export default function NewBusinessPage() {
               {errors.name && (
                 <p className="text-xs text-destructive">{errors.name.message}</p>
               )}
+            </div>
+            <div className="space-y-1.5">
+              <Label>업체 유형 *</Label>
+              <select
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                {...register("kind")}
+              >
+                <option value="COMPANY">일반 업체</option>
+                <option value="INDIVIDUAL">개인 사업자</option>
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label>사업자등록번호</Label>
