@@ -83,7 +83,7 @@ export default async function UsersPage({ searchParams }: Props) {
                 <TableCell className="font-medium">
                   <Link
                     href={`/super-admin/users/${user.id}`}
-                    className="hover:underline"
+                    className="text-primary hover:underline"
                   >
                     {user.nickname}
                   </Link>

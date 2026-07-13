@@ -83,7 +83,12 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
             {parties.map((party) => (
               <TableRow key={party.id}>
                 <TableCell>
-                  <p className="font-medium text-sm whitespace-nowrap">{party.title}</p>
+                  <Link
+                    href={`/super-admin/parties/${party.id}`}
+                    className="font-medium text-sm whitespace-nowrap text-primary hover:underline"
+                  >
+                    {party.title}
+                  </Link>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                   {party.date.toLocaleDateString("ko-KR", {

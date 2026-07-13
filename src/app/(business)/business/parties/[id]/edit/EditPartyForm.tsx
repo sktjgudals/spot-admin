@@ -51,6 +51,12 @@ interface Defaults {
   images: string[];
   isActive: boolean;
   formFieldIds: string[];
+  businessId?: string;
+}
+
+interface BusinessItem {
+  id: string;
+  name: string;
 }
 
 export default function EditPartyForm({
@@ -58,11 +64,21 @@ export default function EditPartyForm({
   formFields,
   categories,
   defaults,
+  businesses,
+  apiPath = `/api/business/parties/${partyId}`,
+  backHref = "/business/parties",
+  uploadUrl = "/api/business/parties/media-upload-url",
+  formsHref = "/business/forms",
 }: {
   partyId: string;
   formFields: FormFieldItem[];
   categories: CategoryItem[];
   defaults: Defaults;
+  businesses?: BusinessItem[];
+  apiPath?: string;
+  backHref?: string;
+  uploadUrl?: string;
+  formsHref?: string | null;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -82,7 +98,7 @@ export default function EditPartyForm({
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const res = await fetch(`/api/business/parties/${partyId}`, {
+    const res = await fetch(apiPath, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -94,7 +110,7 @@ export default function EditPartyForm({
 
     if (res.ok) {
       toast.success("파티가 수정되었습니다");
-      router.push("/business/parties");
+      router.push(backHref);
       router.refresh();
     } else {
       const err = await res.json().catch(() => ({}));
@@ -109,7 +125,7 @@ export default function EditPartyForm({
           variant="ghost"
           size="icon"
           nativeButton={false}
-          render={<Link href="/business/parties" />}
+          render={<Link href={backHref} />}
         >
           <ArrowLeft className="w-4 h-4" />
         </Button>
@@ -141,6 +157,27 @@ export default function EditPartyForm({
             <p className="text-xs text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
               운영 주체는 업체입니다. 앱에는 업체 프로필만 노출됩니다.
             </p>
+
+            {businesses && businesses.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>연결 업체 *</Label>
+                <Select
+                  value={form.businessId || ""}
+                  onValueChange={(v) => v && set("businessId", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="업체 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businesses.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <Label>파티명 *</Label>
@@ -262,7 +299,7 @@ export default function EditPartyForm({
                 mode="single"
                 value={form.coverImage}
                 onChange={(url) => set("coverImage", url)}
-                uploadUrl="/api/business/parties/media-upload-url"
+                uploadUrl={uploadUrl}
               />
             </div>
 
@@ -272,7 +309,7 @@ export default function EditPartyForm({
                 mode="multiple"
                 value={form.images}
                 onChange={(urls) => set("images", urls)}
-                uploadUrl="/api/business/parties/media-upload-url"
+                uploadUrl={uploadUrl}
                 maxFiles={10}
               />
             </div>
@@ -281,9 +318,11 @@ export default function EditPartyForm({
             <div className="space-y-2 rounded-md border p-3">
               <div className="flex items-center justify-between">
                 <Label>신청 폼 질문</Label>
-                <Link href="/business/forms" className="text-xs text-primary underline">
-                  질문 관리
-                </Link>
+                {formsHref && (
+                  <Link href={formsHref} className="text-xs text-primary underline">
+                    질문 관리
+                  </Link>
+                )}
               </div>
               {formFields.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
