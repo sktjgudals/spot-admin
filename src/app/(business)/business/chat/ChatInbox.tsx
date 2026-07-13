@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Loader2, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
+import { fetchJson } from "@/lib/fetch-json";
+import { queryKeys } from "@/lib/query-keys";
 
 interface BizRoom {
   id: string;
@@ -47,22 +50,27 @@ function formatTime(iso: string): string {
 }
 
 export default function ChatInbox() {
-  const [rooms, setRooms] = useState<BizRoom[] | null>(null);
+  const queryClient = useQueryClient();
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
 
-  const loadRooms = useCallback(async () => {
-    const res = await fetch("/api/business/chat/rooms").catch(() => null);
-    if (!res?.ok) return;
-    setRooms((await res.json()) as BizRoom[]);
-  }, []);
-
-  useEffect(() => {
-    void loadRooms();
-    const timer = setInterval(loadRooms, ROOMS_POLL_MS);
-    return () => clearInterval(timer);
-  }, [loadRooms]);
+  const { data: rooms = null } = useQuery({
+    queryKey: queryKeys.chatRooms,
+    queryFn: () => fetchJson<BizRoom[]>("/api/business/chat/rooms"),
+    refetchInterval: ROOMS_POLL_MS,
+  });
 
   const activeRoom = rooms?.find((r) => r.id === activeRoomId) ?? null;
+
+  const markRoomReadLocally = useCallback(
+    (roomId: string) => {
+      queryClient.setQueryData<BizRoom[]>(queryKeys.chatRooms, (prev) =>
+        prev?.map((r) =>
+          r.id === roomId ? { ...r, unreadCount: 0 } : r,
+        ) ?? prev,
+      );
+    },
+    [queryClient],
+  );
 
   return (
     <Card className="flex flex-1 min-h-0 overflow-hidden p-0">
@@ -86,12 +94,7 @@ export default function ChatInbox() {
                 key={room.id}
                 onClick={() => {
                   setActiveRoomId(room.id);
-                  // 목록 배지 낙관적 리셋 (서버 반영은 대화 로드가 수행)
-                  setRooms((prev) =>
-                    prev?.map((r) =>
-                      r.id === room.id ? { ...r, unreadCount: 0 } : r,
-                    ) ?? null,
-                  );
+                  markRoomReadLocally(room.id);
                 }}
                 className={cn(
                   "w-full text-left px-4 py-3 border-b hover:bg-muted/50 transition-colors",
@@ -132,13 +135,7 @@ export default function ChatInbox() {
         <ChatThread
           key={activeRoom.id}
           room={activeRoom}
-          onRead={() =>
-            setRooms((prev) =>
-              prev?.map((r) =>
-                r.id === activeRoom.id ? { ...r, unreadCount: 0 } : r,
-              ) ?? null,
-            )
-          }
+          onRead={() => markRoomReadLocally(activeRoom.id)}
         />
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-2">

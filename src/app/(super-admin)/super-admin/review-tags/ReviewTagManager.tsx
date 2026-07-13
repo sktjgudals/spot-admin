@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Trash2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fetchJson } from "@/lib/fetch-json";
+import { queryKeys } from "@/lib/query-keys";
 
 interface CategoryItem {
   id: string;
@@ -40,9 +42,18 @@ export default function ReviewTagManager({
   initialCategories,
   initialTags,
 }: Props) {
-  const router = useRouter();
-  const [categories, setCategories] = useState(initialCategories);
-  const [tags, setTags] = useState(initialTags);
+  const queryClient = useQueryClient();
+  const { data: categories = [] } = useQuery({
+    queryKey: queryKeys.reviewTagCategories,
+    queryFn: () =>
+      fetchJson<CategoryItem[]>("/api/super-admin/review-tag-categories"),
+    initialData: initialCategories,
+  });
+  const { data: tags = [] } = useQuery({
+    queryKey: queryKeys.reviewTags,
+    queryFn: () => fetchJson<TagItem[]>("/api/super-admin/review-tags"),
+    initialData: initialTags,
+  });
 
   // 새 태그 폼
   const [label, setLabel] = useState("");
@@ -55,17 +66,16 @@ export default function ReviewTagManager({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
 
-  function sortCategories(list: CategoryItem[]) {
-    return [...list].sort((a, b) => a.sortOrder - b.sortOrder);
+  const selectedCategoryId = categoryId || categories[0]?.id || "";
+
+  async function invalidateCategories() {
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.reviewTagCategories,
+    });
   }
 
-  function sortTags(list: TagItem[], cats: CategoryItem[]) {
-    const order = cats.map((c) => c.id);
-    return [...list].sort(
-      (a, b) =>
-        order.indexOf(a.categoryId) - order.indexOf(b.categoryId) ||
-        a.sortOrder - b.sortOrder
-    );
+  async function invalidateTags() {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.reviewTags });
   }
 
   // ---------- 카테고리 ----------
@@ -78,22 +88,22 @@ export default function ReviewTagManager({
     }
     setCreatingCategory(true);
     try {
-      const res = await fetch("/api/super-admin/review-tag-categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          sortOrder:
-            (categories[categories.length - 1]?.sortOrder ?? -1) + 1,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? "등록 실패");
-      setCategories((prev) => sortCategories([...prev, data]));
+      const data = await fetchJson<CategoryItem>(
+        "/api/super-admin/review-tag-categories",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            sortOrder:
+              (categories[categories.length - 1]?.sortOrder ?? -1) + 1,
+          }),
+        },
+      );
       if (!categoryId) setCategoryId(data.id);
       setNewCategoryName("");
       toast.success("카테고리가 등록되었습니다");
-      router.refresh();
+      await invalidateCategories();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "등록 실패");
     } finally {
@@ -111,11 +121,8 @@ export default function ReviewTagManager({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "수정 실패");
-      setCategories((prev) =>
-        sortCategories(prev.map((c) => (c.id === id ? data : c)))
-      );
       toast.success("수정되었습니다");
-      router.refresh();
+      await invalidateCategories();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "수정 실패");
     } finally {
@@ -135,9 +142,9 @@ export default function ReviewTagManager({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message ?? "삭제 실패");
       }
-      setCategories((prev) => prev.filter((c) => c.id !== item.id));
       toast.success("삭제되었습니다");
-      router.refresh();
+      await invalidateCategories();
+      await invalidateTags();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "삭제 실패");
     } finally {
@@ -152,7 +159,7 @@ export default function ReviewTagManager({
       toast.error("태그 문구를 입력해주세요");
       return;
     }
-    if (!categoryId) {
+    if (!selectedCategoryId) {
       toast.error("카테고리를 선택해주세요");
       return;
     }
@@ -161,15 +168,18 @@ export default function ReviewTagManager({
       const res = await fetch("/api/super-admin/review-tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: label.trim(), categoryId, sortOrder }),
+        body: JSON.stringify({
+          label: label.trim(),
+          categoryId: selectedCategoryId,
+          sortOrder,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "등록 실패");
-      setTags((prev) => sortTags([...prev, data], categories));
       setLabel("");
       setSortOrder(0);
       toast.success("태그가 등록되었습니다");
-      router.refresh();
+      await invalidateTags();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "등록 실패");
     } finally {
@@ -187,10 +197,7 @@ export default function ReviewTagManager({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "수정 실패");
-      setTags((prev) =>
-        sortTags(prev.map((t) => (t.id === id ? data : t)), categories)
-      );
-      router.refresh();
+      await invalidateTags();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "수정 실패");
     } finally {
@@ -209,9 +216,8 @@ export default function ReviewTagManager({
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message ?? "삭제 실패");
       }
-      setTags((prev) => prev.filter((t) => t.id !== item.id));
       toast.success("삭제되었습니다");
-      router.refresh();
+      await invalidateTags();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "삭제 실패");
     } finally {
@@ -270,7 +276,7 @@ export default function ReviewTagManager({
             <div className="space-y-1.5">
               <Label>카테고리</Label>
               <Select
-                value={categoryId}
+                value={selectedCategoryId}
                 onValueChange={(v) => v && setCategoryId(v)}
               >
                 <SelectTrigger>

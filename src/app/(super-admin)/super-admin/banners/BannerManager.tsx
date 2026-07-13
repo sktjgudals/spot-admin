@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ImagePlus, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { fetchJson } from "@/lib/fetch-json";
+import { queryKeys } from "@/lib/query-keys";
 
 interface BannerItem {
   id: string;
@@ -25,15 +27,24 @@ interface Props {
 }
 
 export default function BannerManager({ initialBanners }: Props) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [banners, setBanners] = useState(initialBanners);
+  const { data: banners = [] } = useQuery({
+    queryKey: queryKeys.banners,
+    queryFn: () => fetchJson<BannerItem[]>("/api/super-admin/banners"),
+    initialData: initialBanners,
+  });
+
   const [title, setTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  async function invalidate() {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.banners });
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -73,12 +84,11 @@ export default function BannerManager({ initialBanners }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "등록 실패");
-      setBanners((prev) => [...prev, data]);
       setTitle("");
       setLinkUrl("");
       setImageUrl("");
       toast.success("배너가 등록되었습니다");
-      router.refresh();
+      await invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "등록 실패");
     } finally {
@@ -96,10 +106,7 @@ export default function BannerManager({ initialBanners }: Props) {
       toast.error("변경 실패");
       return;
     }
-    setBanners((prev) =>
-      prev.map((b) => (b.id === banner.id ? { ...b, isActive: !b.isActive } : b))
-    );
-    router.refresh();
+    await invalidate();
   }
 
   async function handleDelete(banner: BannerItem) {
@@ -111,9 +118,8 @@ export default function BannerManager({ initialBanners }: Props) {
       toast.error("삭제 실패");
       return;
     }
-    setBanners((prev) => prev.filter((b) => b.id !== banner.id));
     toast.success("삭제되었습니다");
-    router.refresh();
+    await invalidate();
   }
 
   return (

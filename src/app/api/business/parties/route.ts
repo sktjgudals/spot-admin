@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
-import {
-  assertBusinessHost,
-  getBusinessHostCandidates,
-} from "@/lib/business-hosts";
 
 function parseImages(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -33,32 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "업체를 찾을 수 없습니다" }, { status: 404 });
   }
 
-  // 호스트: body.adminId 우선, 없으면 후보 1명일 때만 자동 지정
-  let hostUserId: string | null = null;
-  if (typeof body.adminId === "string" && body.adminId) {
-    const hostCheck = await assertBusinessHost(businessId, body.adminId);
-    if (!hostCheck.ok) {
-      return NextResponse.json({ message: hostCheck.message }, { status: 400 });
-    }
-    hostUserId = body.adminId;
-  } else {
-    const candidates = await getBusinessHostCandidates(businessId);
-    if (candidates.length === 1) {
-      hostUserId = candidates[0].id;
-    }
-  }
 
-  if (!hostUserId) {
-    return NextResponse.json(
-      {
-        message:
-          "파티 호스트를 지정할 수 없습니다. 담당자를 선택하거나, 업체 contactEmail에 spot 앱 계정 이메일을 설정해 주세요.",
-      },
-      { status: 400 },
-    );
-  }
-
-  // 카테고리 선택 시 이름을 category(비정규화·구버전 앱 호환)에 함께 저장
   let categoryName: string | null = body.category || null;
   if (body.categoryId) {
     const category = await prisma.partyCategory.findUnique({
@@ -89,7 +60,6 @@ export async function POST(req: NextRequest) {
       coverImage: body.coverImage || null,
       images,
       isActive: body.isActive ?? true,
-      adminId: hostUserId,
       businessId,
     },
   });

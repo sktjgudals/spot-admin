@@ -6,28 +6,81 @@ interface Params {
   params: Promise<{ businessId: string }>;
 }
 
-/**
- * 업체 정보 수정 (슈퍼 어드민 전용).
- * 현재는 중개 수수료율(feeRateBps)만 다룬다. 파트너 업체는 낮게 설정.
- * feeRateBps: basis points, 0~10000 (1000 = 10%).
- */
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { error } = await requireRole("SUPER_ADMIN");
   if (error) return error;
 
   const { businessId } = await params;
   const body = await req.json().catch(() => null);
-
-  const raw = body?.feeRateBps;
-  if (raw === undefined || raw === null) {
-    return NextResponse.json({ message: "feeRateBps는 필수입니다" }, { status: 400 });
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ message: "INVALID_BODY" }, { status: 400 });
   }
-  const feeRateBps = Number(raw);
-  if (!Number.isInteger(feeRateBps) || feeRateBps < 0 || feeRateBps > 10000) {
-    return NextResponse.json(
-      { message: "feeRateBps는 0~10000 사이 정수여야 합니다 (1000 = 10%)" },
-      { status: 400 },
-    );
+
+  const data: {
+    feeRateBps?: number;
+    kind?: "INDIVIDUAL" | "COMPANY";
+    name?: string;
+    tagline?: string | null;
+    description?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    address?: string | null;
+    businessNumber?: string | null;
+  } = {};
+
+  if ("feeRateBps" in body) {
+    const feeRateBps = Number(body.feeRateBps);
+    if (!Number.isInteger(feeRateBps) || feeRateBps < 0 || feeRateBps > 10000) {
+      return NextResponse.json(
+        { message: "feeRateBps는 0~10000 사이 정수여야 합니다 (1000 = 10%)" },
+        { status: 400 },
+      );
+    }
+    data.feeRateBps = feeRateBps;
+  }
+
+  if ("kind" in body) {
+    if (body.kind !== "INDIVIDUAL" && body.kind !== "COMPANY") {
+      return NextResponse.json(
+        { message: "kind는 INDIVIDUAL | COMPANY" },
+        { status: 400 },
+      );
+    }
+    data.kind = body.kind;
+  }
+
+  if ("name" in body) {
+    if (typeof body.name !== "string" || !body.name.trim()) {
+      return NextResponse.json({ message: "업체명은 필수입니다" }, { status: 400 });
+    }
+    data.name = body.name.trim();
+  }
+
+  const nullableString = (key: keyof typeof data) => {
+    if (!(key in body)) return;
+    const v = body[key];
+    if (v === null || v === "") {
+      (data as Record<string, unknown>)[key] = null;
+    } else if (typeof v === "string") {
+      (data as Record<string, unknown>)[key] = v.trim() || null;
+    } else {
+      throw new Error(`INVALID_${String(key)}`);
+    }
+  };
+
+  try {
+    nullableString("tagline");
+    nullableString("description");
+    nullableString("contactEmail");
+    nullableString("contactPhone");
+    nullableString("address");
+    nullableString("businessNumber");
+  } catch {
+    return NextResponse.json({ message: "INVALID_BODY" }, { status: 400 });
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ message: "수정할 필드가 없습니다" }, { status: 400 });
   }
 
   const business = await prisma.business.findUnique({ where: { id: businessId } });
@@ -35,8 +88,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
   const updated = await prisma.business.update({
     where: { id: businessId },
-    data: { feeRateBps },
-    select: { id: true, name: true, feeRateBps: true },
+    data,
+    select: {
+      id: true,
+      name: true,
+      feeRateBps: true,
+      kind: true,
+      tagline: true,
+      description: true,
+      contactEmail: true,
+      contactPhone: true,
+      address: true,
+      businessNumber: true,
+    },
   });
 
   return NextResponse.json(updated);

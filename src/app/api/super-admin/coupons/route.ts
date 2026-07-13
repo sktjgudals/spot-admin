@@ -2,6 +2,30 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
 
+/** 쿠폰 템플릿 목록 (발급 수 포함) */
+export async function GET() {
+  const { error } = await requireRole("SUPER_ADMIN");
+  if (error) return error;
+
+  const templates = await prisma.couponTemplate.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { _count: { select: { coupons: true } } },
+  });
+
+  return NextResponse.json(
+    templates.map((t) => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      discountAmount: t.discountAmount,
+      validDays: t.validDays,
+      kind: t.kind,
+      isActive: t.isActive,
+      issuedCount: t._count.coupons,
+    })),
+  );
+}
+
 /** 쿠폰 템플릿 생성 — title·discountAmount 필수, validDays/kind/description 선택 */
 export async function POST(req: NextRequest) {
   const { error } = await requireRole("SUPER_ADMIN");

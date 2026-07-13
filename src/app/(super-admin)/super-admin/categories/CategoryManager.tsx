@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, Pin, PinOff, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { fetchJson } from "@/lib/fetch-json";
+import { queryKeys } from "@/lib/query-keys";
 
 interface CategoryItem {
   id: string;
@@ -31,13 +33,22 @@ interface Props {
 }
 
 export default function CategoryManager({ initialCategories }: Props) {
-  const router = useRouter();
-  const [categories, setCategories] = useState(initialCategories);
+  const queryClient = useQueryClient();
+  const { data: categories = [] } = useQuery({
+    queryKey: queryKeys.partyCategories,
+    queryFn: () =>
+      fetchJson<CategoryItem[]>("/api/super-admin/party-categories"),
+    initialData: initialCategories,
+  });
   const [name, setName] = useState("");
   const [status, setStatus] = useState<"FIXED" | "NORMAL">("NORMAL");
   const [sortOrder, setSortOrder] = useState(0);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function invalidate() {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.partyCategories });
+  }
 
   async function handleCreate() {
     if (!name.trim()) {
@@ -53,16 +64,11 @@ export default function CategoryManager({ initialCategories }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "등록 실패");
-      setCategories((prev) =>
-        [...prev, { ...data, partyCount: 0 }].sort(
-          (a, b) => a.sortOrder - b.sortOrder
-        )
-      );
       setName("");
       setStatus("NORMAL");
       setSortOrder(0);
       toast.success("카테고리가 등록되었습니다");
-      router.refresh();
+      await invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "등록 실패");
     } finally {
@@ -80,10 +86,7 @@ export default function CategoryManager({ initialCategories }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "수정 실패");
-      setCategories((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...data } : c))
-      );
-      router.refresh();
+      await invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "수정 실패");
     } finally {
@@ -107,9 +110,8 @@ export default function CategoryManager({ initialCategories }: Props) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message ?? "삭제 실패");
       }
-      setCategories((prev) => prev.filter((c) => c.id !== item.id));
       toast.success("삭제되었습니다");
-      router.refresh();
+      await invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "삭제 실패");
     } finally {

@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import {
   DashboardMonthChart,
+  PartyViewsCompare,
   type DailySeriesPoint,
+  type PartyViewSeries,
 } from "./DashboardMonthChart";
 
 /** Asia/Seoul 기준 이번 달 1일 00:00 ~ 다음달 1일 00:00 (UTC Date) */
@@ -65,6 +67,7 @@ export default async function BusinessDashboard() {
     monthViews,
     applicationRows,
     viewRows,
+    parties,
   ] = await Promise.all([
     prisma.business.findUnique({
       where: { id: businessId },
@@ -105,14 +108,19 @@ export default async function BusinessDashboard() {
         party: { businessId },
         date: { gte: start, lt: end },
       },
-      select: { date: true, viewCount: true },
+      select: { date: true, viewCount: true, partyId: true },
+    }),
+    prisma.party.findMany({
+      where: { businessId },
+      select: { id: true, title: true },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
   const buckets = buildDayBuckets(start, end);
+  const dateKeys = [...buckets.keys()];
 
   for (const row of applicationRows) {
-    // createdAt → KST 캘린더 날짜
     const kstKey = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Seoul",
       year: "numeric",
@@ -129,6 +137,32 @@ export default async function BusinessDashboard() {
     if (b) b.views += row.viewCount;
   }
 
+  const partyMap = new Map<string, PartyViewSeries>();
+  for (const p of parties) {
+    partyMap.set(p.id, {
+      partyId: p.id,
+      title: p.title,
+      totalViews: 0,
+      byDate: {},
+    });
+  }
+  for (const row of viewRows) {
+    let series = partyMap.get(row.partyId);
+    if (!series) {
+      series = {
+        partyId: row.partyId,
+        title: `(삭제된 파티)`,
+        totalViews: 0,
+        byDate: {},
+      };
+      partyMap.set(row.partyId, series);
+    }
+    const key = row.date.toISOString().slice(0, 10);
+    series.byDate[key] = (series.byDate[key] ?? 0) + row.viewCount;
+    series.totalViews += row.viewCount;
+  }
+
+  const partySeries = [...partyMap.values()].filter((p) => p.totalViews > 0);
   const chartData = [...buckets.values()];
   const monthViewTotal = monthViews._sum.viewCount ?? 0;
   const feePercent = ((business?.feeRateBps ?? 1000) / 100).toLocaleString(
@@ -142,7 +176,7 @@ export default async function BusinessDashboard() {
       value: totalParties,
       sub: "등록된 파티 수",
       icon: PartyPopper,
-      color: "text-purple-500",
+      color: "text-primary",
     },
     {
       title: "이번 달 신청",
@@ -225,8 +259,7 @@ export default async function BusinessDashboard() {
             이번 달 신청 · 조회 ({year}.{String(month).padStart(2, "0")})
           </CardTitle>
           <CardDescription>
-            일별 신청 건수와 파티 상세 조회수입니다. 조회수는 앱에서 상세를 연
-            시점부터 집계됩니다.
+            일별 신청 건수와 파티 상세 조회수(합계)입니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -237,6 +270,19 @@ export default async function BusinessDashboard() {
           ) : (
             <DashboardMonthChart data={chartData} />
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">파티별 조회 비교</CardTitle>
+          <CardDescription>
+            체크한 파티의 일별 조회수를 겹쳐 봅니다. 기본으로 상위 5개 파티가
+            선택됩니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PartyViewsCompare dateKeys={dateKeys} parties={partySeries} />
         </CardContent>
       </Card>
     </div>

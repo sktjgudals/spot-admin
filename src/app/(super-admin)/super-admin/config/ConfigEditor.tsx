@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Card,
@@ -12,6 +12,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { fetchJson } from "@/lib/fetch-json";
+import { queryKeys } from "@/lib/query-keys";
 
 interface Setting {
   key: string;
@@ -20,27 +22,38 @@ interface Setting {
 }
 
 export default function ConfigEditor({ initial }: { initial: Setting[] }) {
-  const router = useRouter();
-  const [rows, setRows] = useState<Setting[]>(initial);
+  const queryClient = useQueryClient();
+  const { data: serverRows = [] } = useQuery({
+    queryKey: queryKeys.config,
+    queryFn: () => fetchJson<Setting[]>("/api/super-admin/config"),
+    initialData: initial,
+  });
+  const [rows, setRows] = useState<Setting[]>(serverRows);
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [syncedFrom, setSyncedFrom] = useState(serverRows);
+
+  if (serverRows !== syncedFrom) {
+    setSyncedFrom(serverRows);
+    setRows(serverRows);
+  }
 
   const setValue = (key: string, value: string) =>
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, value } : r)));
 
   const save = async (row: Setting) => {
     setSavingKey(row.key);
-    const res = await fetch("/api/super-admin/config", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: row.key, value: row.value }),
-    });
-    setSavingKey(null);
-    if (res.ok) {
+    try {
+      await fetchJson("/api/super-admin/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: row.key, value: row.value }),
+      });
       toast.success(`${row.key} 저장됨`);
-      router.refresh();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      toast.error(err.message ?? "저장에 실패했습니다");
+      await queryClient.invalidateQueries({ queryKey: queryKeys.config });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "저장에 실패했습니다");
+    } finally {
+      setSavingKey(null);
     }
   };
 

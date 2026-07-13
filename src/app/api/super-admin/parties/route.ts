@@ -7,16 +7,31 @@ export async function POST(req: NextRequest) {
   if (error) return error;
 
   const body = await req.json().catch(() => null);
-  if (!body?.title || !body?.description || !body?.date || !body?.location || !body?.adminId) {
-    return NextResponse.json({ message: "필수 항목 누락" }, { status: 400 });
+  if (
+    !body?.title ||
+    !body?.description ||
+    !body?.date ||
+    !body?.location ||
+    !body?.businessId
+  ) {
+    return NextResponse.json(
+      {
+        message:
+          "필수 항목 누락 (title, description, date, location, businessId)",
+      },
+      { status: 400 },
+    );
   }
 
-  const host = await prisma.user.findUnique({ where: { id: body.adminId } });
-  if (!host) {
-    return NextResponse.json({ message: "호스트 유저를 찾을 수 없습니다" }, { status: 404 });
+  const business = await prisma.business.findUnique({
+    where: { id: body.businessId },
+    select: { id: true, name: true },
+  });
+  if (!business) {
+    return NextResponse.json({ message: "업체를 찾을 수 없습니다" }, { status: 404 });
   }
 
-  // 카테고리 선택 시 이름을 category(비정규화·구버전 앱 호환)에 함께 저장
+
   let categoryName: string | null = null;
   if (body.categoryId) {
     const category = await prisma.partyCategory.findUnique({
@@ -48,8 +63,7 @@ export async function POST(req: NextRequest) {
             (u: unknown): u is string => typeof u === "string" && u.length > 0,
           )
         : [],
-      adminId: body.adminId,
-      businessId: body.businessId || null,
+      businessId: business.id,
     },
   });
 

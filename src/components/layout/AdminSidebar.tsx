@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Users,
@@ -25,7 +26,9 @@ import {
   Inbox,
   Ticket,
 } from "lucide-react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { clearSessionAndRedirect } from "@/lib/auth-session";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -78,15 +81,20 @@ interface InnerProps extends Props {
 
 function SidebarInner({ role, name, email, businessName, onClose }: InnerProps) {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const navItems = role === "SUPER_ADMIN" ? superAdminNav : businessNav;
+
+  const handleLogout = () => {
+    void clearSessionAndRedirect({ signOut, queryClient });
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* 로고 */}
       <div className="px-4 py-5 border-b shrink-0">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <span className="text-primary-foreground font-bold text-sm">D</span>
+          <div className="w-8 h-8 rounded-lg overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
+            <Image src="/dopa-logo.png" alt="Dopa" width={32} height={32} className="object-contain" />
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-sm leading-none">Dopa Admin</p>
@@ -139,7 +147,7 @@ function SidebarInner({ role, name, email, businessName, onClose }: InnerProps) 
           variant="ghost"
           size="sm"
           className="w-full justify-start text-muted-foreground hover:text-destructive px-3"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={handleLogout}
         >
           <LogOut className="w-4 h-4 mr-2" />
           로그아웃
@@ -180,8 +188,8 @@ export function MobileHeader(props: Props) {
       </Sheet>
 
       <div className="ml-3 flex items-center gap-2 min-w-0">
-        <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center shrink-0">
-          <span className="text-primary-foreground font-bold text-[11px]">D</span>
+        <div className="w-6 h-6 rounded-md overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
+          <Image src="/dopa-logo.png" alt="Dopa" width={24} height={24} className="object-contain" />
         </div>
         <span className="font-semibold text-sm shrink-0">Dopa Admin</span>
         {props.businessName && (
