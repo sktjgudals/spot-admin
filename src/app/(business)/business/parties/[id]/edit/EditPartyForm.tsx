@@ -36,12 +36,6 @@ interface CategoryItem {
   name: string;
 }
 
-interface HostCandidate {
-  id: string;
-  nickname: string;
-  email: string;
-}
-
 interface Defaults {
   title: string;
   description: string;
@@ -57,20 +51,17 @@ interface Defaults {
   images: string[];
   isActive: boolean;
   formFieldIds: string[];
-  adminId: string;
 }
 
 export default function EditPartyForm({
   partyId,
   formFields,
   categories,
-  hostCandidates,
   defaults,
 }: {
   partyId: string;
   formFields: FormFieldItem[];
   categories: CategoryItem[];
-  hostCandidates: HostCandidate[];
   defaults: Defaults;
 }) {
   const router = useRouter();
@@ -90,10 +81,6 @@ export default function EditPartyForm({
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.adminId) {
-      toast.error("담당자를 선택하세요");
-      return;
-    }
     setLoading(true);
     const res = await fetch(`/api/business/parties/${partyId}`, {
       method: "PATCH",
@@ -151,34 +138,9 @@ export default function EditPartyForm({
               />
             </label>
 
-            <div className="space-y-1.5">
-              <Label>담당자 (호스트) *</Label>
-              <Select
-                value={form.adminId || undefined}
-                onValueChange={(v) => v && set("adminId", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="담당자 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {hostCandidates.length === 0 ? (
-                    <SelectItem value="_none" disabled>
-                      연결 가능한 담당자가 없습니다
-                    </SelectItem>
-                  ) : (
-                    hostCandidates.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.nickname} ({u.email})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                업체 어드민(패널) 이메일과 일치하는 spot 앱 계정, 또는 업체에
-                지정된 ADMIN 유저 중에서 선택합니다.
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
+              운영 주체는 업체입니다. 앱에는 업체 프로필만 노출됩니다.
+            </p>
 
             <div className="space-y-1.5">
               <Label>파티명 *</Label>

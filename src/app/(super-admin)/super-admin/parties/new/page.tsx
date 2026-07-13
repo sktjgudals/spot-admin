@@ -5,17 +5,11 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
 export default async function NewPartyPage() {
-  const [businesses, hostCandidates, categories] = await Promise.all([
+  const [businesses, categories] = await Promise.all([
     prisma.business.findMany({
       where: { status: "ACTIVE" },
       orderBy: { name: "asc" },
       select: { id: true, name: true, contactEmail: true },
-    }),
-    prisma.user.findMany({
-      where: { role: { in: ["ADMIN", "SUPER_ADMIN"] } },
-      orderBy: { nickname: "asc" },
-      take: 100,
-      select: { id: true, nickname: true, email: true },
     }),
     prisma.partyCategory.findMany({
       where: { isActive: true },
@@ -37,11 +31,7 @@ export default async function NewPartyPage() {
         </Button>
         <h1 className="text-2xl font-bold">파티 등록</h1>
       </div>
-      <SuperAdminPartyForm
-        businesses={businesses}
-        hostCandidates={hostCandidates}
-        categories={categories}
-      />
+      <SuperAdminPartyForm businesses={businesses} categories={categories} />
     </div>
   );
 }

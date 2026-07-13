@@ -32,8 +32,7 @@ const schema = z.object({
   admissionMode: z.enum(["INSTANT", "APPROVAL"]),
   coverImage: z.string().optional(),
   images: z.array(z.string()).optional(),
-  adminId: z.string().min(1, "호스트를 선택하세요"),
-  businessId: z.string().optional(),
+  businessId: z.string().min(1, "업체를 선택하세요"),
   categoryId: z.string().optional(),
 });
 
@@ -41,13 +40,11 @@ type FormValues = z.infer<typeof schema>;
 
 interface Props {
   businesses: { id: string; name: string; contactEmail: string | null }[];
-  hostCandidates: { id: string; nickname: string; email: string }[];
   categories: { id: string; name: string }[];
 }
 
 export default function SuperAdminPartyForm({
   businesses,
-  hostCandidates,
   categories,
 }: Props) {
   const router = useRouter();
@@ -210,36 +207,16 @@ export default function SuperAdminPartyForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label>호스트 (spot 유저) *</Label>
-            <Select onValueChange={(v) => v && setValue("adminId", v as string)}>
+            <Label>연결 업체 *</Label>
+            <Select
+              onValueChange={(v) =>
+                v && setValue("businessId", v as string, { shouldValidate: true })
+              }
+            >
               <SelectTrigger>
-                <SelectValue placeholder="호스트 선택" />
+                <SelectValue placeholder="업체 선택" />
               </SelectTrigger>
               <SelectContent>
-                {hostCandidates.length === 0 ? (
-                  <SelectItem value="_none" disabled>
-                    ADMIN 또는 SUPER_ADMIN 유저가 없습니다
-                  </SelectItem>
-                ) : (
-                  hostCandidates.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.nickname} ({u.email})
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            {errors.adminId && <p className="text-xs text-destructive">{errors.adminId.message}</p>}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>연결 업체 (선택)</Label>
-            <Select onValueChange={(v) => v && setValue("businessId", v === "none" ? undefined : (v as string))}>
-              <SelectTrigger>
-                <SelectValue placeholder="업체 미연결" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">미연결</SelectItem>
                 {businesses.map((b) => (
                   <SelectItem key={b.id} value={b.id}>
                     {b.name}
@@ -247,6 +224,12 @@ export default function SuperAdminPartyForm({
                 ))}
               </SelectContent>
             </Select>
+            {errors.businessId && (
+              <p className="text-xs text-destructive">{errors.businessId.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              운영 주체는 업체입니다. 앱에는 업체 프로필만 노출됩니다.
+            </p>
           </div>
 
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">

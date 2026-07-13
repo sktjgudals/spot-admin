@@ -40,7 +40,6 @@ const schema = z.object({
   admissionMode: z.enum(["INSTANT", "APPROVAL"]),
   coverImage: z.string().optional(),
   images: z.array(z.string()).optional(),
-  adminId: z.string().min(1, "담당자를 선택하세요"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -57,17 +56,7 @@ interface CategoryItem {
   name: string;
 }
 
-interface HostCandidate {
-  id: string;
-  nickname: string;
-  email: string;
-}
-
-export default function NewPartyForm({
-  hostCandidates,
-}: {
-  hostCandidates: HostCandidate[];
-}) {
+export default function NewPartyForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formFields, setFormFields] = useState<FormFieldItem[]>([]);
@@ -104,7 +93,6 @@ export default function NewPartyForm({
       priceFemale: 0,
       coverImage: "",
       images: [],
-      adminId: hostCandidates.length === 1 ? hostCandidates[0].id : "",
     },
   });
 
@@ -112,12 +100,6 @@ export default function NewPartyForm({
   const images = watch("images") ?? [];
 
   const onSubmit = async (data: FormValues) => {
-    if (hostCandidates.length === 0) {
-      toast.error(
-        "연결 가능한 담당자가 없습니다. 앱 계정 이메일을 업체 AdminAccount/contactEmail과 맞춰 주세요.",
-      );
-      return;
-    }
     setLoading(true);
     const res = await fetch("/api/business/parties", {
       method: "POST",
@@ -156,39 +138,9 @@ export default function NewPartyForm({
         </CardHeader>
         <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>담당자 (호스트) *</Label>
-              <Select
-                value={watch("adminId") || undefined}
-                onValueChange={(v) => v && setValue("adminId", v, { shouldValidate: true })}
-                disabled={hostCandidates.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="담당자 선택" />
-                </SelectTrigger>
-                <SelectContent>
-                  {hostCandidates.length === 0 ? (
-                    <SelectItem value="_none" disabled>
-                      연결 가능한 담당자가 없습니다
-                    </SelectItem>
-                  ) : (
-                    hostCandidates.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.nickname} ({u.email})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-              {errors.adminId && (
-                <p className="text-xs text-destructive">{errors.adminId.message}</p>
-              )}
-              <p className="text-xs text-muted-foreground">
-                {hostCandidates.length === 0
-                  ? "앱 계정 이메일을 업체 AdminAccount 또는 contactEmail과 맞추거나, 업체에 ADMIN 유저를 지정해 주세요."
-                  : "업체 어드민(패널) 이메일과 일치하는 spot 앱 계정, 또는 업체에 지정된 ADMIN 유저 중에서 선택합니다."}
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground rounded-md border bg-muted/40 px-3 py-2">
+              운영 주체는 업체입니다. 앱에는 업체 프로필만 노출됩니다.
+            </p>
 
             <div className="space-y-1.5">
               <Label>파티명 *</Label>
@@ -340,7 +292,7 @@ export default function NewPartyForm({
               <Button variant="outline" type="button" onClick={() => router.back()}>
                 취소
               </Button>
-              <Button type="submit" disabled={loading || hostCandidates.length === 0}>
+              <Button type="submit" disabled={loading}>
                 {loading ? "등록 중..." : "파티 등록"}
               </Button>
             </div>

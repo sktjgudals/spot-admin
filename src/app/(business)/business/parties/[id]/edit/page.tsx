@@ -1,6 +1,5 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getBusinessHostCandidates } from "@/lib/business-hosts";
 import { notFound } from "next/navigation";
 import EditPartyForm from "./EditPartyForm";
 
@@ -22,7 +21,7 @@ export default async function EditPartyPage({ params }: Props) {
 
   if (!party || party.businessId !== businessId) notFound();
 
-  const [formFields, categories, hostCandidates] = await Promise.all([
+  const [formFields, categories] = await Promise.all([
     prisma.businessFormField.findMany({
       where: { businessId, archived: false },
       orderBy: { order: "asc" },
@@ -33,7 +32,6 @@ export default async function EditPartyPage({ params }: Props) {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       select: { id: true, name: true },
     }),
-    getBusinessHostCandidates(businessId, { includeUserId: party.adminId }),
   ]);
 
   // datetime-local 입력용으로 로컬 타임존 기준 문자열 변환
@@ -46,7 +44,6 @@ export default async function EditPartyPage({ params }: Props) {
       partyId={party.id}
       formFields={formFields}
       categories={categories}
-      hostCandidates={hostCandidates}
       defaults={{
         title: party.title,
         description: party.description,
@@ -62,7 +59,6 @@ export default async function EditPartyPage({ params }: Props) {
         images: party.images ?? [],
         isActive: party.isActive,
         formFieldIds: party.formFields.map((f) => f.fieldId),
-        adminId: party.adminId,
       }}
     />
   );
