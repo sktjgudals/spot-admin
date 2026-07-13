@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
 
+/** 칭찬 태그 목록 */
+export async function GET() {
+  const { error } = await requireRole("SUPER_ADMIN");
+  if (error) return error;
+
+  const tags = await prisma.praiseTag.findMany({
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return NextResponse.json(
+    tags.map((t) => ({
+      id: t.id,
+      categoryId: t.categoryId,
+      label: t.label,
+      sortOrder: t.sortOrder,
+      isActive: t.isActive,
+    })),
+  );
+}
+
 /** 칭찬 태그 생성 — label 필수, categoryId 필수(PraiseTagCategory 참조), sortOrder 선택 */
 export async function POST(req: NextRequest) {
   const { error } = await requireRole("SUPER_ADMIN");

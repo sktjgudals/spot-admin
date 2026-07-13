@@ -13,13 +13,14 @@ export default function PartyVisibilityToggle({
   initialVisible: boolean;
 }) {
   const router = useRouter();
-  const [visible, setVisible] = useState(initialVisible);
+  const [optimistic, setOptimistic] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
+  const visible = optimistic ?? initialVisible;
 
   const toggle = async () => {
     const next = !visible;
     setSaving(true);
-    setVisible(next); // 낙관적
+    setOptimistic(next);
     const res = await fetch(`/api/business/parties/${partyId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -30,7 +31,7 @@ export default function PartyVisibilityToggle({
       toast.success(next ? "노출로 변경했습니다" : "비노출로 변경했습니다");
       router.refresh();
     } else {
-      setVisible(!next); // 롤백
+      setOptimistic(null);
       toast.error("변경에 실패했습니다");
     }
   };

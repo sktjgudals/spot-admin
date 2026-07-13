@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { fetchJson } from "@/lib/fetch-json";
+import { queryKeys } from "@/lib/query-keys";
 
 interface InquiryItem {
   id: string;
@@ -23,26 +25,31 @@ interface Props {
 }
 
 export default function InquiryList({ initialItems }: Props) {
-  const router = useRouter();
-  const [items, setItems] = useState(initialItems);
+  const queryClient = useQueryClient();
+  const { data: items = [] } = useQuery({
+    queryKey: queryKeys.inquiries,
+    queryFn: () => fetchJson<InquiryItem[]>("/api/super-admin/inquiries"),
+    initialData: initialItems,
+  });
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function toggle(item: InquiryItem) {
     setBusyId(item.id);
     try {
-      const res = await fetch(`/api/super-admin/inquiries/${item.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isResolved: !item.isResolved }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? "변경 실패");
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === item.id ? { ...i, isResolved: data.isResolved } : i
-        )
+      const data = await fetchJson<{ id: string; isResolved: boolean }>(
+        `/api/super-admin/inquiries/${item.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isResolved: !item.isResolved }),
+        },
       );
-      router.refresh();
+      queryClient.setQueryData<InquiryItem[]>(queryKeys.inquiries, (prev) =>
+        (prev ?? []).map((i) =>
+          i.id === item.id ? { ...i, isResolved: data.isResolved } : i,
+        ),
+      );
+      await queryClient.invalidateQueries({ queryKey: queryKeys.inquiries });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "변경 실패");
     } finally {
