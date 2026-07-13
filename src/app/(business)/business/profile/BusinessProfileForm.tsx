@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PartyImageUploader } from "@/components/party-image-uploader";
+import { fetchJson } from "@/lib/fetch-json";
+import { queryKeys } from "@/lib/query-keys";
 
 export type BusinessProfileInitial = {
   id: string;
@@ -21,31 +24,48 @@ export type BusinessProfileInitial = {
   activePartyCount: number;
 };
 
+function coversFrom(profile: BusinessProfileInitial): string[] {
+  if (profile.coverImages.length > 0) return profile.coverImages;
+  if (profile.coverUrl) return [profile.coverUrl];
+  return [];
+}
+
 export default function BusinessProfileForm({
   initial,
 }: {
   initial: BusinessProfileInitial;
 }) {
-  const initialCovers =
-    initial.coverImages.length > 0
-      ? initial.coverImages
-      : initial.coverUrl
-        ? [initial.coverUrl]
-        : [];
+  const queryClient = useQueryClient();
+  const { data: profile = initial } = useQuery({
+    queryKey: queryKeys.businessProfile,
+    queryFn: () =>
+      fetchJson<BusinessProfileInitial>("/api/business/profile"),
+    initialData: initial,
+  });
 
-  const [tagline, setTagline] = useState(initial.tagline ?? "");
-  const [description, setDescription] = useState(initial.description ?? "");
+  const [tagline, setTagline] = useState(profile.tagline ?? "");
+  const [description, setDescription] = useState(profile.description ?? "");
   const [participationGuide, setParticipationGuide] = useState(
-    initial.participationGuide ?? "",
+    profile.participationGuide ?? "",
   );
-  const [logoUrl, setLogoUrl] = useState(initial.logoUrl ?? "");
-  const [coverImages, setCoverImages] = useState<string[]>(initialCovers);
+  const [logoUrl, setLogoUrl] = useState(profile.logoUrl ?? "");
+  const [coverImages, setCoverImages] = useState<string[]>(coversFrom(profile));
   const [saving, setSaving] = useState(false);
+  const [syncedProfile, setSyncedProfile] = useState(profile);
+
+  if (profile !== syncedProfile) {
+    setSyncedProfile(profile);
+    setTagline(profile.tagline ?? "");
+    setDescription(profile.description ?? "");
+    setParticipationGuide(profile.participationGuide ?? "");
+    setLogoUrl(profile.logoUrl ?? "");
+    setCoverImages(coversFrom(profile));
+  }
 
   async function onSave() {
     setSaving(true);
     try {
-      const res = await fetch("/api/business/profile", {
+      await fetchJson("/api/business/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -56,11 +76,10 @@ export default function BusinessProfileForm({
           coverImages,
         }),
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message ?? "저장 실패");
-      }
       toast.success("업체 프로필이 저장되었습니다");
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.businessProfile,
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "저장 실패");
     } finally {
@@ -75,7 +94,7 @@ export default function BusinessProfileForm({
       <div className="space-y-5">
         <div className="space-y-1.5">
           <Label>업체명</Label>
-          <Input value={initial.name} disabled />
+          <Input value={profile.name} disabled />
           <p className="text-xs text-muted-foreground">
             업체명은 슈퍼 어드민만 변경할 수 있습니다.
           </p>
@@ -157,14 +176,14 @@ export default function BusinessProfileForm({
       </div>
 
       <PhoneMockup
-        name={initial.name}
+        name={profile.name}
         tagline={tagline}
         description={description}
         participationGuide={participationGuide}
         logoUrl={logoUrl || null}
         coverUrl={previewCover}
         coverCount={coverImages.length}
-        activePartyCount={initial.activePartyCount}
+        activePartyCount={profile.activePartyCount}
       />
     </div>
   );

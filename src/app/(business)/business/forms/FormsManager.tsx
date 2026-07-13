@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -38,6 +38,8 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchJson } from "@/lib/fetch-json";
+import { queryKeys } from "@/lib/query-keys";
 
 type FieldType = "TEXT" | "TEXTAREA" | "NUMBER" | "SELECT" | "MULTISELECT";
 
@@ -65,8 +67,13 @@ export default function FormsManager({
 }: {
   initialFields: FormFieldItem[];
 }) {
-  const router = useRouter();
-  const [fields, setFields] = useState<FormFieldItem[]>(initialFields);
+  const queryClient = useQueryClient();
+  const { data: serverFields = [] } = useQuery({
+    queryKey: queryKeys.businessForms,
+    queryFn: () => fetchJson<FormFieldItem[]>("/api/business/forms"),
+    initialData: initialFields,
+  });
+  const [fields, setFields] = useState<FormFieldItem[]>(serverFields);
   const [activeId, setActiveId] = useState<string | null>(
     initialFields[0]?.id ?? null
   );
@@ -75,16 +82,22 @@ export default function FormsManager({
     new Map()
   );
 
-  useEffect(() => {
-    setFields(initialFields);
+  const invalidate = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.businessForms });
+  }, [queryClient]);
+
+  const [syncedFrom, setSyncedFrom] = useState(serverFields);
+  if (serverFields !== syncedFrom) {
+    setSyncedFrom(serverFields);
+    setFields(serverFields);
     if (
       activeId &&
-      !initialFields.some((f) => f.id === activeId) &&
-      initialFields.length > 0
+      !serverFields.some((f) => f.id === activeId) &&
+      serverFields.length > 0
     ) {
-      setActiveId(initialFields[0].id);
+      setActiveId(serverFields[0].id);
     }
-  }, [initialFields, activeId]);
+  }
 
   useEffect(() => {
     const timers = saveTimers.current;
@@ -110,12 +123,12 @@ export default function FormsManager({
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         toast.error(err.message ?? "저장에 실패했습니다");
-        router.refresh();
+        await invalidate();
         return false;
       }
       return true;
     },
-    [router]
+    [invalidate]
   );
 
   const schedulePatch = useCallback(
@@ -182,7 +195,7 @@ export default function FormsManager({
       setFields((prev) => [...prev, item]);
       setActiveId(item.id);
       toast.success("질문이 추가되었습니다");
-      router.refresh();
+      await invalidate();
     } finally {
       setAdding(false);
     }
@@ -222,7 +235,7 @@ export default function FormsManager({
     });
     setActiveId(item.id);
     toast.success("질문을 복제했습니다");
-    router.refresh();
+    await invalidate();
   };
 
   const deleteField = async (id: string) => {
@@ -238,7 +251,7 @@ export default function FormsManager({
       return next;
     });
     toast.success("삭제되었습니다");
-    router.refresh();
+    await invalidate();
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -258,7 +271,7 @@ export default function FormsManager({
 
     const changed = reordered.filter((f, i) => prev[i]?.id !== f.id);
     await Promise.all(changed.map((f) => patchField(f.id, { order: f.order })));
-    router.refresh();
+    await invalidate();
   };
 
   return (

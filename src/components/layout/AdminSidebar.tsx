@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Users,
@@ -26,6 +27,7 @@ import {
   Ticket,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { clearSessionAndRedirect } from "@/lib/auth-session";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -78,7 +80,12 @@ interface InnerProps extends Props {
 
 function SidebarInner({ role, name, email, businessName, onClose }: InnerProps) {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const navItems = role === "SUPER_ADMIN" ? superAdminNav : businessNav;
+
+  const handleLogout = () => {
+    void clearSessionAndRedirect({ signOut, queryClient });
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -139,7 +146,7 @@ function SidebarInner({ role, name, email, businessName, onClose }: InnerProps) 
           variant="ghost"
           size="sm"
           className="w-full justify-start text-muted-foreground hover:text-destructive px-3"
-          onClick={() => signOut({ callbackUrl: "/login" })}
+          onClick={handleLogout}
         >
           <LogOut className="w-4 h-4 mr-2" />
           로그아웃

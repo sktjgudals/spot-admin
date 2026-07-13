@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { History, Loader2, Pencil, Send, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { fetchJson } from "@/lib/fetch-json";
+import { queryKeys } from "@/lib/query-keys";
 
 type Kind = "CLAIMABLE" | "SYSTEM";
 type CouponStatus = "ACTIVE" | "USED" | "EXPIRED";
@@ -65,8 +67,12 @@ interface Props {
 }
 
 export default function CouponManager({ initialTemplates }: Props) {
-  const router = useRouter();
-  const [templates, setTemplates] = useState(initialTemplates);
+  const queryClient = useQueryClient();
+  const { data: templates = [] } = useQuery({
+    queryKey: queryKeys.coupons,
+    queryFn: () => fetchJson<TemplateItem[]>("/api/super-admin/coupons"),
+    initialData: initialTemplates,
+  });
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -78,6 +84,10 @@ export default function CouponManager({ initialTemplates }: Props) {
 
   const [editItem, setEditItem] = useState<TemplateItem | null>(null);
   const [historyItem, setHistoryItem] = useState<TemplateItem | null>(null);
+
+  async function invalidate() {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.coupons });
+  }
 
   async function handleCreate() {
     if (!title.trim()) {
@@ -107,14 +117,13 @@ export default function CouponManager({ initialTemplates }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "등록 실패");
-      setTemplates((prev) => [{ ...data, issuedCount: 0 }, ...prev]);
       setTitle("");
       setDescription("");
       setDiscountAmount(3000);
       setValidDays(30);
       setKind("CLAIMABLE");
       toast.success("쿠폰이 등록되었습니다");
-      router.refresh();
+      await invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "등록 실패");
     } finally {
@@ -132,11 +141,8 @@ export default function CouponManager({ initialTemplates }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "수정 실패");
-      setTemplates((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, ...data } : t))
-      );
       toast.success("저장되었습니다");
-      router.refresh();
+      await invalidate();
       return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "수정 실패");
@@ -157,9 +163,8 @@ export default function CouponManager({ initialTemplates }: Props) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.message ?? "삭제 실패");
       }
-      setTemplates((prev) => prev.filter((t) => t.id !== item.id));
       toast.success("삭제되었습니다");
-      router.refresh();
+      await invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "삭제 실패");
     } finally {
@@ -177,13 +182,8 @@ export default function CouponManager({ initialTemplates }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "발급 실패");
-      setTemplates((prev) =>
-        prev.map((t) =>
-          t.id === item.id ? { ...t, issuedCount: t.issuedCount + 1 } : t
-        )
-      );
       toast.success(data.message ?? "발급했습니다");
-      router.refresh();
+      await invalidate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "발급 실패");
     } finally {
