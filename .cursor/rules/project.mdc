@@ -64,5 +64,5 @@ gcloud run services update dopa-admin \
 - 서비스 URL: https://dopa-admin-407436072297.asia-northeast3.run.app
 - 커스텀 도메인(admin.dopa.ing)은 Cloudflare Worker 프록시 (`scripts/cloudflare-worker.js`)
 - **Firebase Hosting 경유 금지** — `__session` 외 쿠키를 제거해 로그인이 깨짐
-- 이미지 업로드는 GCS 공개 버킷 `dopa-assets` (SA에 권한 부여됨, ADC 사용)
+- 이미지 업로드는 Cloudflare R2(`media.dopa.ing`) — 배너/파티는 `BACKEND_INTERNAL_URL` + `x-internal-api-key`로 백엔드 프록시. GCS `dopa-assets`는 레거시 URL 읽기·정적 에셋용
 - 환경변수/시크릿: DATABASE_URL, AUTH_SECRET(=NEXTAUTH_SECRET), BACKEND_INTERNAL_API_KEY — Secret Manager 연결됨
