@@ -166,7 +166,6 @@ model User {
   updatedAt DateTime @updatedAt
 
   profile             UserProfile?
-  hostedParties       Party[]                  @relation("PartyAdmin")
   applications        Application[]
   ratingsGiven        UserRating[]             @relation("AdminRatings")
   ratingsReceived     UserRating[]             @relation("TargetRatings")
@@ -380,10 +379,7 @@ model Party {
   /// 상세 조회수 (누적)
   viewCount Int @default(0)
 
-  adminId String
-  admin   User   @relation("PartyAdmin", fields: [adminId], references: [id], onDelete: Cascade)
-
-  /// 운영 업체 (필수 — 개인 호스트 파티 없음)
+  /// 운영 업체 (필수 — 개인 호스트 파티 없음). 소유·권한은 businessId 기준.
   businessId String
   business   Business @relation(fields: [businessId], references: [id], onDelete: Restrict)
 
@@ -399,7 +395,6 @@ model Party {
   chatRoom     ChatRoom?
   dailyStats   PartyDailyStat[]
 
-  @@index([adminId])
   @@index([date])
   @@index([featuredUntil])
   @@index([businessId])

@@ -41,7 +41,6 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
       orderBy: { createdAt: "desc" },
       take: 50,
       include: {
-        admin: { select: { nickname: true, email: true } },
         business: { select: { id: true, name: true } },
         _count: { select: { applications: true } },
       },
@@ -75,7 +74,6 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
               <TableHead>장소</TableHead>
               <TableHead className="text-center">정원</TableHead>
               <TableHead className="text-center">신청</TableHead>
-              <TableHead>호스트</TableHead>
               <TableHead>연결 업체</TableHead>
               <TableHead>상태</TableHead>
               <TableHead className="text-right">관리</TableHead>
@@ -100,10 +98,6 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
                   {party.currentCount}/{party.maxCapacity}
                 </TableCell>
                 <TableCell className="text-sm text-center">{party._count.applications}</TableCell>
-                <TableCell>
-                  <p className="text-sm whitespace-nowrap">{party.admin.nickname}</p>
-                  <p className="text-xs text-muted-foreground">{party.admin.email}</p>
-                </TableCell>
                 <TableCell>
                   <PartyBusinessMapper
                     partyId={party.id}

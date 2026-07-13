@@ -40,7 +40,6 @@ export default async function UserDetailPage({ params }: Props) {
         managedBusiness: { select: { id: true, name: true } },
         _count: {
           select: {
-            hostedParties: true,
             applications: true,
             payments: true,
             wishlists: true,
@@ -60,7 +59,6 @@ export default async function UserDetailPage({ params }: Props) {
 
   const p = user.profile;
   const stats: { label: string; value: string | number }[] = [
-    { label: "주최 파티", value: user._count.hostedParties },
     { label: "신청", value: user._count.applications },
     { label: "결제", value: user._count.payments },
     { label: "찜", value: user._count.wishlists },
