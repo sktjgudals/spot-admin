@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
-import { ensureTechnicalPartyHost } from "@/lib/business-hosts";
 
 export async function POST(req: NextRequest) {
   const { error } = await requireRole("SUPER_ADMIN");
@@ -32,7 +31,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "업체를 찾을 수 없습니다" }, { status: 404 });
   }
 
-  const adminId = await ensureTechnicalPartyHost(business.id, business.name);
 
   let categoryName: string | null = null;
   if (body.categoryId) {
@@ -65,7 +63,6 @@ export async function POST(req: NextRequest) {
             (u: unknown): u is string => typeof u === "string" && u.length > 0,
           )
         : [],
-      adminId,
       businessId: business.id,
     },
   });

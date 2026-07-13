@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
-import { ensureTechnicalPartyHost } from "@/lib/business-hosts";
 
 function parseImages(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
@@ -30,7 +29,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: "업체를 찾을 수 없습니다" }, { status: 404 });
   }
 
-  const hostUserId = await ensureTechnicalPartyHost(businessId, business.name);
 
   let categoryName: string | null = body.category || null;
   if (body.categoryId) {
@@ -62,7 +60,6 @@ export async function POST(req: NextRequest) {
       coverImage: body.coverImage || null,
       images,
       isActive: body.isActive ?? true,
-      adminId: hostUserId,
       businessId,
     },
   });
