@@ -16,7 +16,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return NextResponse.json({ message: "INVALID_BODY" }, { status: 400 });
   }
 
-  const data: { feeRateBps?: number; kind?: "INDIVIDUAL" | "COMPANY" } = {};
+  const data: {
+    feeRateBps?: number;
+    kind?: "INDIVIDUAL" | "COMPANY";
+    name?: string;
+    tagline?: string | null;
+    description?: string | null;
+    contactEmail?: string | null;
+    contactPhone?: string | null;
+    address?: string | null;
+    businessNumber?: string | null;
+  } = {};
 
   if ("feeRateBps" in body) {
     const feeRateBps = Number(body.feeRateBps);
@@ -39,6 +49,36 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     data.kind = body.kind;
   }
 
+  if ("name" in body) {
+    if (typeof body.name !== "string" || !body.name.trim()) {
+      return NextResponse.json({ message: "업체명은 필수입니다" }, { status: 400 });
+    }
+    data.name = body.name.trim();
+  }
+
+  const nullableString = (key: keyof typeof data) => {
+    if (!(key in body)) return;
+    const v = body[key];
+    if (v === null || v === "") {
+      (data as Record<string, unknown>)[key] = null;
+    } else if (typeof v === "string") {
+      (data as Record<string, unknown>)[key] = v.trim() || null;
+    } else {
+      throw new Error(`INVALID_${String(key)}`);
+    }
+  };
+
+  try {
+    nullableString("tagline");
+    nullableString("description");
+    nullableString("contactEmail");
+    nullableString("contactPhone");
+    nullableString("address");
+    nullableString("businessNumber");
+  } catch {
+    return NextResponse.json({ message: "INVALID_BODY" }, { status: 400 });
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ message: "수정할 필드가 없습니다" }, { status: 400 });
   }
@@ -49,7 +89,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const updated = await prisma.business.update({
     where: { id: businessId },
     data,
-    select: { id: true, name: true, feeRateBps: true, kind: true },
+    select: {
+      id: true,
+      name: true,
+      feeRateBps: true,
+      kind: true,
+      tagline: true,
+      description: true,
+      contactEmail: true,
+      contactPhone: true,
+      address: true,
+      businessNumber: true,
+    },
   });
 
   return NextResponse.json(updated);

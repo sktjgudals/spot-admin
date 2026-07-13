@@ -10,6 +10,7 @@ import BusinessRowActions from "../BusinessRowActions";
 import RefundPolicyEditor from "./RefundPolicyEditor";
 import BusinessAdminsManager from "./BusinessAdminsManager";
 import BusinessKindEditor from "./BusinessKindEditor";
+import BusinessProfileEditor from "./BusinessProfileEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -79,13 +80,30 @@ export default async function BusinessDetailPage({ params }: Props) {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">업체 정보</CardTitle>
+          <CardTitle className="text-base">업체 프로필</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BusinessProfileEditor
+            businessId={business.id}
+            initial={{
+              name: business.name,
+              tagline: business.tagline,
+              description: business.description,
+              contactEmail: business.contactEmail,
+              contactPhone: business.contactPhone,
+              address: business.address,
+              businessNumber: business.businessNumber,
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">운영 설정</CardTitle>
         </CardHeader>
         <CardContent className="text-sm space-y-2">
           <BusinessKindEditor businessId={business.id} initialKind={business.kind} />
-          <Row label="사업자번호" value={business.businessNumber ?? "-"} />
-          <Row label="연락처" value={business.contactPhone ?? "-"} />
-          <Row label="주소" value={business.address ?? "-"} />
           <Row
             label="중개 수수료"
             value={`${(business.feeRateBps / 100).toFixed(
@@ -95,12 +113,6 @@ export default async function BusinessDetailPage({ params }: Props) {
           <Row label="웹 어드민" value={`${business._count.admins}명`} />
           <Row label="파티" value={`${business._count.parties}개`} />
           <Row label="정산" value={`${business._count.settlements}건`} />
-          {business.description && (
-            <div className="pt-2 border-t">
-              <p className="text-muted-foreground mb-1">소개</p>
-              <p className="whitespace-pre-wrap">{business.description}</p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
