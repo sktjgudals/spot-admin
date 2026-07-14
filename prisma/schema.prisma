@@ -136,10 +136,14 @@ enum BusinessRoleRequestStatus {
 
 enum RefundStatus {
   REQUESTED
-  APPROVED
   REJECTED
   COMPLETED
   FAILED
+}
+
+enum UserArchiveKind {
+  ADMIN_DELETE
+  SELF_WITHDRAW
 }
 
 // ============================================================
@@ -153,7 +157,6 @@ model User {
   profileImage String?
   socialId     String
   provider     Provider
-  refreshToken String?
 
   averageRating Float @default(0.0)
   role          Role  @default(USER)
@@ -367,8 +370,6 @@ model Party {
   priceMale     Int     @default(0)
   priceFemale   Int     @default(0)
   genderRatio   String?
-  /// categoryId의 이름 사본 (구버전 앱 호환)
-  category      String?
   categoryId    String?
   categoryRef   PartyCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   admissionMode AdmissionMode @default(APPROVAL)
@@ -541,35 +542,25 @@ model Wishlist {
   @@map("wishlist")
 }
 
-model DeletedUser {
-  id         String   @id @default(cuid())
-  originalId String
-  email      String
-  nickname   String
-  reason     String
-  deletedAt  DateTime @default(now())
-
-  @@index([originalId])
-  @@index([email])
-  @@map("deleted_users")
-}
-
-/// 회원탈퇴 별도 테이블 (spot-backend 미러링 — 같은 DB). 재가입 차단 + 1년 후 파기.
-model WithdrawnUser {
-  id                 String   @id @default(cuid())
+model UserArchive {
+  id                 String          @id @default(cuid())
+  kind               UserArchiveKind
   originalId         String
-  socialId           String
-  provider           Provider
   email              String
   nickname           String
   reason             String?
-  withdrawnAt        DateTime @default(now())
-  rejoinBlockedUntil DateTime
-  purgeAt            DateTime
+  socialId           String?
+  provider           Provider?
+  rejoinBlockedUntil DateTime?
+  purgeAt            DateTime?
+  archivedAt         DateTime        @default(now())
 
+  @@index([originalId])
+  @@index([email])
   @@index([socialId, provider])
   @@index([purgeAt])
-  @@map("withdrawn_users")
+  @@index([kind, archivedAt])
+  @@map("user_archives")
 }
 
 // ============================================================
@@ -606,9 +597,7 @@ model Business {
   /// 앱 업체 프로필 한줄 소개(태그라인)
   tagline        String?
   logoUrl        String?
-  /// 앱 업체 프로필 상단 커버 이미지 (coverImages[0] 사본, 구버전 호환)
-  coverUrl       String?
-  /// 다중 커버 (캐러셀)
+  /// 다중 커버 (캐러셀). API coverUrl은 coverImages[0] derive.
   coverImages    String[] @default([])
 
   /// 참가자 PartyRating 롤업

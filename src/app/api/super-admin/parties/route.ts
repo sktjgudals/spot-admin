@@ -32,16 +32,15 @@ export async function POST(req: NextRequest) {
   }
 
 
-  let categoryName: string | null = null;
-  if (body.categoryId) {
+  let categoryId: string | null = body.categoryId || null;
+  if (categoryId) {
     const category = await prisma.partyCategory.findUnique({
-      where: { id: body.categoryId },
-      select: { name: true },
+      where: { id: categoryId },
+      select: { id: true },
     });
     if (!category) {
       return NextResponse.json({ message: "카테고리를 찾을 수 없습니다" }, { status: 404 });
     }
-    categoryName = category.name;
   }
 
   const party = await prisma.party.create({
@@ -54,8 +53,7 @@ export async function POST(req: NextRequest) {
       priceMale: body.priceMale ?? 0,
       priceFemale: body.priceFemale ?? 0,
       genderRatio: body.genderRatio || null,
-      category: categoryName,
-      categoryId: body.categoryId || null,
+      categoryId,
       admissionMode: body.admissionMode ?? "APPROVAL",
       coverImage: body.coverImage || null,
       images: Array.isArray(body.images)

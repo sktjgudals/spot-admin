@@ -12,7 +12,6 @@ export const paymentStatusLabel: Record<PaymentStatus, string> = {
 
 export const refundStatusLabel: Record<RefundStatus, string> = {
   REQUESTED: "환불 요청",
-  APPROVED: "승인됨",
   REJECTED: "거절됨",
   COMPLETED: "환불 완료",
   FAILED: "환불 실패",
