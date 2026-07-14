@@ -174,7 +174,12 @@ function ChatThread({ room, onRead }: { room: BizRoom; onRead: () => void }) {
       const res = await fetch(
         `/api/business/chat/rooms/${room.id}/messages?limit=50`,
       ).catch(() => null);
-      if (!res?.ok || cancelled) return;
+      if (cancelled) return;
+      if (!res?.ok) {
+        setMessages([]);
+        toast.error("메시지를 불러오지 못했습니다");
+        return;
+      }
       const page = (await res.json()) as { messages: ChatMessage[] };
       const asc = [...page.messages].reverse();
       maxSeqRef.current = asc.at(-1)?.seq ?? 0;
