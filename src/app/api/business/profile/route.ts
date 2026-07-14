@@ -34,7 +34,6 @@ export async function GET() {
       tagline: true,
       description: true,
       logoUrl: true,
-      coverUrl: true,
       coverImages: true,
       participationGuide: true,
       status: true,
@@ -45,12 +44,7 @@ export async function GET() {
     return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
   }
 
-  const coverImages =
-    business.coverImages.length > 0
-      ? business.coverImages
-      : business.coverUrl
-        ? [business.coverUrl]
-        : [];
+  const coverImages = business.coverImages;
 
   return NextResponse.json({
     id: business.id,
@@ -58,7 +52,7 @@ export async function GET() {
     tagline: business.tagline,
     description: business.description,
     logoUrl: business.logoUrl,
-    coverUrl: business.coverUrl,
+    coverUrl: coverImages[0] ?? null,
     coverImages,
     participationGuide: business.participationGuide,
     status: business.status,
@@ -85,7 +79,6 @@ export async function PATCH(req: NextRequest) {
     tagline?: string | null;
     description?: string | null;
     logoUrl?: string | null;
-    coverUrl?: string | null;
     coverImages?: string[];
     participationGuide?: string | null;
   } = {};
@@ -162,7 +155,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ message: "coverImages URL이 올바르지 않습니다" }, { status: 400 });
     }
     data.coverImages = urls.filter(Boolean);
-    data.coverUrl = data.coverImages[0] ?? null;
   }
 
   if ("coverUrl" in body && !("coverImages" in body)) {
@@ -171,7 +163,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ message: "coverUrl must be string|null" }, { status: 400 });
     }
     const url = typeof v === "string" ? v.trim() || null : null;
-    data.coverUrl = url;
     data.coverImages = url ? [url] : [];
   }
 
@@ -188,11 +179,13 @@ export async function PATCH(req: NextRequest) {
       tagline: true,
       description: true,
       logoUrl: true,
-      coverUrl: true,
       coverImages: true,
       participationGuide: true,
     },
   });
 
-  return NextResponse.json(updated);
+  return NextResponse.json({
+    ...updated,
+    coverUrl: updated.coverImages[0] ?? null,
+  });
 }

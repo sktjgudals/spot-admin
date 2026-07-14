@@ -54,21 +54,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   if (typeof body.priceMale === "number") data.priceMale = body.priceMale;
   if (typeof body.priceFemale === "number") data.priceFemale = body.priceFemale;
   if ("genderRatio" in body) data.genderRatio = body.genderRatio || null;
-  if ("category" in body) data.category = body.category || null;
   if ("categoryId" in body) {
     if (body.categoryId) {
       const category = await prisma.partyCategory.findUnique({
         where: { id: body.categoryId },
-        select: { name: true },
+        select: { id: true },
       });
       if (!category) {
         return NextResponse.json({ message: "카테고리를 찾을 수 없습니다" }, { status: 404 });
       }
       data.categoryId = body.categoryId;
-      data.category = category.name;
     } else {
       data.categoryId = null;
-      data.category = null;
     }
   }
   if (body.admissionMode) data.admissionMode = body.admissionMode;
