@@ -22,24 +22,14 @@ export async function PATCH(
   if ("iconUrl" in body) data.iconUrl = body.iconUrl || null;
 
   try {
-    const updated = await prisma.$transaction(async (tx) => {
-      const category = await tx.partyCategory.update({ where: { id }, data });
-      // 이름이 바뀌면 파티의 비정규화 사본(category)도 함께 갱신
-      if (data.name) {
-        await tx.party.updateMany({
-          where: { categoryId: id },
-          data: { category: category.name },
-        });
-      }
-      return category;
-    });
+    const updated = await prisma.partyCategory.update({ where: { id }, data });
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json({ message: "카테고리를 찾을 수 없습니다" }, { status: 404 });
   }
 }
 
-/** 카테고리 삭제 — 연결된 파티는 categoryId만 해제(SetNull), category 문자열은 유지 */
+/** 카테고리 삭제 — 연결된 파티는 categoryId만 해제(SetNull) */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

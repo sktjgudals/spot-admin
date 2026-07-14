@@ -113,7 +113,7 @@ export default async function SuperAdminPartyDetailPage({ params }: Props) {
             />
             <Row
               label="카테고리"
-              value={party.categoryRef?.name ?? party.category}
+              value={party.categoryRef?.name ?? "—"}
             />
             <Row label="성비" value={party.genderRatio} />
             <Row
