@@ -43,6 +43,7 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
       include: {
         business: { select: { id: true, name: true } },
         _count: { select: { applications: true } },
+        chatRoom: { select: { id: true } },
       },
     }),
     prisma.business.findMany({
@@ -120,15 +121,20 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <StartPartyButton
-                      endpoint={`/api/super-admin/parties/${party.id}/start`}
-                      partyTitle={party.title}
-                    />
-                    <ClosePartyButton
-                      partyId={party.id}
-                      partyTitle={party.title}
-                      isActive={party.isActive}
-                    />
+                    {party.isActive && (
+                      party.chatRoom ? (
+                        <ClosePartyButton
+                          partyId={party.id}
+                          partyTitle={party.title}
+                          isActive={party.isActive}
+                        />
+                      ) : (
+                        <StartPartyButton
+                          endpoint={`/api/super-admin/parties/${party.id}/start`}
+                          partyTitle={party.title}
+                        />
+                      )
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

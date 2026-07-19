@@ -13,10 +13,12 @@ export default function ClosePartyButton({
   partyId,
   partyTitle,
   isActive,
+  endpoint,
 }: {
   partyId: string;
   partyTitle?: string;
   isActive: boolean;
+  endpoint?: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -34,7 +36,8 @@ export default function ClosePartyButton({
       return;
     }
     setLoading(true);
-    const res = await fetch(`/api/super-admin/parties/${partyId}/close`, {
+    const closeEndpoint = endpoint ?? `/api/super-admin/parties/${partyId}/close`;
+    const res = await fetch(closeEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reason: "관리자에 의해 종료됨" }),
