@@ -1,4 +1,4 @@
-import ChatInbox from "./ChatInbox";
+import ChatRoomList from "./ChatRoomList";
 
 /** 업체 채팅 문의함 — 유저 ↔ 업체 DM. 목록/대화는 클라이언트에서 폴링으로 갱신. */
 export default function BusinessChatPage() {
@@ -11,7 +11,7 @@ export default function BusinessChatPage() {
           전달되고, 미접속 유저에게는 푸시가 발송됩니다.
         </p>
       </div>
-      <ChatInbox />
+      <ChatRoomList />
     </div>
   );
 }
