@@ -30,6 +30,7 @@ export default async function SuperAdminPartyDetailPage({ params }: Props) {
       business: { select: { id: true, name: true } },
       categoryRef: { select: { id: true, name: true } },
       _count: { select: { applications: true } },
+      chatRoom: { select: { id: true } },
     },
   });
 
@@ -67,15 +68,20 @@ export default async function SuperAdminPartyDetailPage({ params }: Props) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <StartPartyButton
-            endpoint={`/api/super-admin/parties/${party.id}/start`}
-            partyTitle={party.title}
-          />
-          <ClosePartyButton
-            partyId={party.id}
-            partyTitle={party.title}
-            isActive={party.isActive}
-          />
+          {party.isActive && (
+            party.chatRoom ? (
+              <ClosePartyButton
+                partyId={party.id}
+                partyTitle={party.title}
+                isActive={party.isActive}
+              />
+            ) : (
+              <StartPartyButton
+                endpoint={`/api/super-admin/parties/${party.id}/start`}
+                partyTitle={party.title}
+              />
+            )
+          )}
           <Button
             nativeButton={false}
             render={<Link href={`/super-admin/parties/${party.id}/edit`} />}

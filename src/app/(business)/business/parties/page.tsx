@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Pencil } from "lucide-react";
 import PartyVisibilityToggle from "./PartyVisibilityToggle";
 import StartPartyButton from "@/components/start-party-button";
+import ClosePartyButton from "@/components/close-party-button";
 
 export default async function BusinessPartiesPage() {
   const session = await auth();
@@ -23,6 +24,7 @@ export default async function BusinessPartiesPage() {
     orderBy: { date: "desc" },
     include: {
       _count: { select: { applications: true } },
+      chatRoom: { select: { id: true } },
     },
   });
 
@@ -77,10 +79,25 @@ export default async function BusinessPartiesPage() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
-                    <StartPartyButton
-                      endpoint={`/api/business/parties/${party.id}/start`}
-                      partyTitle={party.title}
-                    />
+                    {party.isActive ? (
+                      party.chatRoom ? (
+                        <ClosePartyButton
+                          partyId={party.id}
+                          partyTitle={party.title}
+                          isActive={party.isActive}
+                          endpoint={`/api/business/parties/${party.id}/close`}
+                        />
+                      ) : (
+                        <StartPartyButton
+                          endpoint={`/api/business/parties/${party.id}/start`}
+                          partyTitle={party.title}
+                        />
+                      )
+                    ) : (
+                      <span className="text-xs text-muted-foreground whitespace-nowrap px-2">
+                        종료됨
+                      </span>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
