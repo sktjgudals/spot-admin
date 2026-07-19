@@ -73,13 +73,14 @@ interface Props {
   name: string;
   email: string;
   businessName?: string;
+  businessLogoUrl?: string | null;
 }
 
 interface InnerProps extends Props {
   onClose?: () => void;
 }
 
-function SidebarInner({ role, name, email, businessName, onClose }: InnerProps) {
+function SidebarInner({ role, name, email, businessName, businessLogoUrl, onClose }: InnerProps) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const navItems = role === "SUPER_ADMIN" ? superAdminNav : businessNav;
@@ -94,7 +95,12 @@ function SidebarInner({ role, name, email, businessName, onClose }: InnerProps) 
       <div className="px-4 py-5 border-b shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
-            <Image src="/dopa-logo.png" alt="Dopa" width={32} height={32} className="object-contain" />
+            {businessLogoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={businessLogoUrl} alt="Logo" className="w-full h-full object-cover" />
+            ) : (
+              <Image src="/dopa-logo.png" alt="Dopa" width={32} height={32} className="object-contain" />
+            )}
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-sm leading-none">Dopa Admin</p>
@@ -189,7 +195,12 @@ export function MobileHeader(props: Props) {
 
       <div className="ml-3 flex items-center gap-2 min-w-0">
         <div className="w-6 h-6 rounded-md overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
-          <Image src="/dopa-logo.png" alt="Dopa" width={24} height={24} className="object-contain" />
+          {props.businessLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={props.businessLogoUrl} alt="Logo" className="w-full h-full object-cover" />
+          ) : (
+            <Image src="/dopa-logo.png" alt="Dopa" width={24} height={24} className="object-contain" />
+          )}
         </div>
         <span className="font-semibold text-sm shrink-0">Dopa Admin</span>
         {props.businessName && (

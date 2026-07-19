@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import AdminSidebar, { MobileHeader } from "@/components/layout/AdminSidebar";
 
 export default async function BusinessLayout({
@@ -10,11 +11,19 @@ export default async function BusinessLayout({
   const session = await auth();
   if (!session || session.user.role !== "BUSINESS") redirect("/login");
 
+  const business = session.user.businessId
+    ? await prisma.business.findUnique({
+        where: { id: session.user.businessId },
+        select: { logoUrl: true },
+      })
+    : null;
+
   const sidebarProps = {
     role: "BUSINESS" as const,
     name: session.user.name,
     email: session.user.email,
     businessName: session.user.businessName,
+    businessLogoUrl: business?.logoUrl,
   };
 
   return (

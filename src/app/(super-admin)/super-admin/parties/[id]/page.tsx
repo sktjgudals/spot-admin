@@ -52,7 +52,11 @@ export default async function SuperAdminPartyDetailPage({ params }: Props) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold truncate">{party.title}</h1>
-              {party.isActive ? (
+              {new Date(party.date) < new Date() ? (
+                <Badge variant="outline" className="text-xs text-muted-foreground">
+                  기간 만료
+                </Badge>
+              ) : party.isActive ? (
                 <Badge variant="secondary" className="text-xs">
                   모집중
                 </Badge>

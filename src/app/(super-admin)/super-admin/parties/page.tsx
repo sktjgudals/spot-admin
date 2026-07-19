@@ -113,7 +113,9 @@ export default async function SuperAdminPartiesPage({ searchParams }: Props) {
                   />
                 </TableCell>
                 <TableCell>
-                  {party.isActive ? (
+                  {new Date(party.date) < new Date() ? (
+                    <Badge variant="outline" className="text-xs text-muted-foreground whitespace-nowrap">기간 만료</Badge>
+                  ) : party.isActive ? (
                     <Badge variant="secondary" className="text-xs whitespace-nowrap">모집중</Badge>
                   ) : (
                     <Badge variant="outline" className="text-xs text-muted-foreground whitespace-nowrap">종료</Badge>

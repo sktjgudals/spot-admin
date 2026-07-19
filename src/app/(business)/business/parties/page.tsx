@@ -14,6 +14,7 @@ import { Plus, Pencil } from "lucide-react";
 import PartyVisibilityToggle from "./PartyVisibilityToggle";
 import StartPartyButton from "@/components/start-party-button";
 import ClosePartyButton from "@/components/close-party-button";
+import { Badge } from "@/components/ui/badge";
 
 export default async function BusinessPartiesPage() {
   const session = await auth();
@@ -72,10 +73,16 @@ export default async function BusinessPartiesPage() {
                 </TableCell>
                 <TableCell className="text-sm text-center">{party._count.applications}</TableCell>
                 <TableCell>
-                  <PartyVisibilityToggle
-                    partyId={party.id}
-                    initialVisible={party.isActive}
-                  />
+                  {new Date(party.date) < new Date() ? (
+                    <Badge variant="outline" className="text-xs text-muted-foreground whitespace-nowrap">
+                      기간 만료
+                    </Badge>
+                  ) : (
+                    <PartyVisibilityToggle
+                      partyId={party.id}
+                      initialVisible={party.isActive}
+                    />
+                  )}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
