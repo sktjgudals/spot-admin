@@ -43,5 +43,6 @@ export async function proxyBackendInternal(
       { status: res.status },
     );
   }
-  return NextResponse.json(data);
+  if (res.status === 204) return new NextResponse(null, { status: 204 });
+  return NextResponse.json(data, { status: res.status });
 }

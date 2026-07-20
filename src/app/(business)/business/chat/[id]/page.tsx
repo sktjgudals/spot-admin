@@ -12,6 +12,7 @@ import { Loader2, ArrowLeft, Send } from "lucide-react";
 import { toast } from "sonner";
 import { fetchJson } from "@/lib/fetch-json";
 import { queryKeys } from "@/lib/query-keys";
+import { uuidV7 } from "@/lib/uuid-v7";
 
 interface BizRoom {
   id: string;
@@ -25,7 +26,10 @@ interface BizRoom {
 
 interface ChatMessage {
   id: string;
-  seq: number;
+  messageId?: string;
+  clientMessageId?: string | null;
+  seq: number | null;
+  roomSequence?: number | null;
   roomId: string;
   senderType: "USER" | "BUSINESS" | "SYSTEM";
   senderNickname: string | null;
@@ -34,6 +38,16 @@ interface ChatMessage {
   mediaUrl?: string | null;
   thumbnailUrl?: string | null;
   createdAt: string;
+  deliveryState?: "pending" | "accepted" | "failed";
+}
+
+interface MessageAcceptance {
+  state: "accepted";
+  messageId: string;
+  clientMessageId: string;
+  roomSequence: number;
+  acceptedAt: string;
+  routeVersion: 2;
 }
 
 const ROOMS_POLL_MS = 15_000;
@@ -124,13 +138,28 @@ export default function BusinessChatRoomPage() {
       const page = (await res.json()) as { messages: ChatMessage[] };
       if (page.messages.length === 0) return;
       setMessages((prev) => {
-        const known = new Set((prev ?? []).map((m) => m.id));
-        const fresh = page.messages.filter((m) => !known.has(m.id));
-        return [...(prev ?? []), ...fresh];
+        const merged = [...(prev ?? [])];
+        for (const committed of page.messages) {
+          const index = merged.findIndex(
+            (current) =>
+              current.id === committed.id ||
+              (committed.clientMessageId &&
+                current.clientMessageId === committed.clientMessageId),
+          );
+          if (index >= 0) merged[index] = committed;
+          else merged.push(committed);
+        }
+        return merged.sort((a, b) => {
+          if (a.roomSequence != null && b.roomSequence != null) {
+            return a.roomSequence - b.roomSequence;
+          }
+          if (a.seq != null && b.seq != null) return a.seq - b.seq;
+          return a.seq == null ? 1 : -1;
+        });
       });
       maxSeqRef.current = Math.max(
         maxSeqRef.current,
-        ...page.messages.map((m) => m.seq),
+        ...page.messages.map((m) => m.seq ?? 0),
       );
       void markRead(maxSeqRef.current);
     }, MESSAGES_POLL_MS);
@@ -145,13 +174,28 @@ export default function BusinessChatRoomPage() {
     const content = input.trim();
     if (!content || sending) return;
     setSending(true);
+    const clientMessageId = uuidV7();
+    const optimistic: ChatMessage = {
+      id: `local:${clientMessageId}`,
+      clientMessageId,
+      seq: null,
+      roomId,
+      senderType: "BUSINESS",
+      senderNickname: null,
+      content,
+      type: "TEXT",
+      createdAt: new Date().toISOString(),
+      deliveryState: "pending",
+    };
+    setMessages((previous) => [...(previous ?? []), optimistic]);
+    setInput("");
     try {
       const res = await fetch(`/api/business/chat/rooms/${roomId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content,
-          clientMessageId: `admin-${Date.now()}`,
+          clientMessageId,
         }),
       });
       if (!res.ok) {
@@ -159,16 +203,37 @@ export default function BusinessChatRoomPage() {
           message?: string;
         };
         toast.error(data.message ?? "전송에 실패했습니다");
+        setMessages((previous) =>
+          previous?.map((message) =>
+            message.clientMessageId === clientMessageId
+              ? { ...message, deliveryState: "failed" }
+              : message,
+          ) ?? null,
+        );
         return;
       }
-      const sent = (await res.json()) as ChatMessage;
-      setMessages((prev) =>
-        prev?.some((m) => m.id === sent.id)
-          ? prev
-          : [...(prev ?? []), sent],
+      const accepted = (await res.json()) as MessageAcceptance;
+      setMessages((previous) =>
+        previous?.map((message) =>
+          message.clientMessageId === accepted.clientMessageId
+            ? {
+                ...message,
+                messageId: accepted.messageId,
+                roomSequence: accepted.roomSequence,
+                deliveryState: "accepted",
+              }
+            : message,
+        ) ?? null,
       );
-      maxSeqRef.current = Math.max(maxSeqRef.current, sent.seq);
-      setInput("");
+    } catch {
+      setMessages((previous) =>
+        previous?.map((message) =>
+          message.clientMessageId === clientMessageId
+            ? { ...message, deliveryState: "failed" }
+            : message,
+        ) ?? null,
+      );
+      toast.error("전송에 실패했습니다");
     } finally {
       setSending(false);
     }
@@ -266,6 +331,9 @@ export default function BusinessChatRoomPage() {
                   )}
                   <span className="text-[10px] text-muted-foreground px-1">
                     {formatTime(m.createdAt)}
+                    {m.deliveryState === "pending" && " · 전송 중"}
+                    {m.deliveryState === "accepted" && " · 저장 중"}
+                    {m.deliveryState === "failed" && " · 실패"}
                   </span>
                 </div>
               ),

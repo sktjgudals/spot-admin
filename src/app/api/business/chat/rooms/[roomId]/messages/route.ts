@@ -51,6 +51,9 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!body.content?.trim()) {
     return NextResponse.json({ message: "내용을 입력하세요" }, { status: 400 });
   }
+  if (!body.clientMessageId || !/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.clientMessageId)) {
+    return NextResponse.json({ message: "유효한 UUIDv7 clientMessageId가 필요합니다" }, { status: 400 });
+  }
 
   return proxyBackendInternal(
     `/internal/chat/rooms/${encodeURIComponent(roomId)}/messages`,
