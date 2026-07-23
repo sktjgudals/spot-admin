@@ -3,8 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
   LayoutDashboard,
   Users,
@@ -83,10 +83,17 @@ interface InnerProps extends Props {
 function SidebarInner({ role, name, email, businessName, businessLogoUrl, onClose }: InnerProps) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  const { logout } = useAdminAuth();
   const navItems = role === "SUPER_ADMIN" ? superAdminNav : businessNav;
 
   const handleLogout = () => {
-    void clearSessionAndRedirect({ signOut, queryClient });
+    void (async () => {
+      try {
+        await logout();
+      } finally {
+        await clearSessionAndRedirect({ queryClient });
+      }
+    })();
   };
 
   return (

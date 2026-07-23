@@ -1,39 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 
+/**
+ * Auth v2 only (PR3 — NextAuth removed).
+ * - Nest refresh cookies: spot_admin_rt | spot_admin_sid | spot_admin_aid
+ * - Legacy /super-admin/* and /business/* → /app/*
+ */
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET,
-    // Cloud Run(프록시 뒤)에서는 AUTH_URL 기반 secure 쿠키 자동 감지가 실패하므로 명시
-    secureCookie: process.env.NODE_ENV === "production",
-  });
+  const hasNestSession =
+    !!req.cookies.get("spot_admin_rt")?.value ||
+    !!req.cookies.get("spot_admin_sid")?.value;
 
-  const publicPaths = ["/login", "/invite"];
-  if (publicPaths.some((p) => pathname.startsWith(p))) {
-    if (token) {
-      const role = token.role as string;
-      const redirect =
-        role === "SUPER_ADMIN" ? "/super-admin/dashboard" : "/business/dashboard";
-      return NextResponse.redirect(new URL(redirect, req.url));
+  // Auth v2 app shell
+  if (pathname === "/app" || pathname.startsWith("/app/")) {
+    return NextResponse.next();
+  }
+
+  // Legacy SUPER_ADMIN UI → Auth v2 businesses
+  if (pathname.startsWith("/super-admin")) {
+    return NextResponse.redirect(new URL("/app/businesses", req.url));
+  }
+
+  // Legacy BUSINESS UI → Auth v2 parties
+  if (pathname.startsWith("/business")) {
+    return NextResponse.redirect(new URL("/app/parties", req.url));
+  }
+
+  // Public auth pages
+  if (pathname.startsWith("/login") || pathname.startsWith("/invite")) {
+    if (hasNestSession && pathname.startsWith("/login")) {
+      return NextResponse.redirect(new URL("/app", req.url));
     }
     return NextResponse.next();
   }
 
-  if (!token) {
+  // Root handled by client page; allow through
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
+  // Everything else: require Nest session cookie or send to login
+  if (!hasNestSession) {
     return NextResponse.redirect(new URL("/login", req.url));
-  }
-
-  const role = token.role as string;
-
-  if (pathname.startsWith("/super-admin") && role !== "SUPER_ADMIN") {
-    return NextResponse.redirect(new URL("/business/dashboard", req.url));
-  }
-
-  if (pathname.startsWith("/business") && role !== "BUSINESS") {
-    return NextResponse.redirect(new URL("/super-admin/dashboard", req.url));
   }
 
   return NextResponse.next();

@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import QueryProvider from "@/components/providers/query-provider";
+import { AdminAuthProvider } from "@/auth/provider/AdminAuthProvider";
 
 const geist = Geist({
   variable: "--font-geist",
@@ -23,8 +24,10 @@ export default function RootLayout({
     <html lang="ko" className={`${geist.variable} h-full antialiased`}>
       <body className="min-h-full bg-background text-foreground" suppressHydrationWarning>
         <QueryProvider>
-          {children}
-          <Toaster richColors />
+          <AdminAuthProvider>
+            {children}
+            <Toaster richColors />
+          </AdminAuthProvider>
         </QueryProvider>
       </body>
     </html>

@@ -89,7 +89,26 @@ enum ChatMessageType {
 
 enum AdminRole {
   SUPER_ADMIN
+  ADMIN
+  OPERATOR
   BUSINESS
+  PARTNER_ADMIN
+  PARTNER_MEMBER
+}
+
+enum AdminAccountStatus {
+  INVITED
+  ACTIVE
+  LOCKED
+  SUSPENDED
+  DISABLED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
 }
 
 enum SettlementStatus {
@@ -568,23 +587,34 @@ model UserArchive {
 // ============================================================
 
 /// 어드민 전용 계정 (이메일/패스워드 인증 — 소셜 로그인과 무관)
+/// spot-backend prisma/schema.prisma 와 동기화 유지
 model AdminAccount {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String
+  id           String             @id @default(cuid())
+  email        String             @unique
+  passwordHash String?
   name         String
-  role         AdminRole @default(BUSINESS)
-  isActive     Boolean   @default(true)
+  role         AdminRole          @default(BUSINESS)
+  status       AdminAccountStatus @default(ACTIVE)
+  isActive     Boolean            @default(true)
 
-  /// BUSINESS 역할이면 연결된 업체
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+  passwordSetAt    DateTime?
+  lastLoginAt      DateTime?
+
+  /// BUSINESS / PARTNER_* 역할이면 연결된 업체
   businessId String?
   business   Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+
+  /// 앱 operator User 링크 (backend 마이그레이션과 공유)
+  userId String? @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([businessId])
+  @@index([status])
   @@map("admin_accounts")
 }
 
@@ -670,19 +700,28 @@ model RefundPolicyTier {
 }
 
 /// 업체 어드민 초대 링크 (슈퍼 어드민 → 업체 이메일로 발송)
+/// 신규 발급은 tokenHash 중심 (plain token 전환 기간 dual-read)
 model BusinessInvitation {
-  id         String   @id @default(cuid())
+  id         String           @id @default(cuid())
   email      String
-  token      String   @unique @default(cuid())
+  token      String?          @unique
+  tokenHash  String?          @unique
   businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  used       Boolean  @default(false)
+  business   Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  role       AdminRole        @default(PARTNER_ADMIN)
+  status     InvitationStatus @default(PENDING)
+  used       Boolean          @default(false)
+  invitedBy  String?
   expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
 
   createdAt DateTime @default(now())
 
   @@index([token])
+  @@index([tokenHash])
   @@index([email])
+  @@index([status, expiresAt])
   @@map("business_invitations")
 }
 

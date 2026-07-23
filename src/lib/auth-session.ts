@@ -1,13 +1,13 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 /**
- * Clears client query cache and hard-navigates so Next.js Router Cache
- * cannot keep the previous account's RSC payload.
+ * Clears client query cache and hard-navigates so Router Cache
+ * cannot keep the previous account's payload.
+ * Auth v2 logout is handled by AdminAuthProvider — this is a shared helper.
  */
 export async function clearSessionAndRedirect(options: {
-  // next-auth signOut is overloaded; accept a loose callable for DI/tests
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  signOut: (options?: any) => Promise<unknown>;
+  /** Optional server logout hook (Auth v2 provider usually calls Nest first) */
+  signOut?: (options?: { redirect?: boolean }) => Promise<unknown>;
   queryClient: QueryClient;
   assign?: (url: string) => void;
   href?: string;
@@ -21,7 +21,13 @@ export async function clearSessionAndRedirect(options: {
     href = "/login",
   } = options;
 
-  await signOut({ redirect: false });
+  if (signOut) {
+    try {
+      await signOut({ redirect: false });
+    } catch {
+      /* still clear local */
+    }
+  }
   queryClient.clear();
   assign(href);
 }
