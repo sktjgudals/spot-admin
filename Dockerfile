@@ -19,6 +19,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Client bundle embeds NEXT_PUBLIC_* at build time (optional; server uses runtime SENTRY_DSN)
 ARG NEXT_PUBLIC_SENTRY_DSN=
 ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_API_URL=https://api.dopa.ing
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_NEST_API_URL=https://api.dopa.ing
+ENV NEXT_PUBLIC_NEST_API_URL=$NEXT_PUBLIC_NEST_API_URL
+ARG NEXT_PUBLIC_APP_URL=https://admin.dopa.ing
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 RUN npx prisma generate && npm run build
 
 # ============================================================
