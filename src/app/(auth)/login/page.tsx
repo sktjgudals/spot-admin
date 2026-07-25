@@ -131,6 +131,27 @@ export default function LoginPage() {
             {loading ? "로그인 중..." : "로그인"}
           </Button>
         </form>
+
+        <div className="mt-6 space-y-2 border-t pt-4 text-xs text-muted-foreground leading-relaxed">
+          <p className="font-medium text-foreground">계정이 없으신가요?</p>
+          <p>
+            업체 담당자는 슈퍼 어드민이 발송한{" "}
+            <strong>초대 메일 링크</strong>
+            (<code className="rounded bg-muted px-1">/invite/…</code>)로
+            비밀번호를 설정한 뒤 로그인합니다.
+          </p>
+          <p>
+            최초 <strong>슈퍼 어드민</strong>만{" "}
+            <a
+              href="/signup"
+              className="text-primary underline-offset-2 hover:underline font-medium"
+            >
+              회원가입
+            </a>
+            에서 1회 생성할 수 있습니다 (@dopa.ing 이메일). 이미 등록된
+            환경이면 해당 페이지가 닫혀 있습니다.
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

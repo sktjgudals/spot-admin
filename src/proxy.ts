@@ -27,9 +27,16 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/app/parties", req.url));
   }
 
-  // Public auth pages
-  if (pathname.startsWith("/login") || pathname.startsWith("/invite")) {
-    if (hasNestSession && pathname.startsWith("/login")) {
+  // Public auth pages (login, invite, first SUPER_ADMIN signup/bootstrap)
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/invite") ||
+    pathname.startsWith("/signup")
+  ) {
+    if (
+      hasNestSession &&
+      (pathname.startsWith("/login") || pathname.startsWith("/signup"))
+    ) {
       return NextResponse.redirect(new URL("/app", req.url));
     }
     return NextResponse.next();
