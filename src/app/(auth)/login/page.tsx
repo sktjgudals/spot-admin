@@ -110,7 +110,15 @@ export default function LoginPage() {
             )}
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">비밀번호</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="password">비밀번호</Label>
+              <a
+                href="/reset-password"
+                className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+              >
+                비밀번호 찾기
+              </a>
+            </div>
             <PasswordInput
               id="password"
               placeholder="••••••••"
@@ -127,7 +135,7 @@ export default function LoginPage() {
             <input type="checkbox" className="rounded border" {...register("rememberMe")} />
             로그인 유지
           </label>
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full h-11 font-semibold" disabled={loading}>
             {loading ? "로그인 중..." : "로그인"}
           </Button>
         </form>
@@ -150,6 +158,16 @@ export default function LoginPage() {
             </a>
             에서 1회 생성할 수 있습니다 (@dopa.ing 이메일). 이미 등록된
             환경이면 해당 페이지가 닫혀 있습니다.
+          </p>
+          <p>
+            비밀번호를 잊으셨다면{" "}
+            <a
+              href="/reset-password"
+              className="text-primary underline-offset-2 hover:underline font-medium"
+            >
+              비밀번호 찾기
+            </a>
+            에서 이메일 인증 후 재설정할 수 있습니다.
           </p>
         </div>
       </CardContent>
