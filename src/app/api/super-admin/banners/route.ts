@@ -10,6 +10,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
+import {
+  normalizeBannerActionType,
+  resolveBannerActionFields,
+} from "@/lib/banner-actions";
 
 export async function GET() {
   const { error } = await requireRole("SUPER_ADMIN");
@@ -27,14 +31,47 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   if (!body?.title || !body?.imageUrl) {
-    return NextResponse.json({ message: "제목과 이미지가 필요합니다" }, { status: 400 });
+    return NextResponse.json(
+      { message: "제목과 이미지가 필요합니다" },
+      { status: 400 },
+    );
+  }
+
+  if (
+    body.actionType != null &&
+    body.actionType !== "" &&
+    normalizeBannerActionType(body.actionType) == null
+  ) {
+    return NextResponse.json(
+      { message: "지원하지 않는 actionType 입니다" },
+      { status: 400 },
+    );
+  }
+
+  const fields = resolveBannerActionFields({
+    actionType: body.actionType,
+    actionValue: body.actionValue,
+    linkUrl: body.linkUrl,
+  });
+
+  if (
+    fields.actionType &&
+    fields.actionType !== "NONE" &&
+    !fields.actionValue
+  ) {
+    return NextResponse.json(
+      { message: "actionValue가 필요합니다" },
+      { status: 400 },
+    );
   }
 
   const banner = await prisma.banner.create({
     data: {
       title: body.title,
       imageUrl: body.imageUrl,
-      linkUrl: body.linkUrl || null,
+      linkUrl: fields.linkUrl,
+      actionType: fields.actionType,
+      actionValue: fields.actionValue,
       isActive: body.isActive ?? true,
       sortOrder: body.sortOrder ?? 0,
     },

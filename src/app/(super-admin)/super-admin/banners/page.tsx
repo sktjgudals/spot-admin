@@ -22,6 +22,8 @@ export default async function BannersPage() {
           title: b.title,
           imageUrl: b.imageUrl,
           linkUrl: b.linkUrl,
+          actionType: b.actionType,
+          actionValue: b.actionValue,
           isActive: b.isActive,
           sortOrder: b.sortOrder,
           createdAt: b.createdAt.toISOString(),

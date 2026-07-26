@@ -14,6 +14,8 @@ const initialBanners = [
     title: "첫 배너",
     imageUrl: "https://example.com/a.png",
     linkUrl: null,
+    actionType: "WEB",
+    actionValue: "https://example.com",
     isActive: true,
     sortOrder: 0,
     createdAt: "2026-01-01T00:00:00.000Z",
@@ -48,6 +50,7 @@ describe("BannerManager", () => {
     );
     renderWithQuery(<BannerManager initialBanners={initialBanners} />);
     expect(screen.getAllByText("첫 배너").length).toBeGreaterThan(0);
+    expect(screen.getByText("https://example.com")).toBeInTheDocument();
   });
 
   it("삭제 후 invalidate로 목록을 갱신한다", async () => {

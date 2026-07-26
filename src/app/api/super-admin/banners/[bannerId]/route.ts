@@ -10,10 +10,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
+import {
+  normalizeBannerActionType,
+  resolveBannerActionFields,
+} from "@/lib/banner-actions";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ bannerId: string }> }
+  { params }: { params: Promise<{ bannerId: string }> },
 ) {
   const { error } = await requireRole("SUPER_ADMIN");
   if (error) return error;
@@ -24,12 +28,42 @@ export async function PATCH(
     return NextResponse.json({ message: "잘못된 요청" }, { status: 400 });
   }
 
+  if (
+    body.actionType != null &&
+    body.actionType !== "" &&
+    normalizeBannerActionType(body.actionType) == null
+  ) {
+    return NextResponse.json(
+      { message: "지원하지 않는 actionType 입니다" },
+      { status: 400 },
+    );
+  }
+
+  const actionTouched =
+    body.actionType !== undefined ||
+    body.actionValue !== undefined ||
+    body.linkUrl !== undefined;
+
+  const fields = actionTouched
+    ? resolveBannerActionFields({
+        actionType: body.actionType,
+        actionValue: body.actionValue,
+        linkUrl: body.linkUrl,
+      })
+    : null;
+
   const banner = await prisma.banner.update({
     where: { id: bannerId },
     data: {
       ...(body.title !== undefined && { title: body.title }),
       ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl }),
-      ...(body.linkUrl !== undefined && { linkUrl: body.linkUrl || null }),
+      ...(fields
+        ? {
+            linkUrl: fields.linkUrl,
+            actionType: fields.actionType,
+            actionValue: fields.actionValue,
+          }
+        : {}),
       ...(body.isActive !== undefined && { isActive: body.isActive }),
       ...(body.sortOrder !== undefined && { sortOrder: body.sortOrder }),
     },
@@ -39,7 +73,7 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ bannerId: string }> }
+  { params }: { params: Promise<{ bannerId: string }> },
 ) {
   const { error } = await requireRole("SUPER_ADMIN");
   if (error) return error;

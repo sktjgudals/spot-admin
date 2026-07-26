@@ -850,7 +850,12 @@ model Banner {
   id        String  @id @default(cuid())
   title     String
   imageUrl  String
+  /// 레거시 단일 링크. 신규는 actionType + actionValue 우선.
   linkUrl   String?
+  /// NONE | DEEPLINK | WEB | INSTAGRAM | YOUTUBE | PHONE | EMAIL | CUSTOM
+  actionType  String?
+  /// 스킴/URL/전화/메일 등 액션 값
+  actionValue String?
   isActive  Boolean @default(true)
   sortOrder Int     @default(0)
 
