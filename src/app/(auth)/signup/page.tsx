@@ -28,7 +28,7 @@ import {
   verifyBootstrapCode,
 } from "@/auth/api/admin-bootstrap.api";
 
-type Step = "loading" | "closed" | "email" | "code" | "password";
+type Step = "loading" | "email" | "code" | "password";
 
 const emailSchema = z.object({
   email: z
@@ -71,7 +71,8 @@ function mapBootstrapError(err: unknown): string {
   const code = err.message || err.code;
   switch (code) {
     case "BOOTSTRAP_ALREADY_COMPLETED":
-      return "슈퍼 어드민 계정이 이미 등록되어 있습니다. 로그인하세요.";
+      // 레거시 서버 응답 — 추가 가입 허용 배포 전이면 안내
+      return "서버 업데이트가 필요합니다. 잠시 후 다시 시도하거나 관리자에게 문의하세요.";
     case "INTERNAL_EMAIL_DOMAIN_REQUIRED":
       return "@dopa.ing 이메일만 사용할 수 있습니다.";
     case "ADMIN_ACCOUNT_EXISTS":
@@ -92,8 +93,8 @@ function mapBootstrapError(err: unknown): string {
 }
 
 /**
- * 최초 SUPER_ADMIN 회원가입 (Nest bootstrap 3-step).
- * 부트스트랩 완료 후에는 닫히며, 이후 업체 계정은 초대 링크(/invite/…)로만 가입.
+ * SUPER_ADMIN 회원가입 (Nest bootstrap 3-step).
+ * @dopa.ing 직원은 여러 명 가입 가능. 업체 계정은 초대 링크(/invite/…)로만 가입.
  */
 export default function SuperAdminSignupPage() {
   const router = useRouter();
@@ -124,20 +125,22 @@ export default function SuperAdminSignupPage() {
     }
   }, [status, admin, homePath, router]);
 
-  // Bootstrap open/closed
+  // @dopa.ing 직원 SUPER_ADMIN 가입은 여러 명 허용 — status.open 만 확인
   useEffect(() => {
     if (status === "booting" || status === "authenticated") return;
     let cancelled = false;
     (async () => {
       try {
-        const { completed } = await fetchBootstrapStatus();
+        const s = await fetchBootstrapStatus();
         if (cancelled) return;
-        setStep(completed ? "closed" : "email");
+        // open === false 인 구버전/특수 환경만 막음. 기본·신규 API 는 open:true
+        if (s.open === false) {
+          toast.error("현재 슈퍼 어드민 공개 가입이 비활성화되어 있습니다.");
+        }
+        setStep("email");
       } catch {
         if (cancelled) return;
-        // 상태 조회 실패 시에도 폼은 열어 두고, 제출 시 서버가 거절
         setStep("email");
-        toast.error("부트스트랩 상태를 확인하지 못했습니다. 계속 시도할 수 있습니다.");
       }
     })();
     return () => {
@@ -160,34 +163,6 @@ export default function SuperAdminSignupPage() {
     );
   }
 
-  if (step === "closed") {
-    return (
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">가입 마감</CardTitle>
-          <CardDescription>
-            최초 슈퍼 어드민 등록이 이미 완료된 환경입니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm text-muted-foreground">
-          <p>
-            공개 회원가입은 제공하지 않습니다. 업체 담당자는 슈퍼 어드민이
-            보낸 <strong>초대 메일</strong>의{" "}
-            <code className="rounded bg-muted px-1">/invite/…</code> 링크로
-            가입하세요.
-          </p>
-          <Button
-            className="w-full"
-            nativeButton={false}
-            render={<Link href="/login" />}
-          >
-            로그인으로 이동
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   const onEmail = async (data: EmailValues) => {
     setBusy(true);
     try {
@@ -203,13 +178,6 @@ export default function SuperAdminSignupPage() {
       );
     } catch (err) {
       toast.error(mapBootstrapError(err));
-      if (
-        err instanceof AdminAuthError &&
-        (err.message === "BOOTSTRAP_ALREADY_COMPLETED" ||
-          err.code === "BOOTSTRAP_ALREADY_COMPLETED")
-      ) {
-        setStep("closed");
-      }
     } finally {
       setBusy(false);
     }
@@ -265,7 +233,7 @@ export default function SuperAdminSignupPage() {
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold">슈퍼 어드민 가입</CardTitle>
         <CardDescription>
-          최초 1회만 가능 · @dopa.ing 이메일 인증 후 비밀번호 설정
+          Dopa 직원(@dopa.ing) · 이메일 인증 후 비밀번호 설정 · 여러 명 가입 가능
         </CardDescription>
         <StepIndicator step={step} />
       </CardHeader>
@@ -410,8 +378,8 @@ export default function SuperAdminSignupPage() {
             하세요.
           </p>
           <p>
-            이 페이지는 <strong>최초 슈퍼 어드민 1명</strong>만 생성합니다.
-            완료 후에는 자동으로 닫힙니다.
+            <strong>@dopa.ing</strong> 직원만 슈퍼 어드민으로 가입할 수 있습니다.
+            업체 담당자는 초대 메일 <code className="rounded bg-muted px-1">/invite/…</code> 로 가입합니다.
           </p>
         </div>
       </CardContent>
@@ -425,7 +393,7 @@ function StepIndicator({ step }: { step: Step }) {
     "code",
     "password",
   ];
-  if (step === "loading" || step === "closed") return null;
+  if (step === "loading") return null;
   const labels = { email: "이메일", code: "인증", password: "비밀번호" };
   const idx = order.indexOf(step);
   return (

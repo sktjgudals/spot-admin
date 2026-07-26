@@ -149,15 +149,14 @@ export default function LoginPage() {
             비밀번호를 설정한 뒤 로그인합니다.
           </p>
           <p>
-            최초 <strong>슈퍼 어드민</strong>만{" "}
+            Dopa 직원 <strong>슈퍼 어드민</strong>은{" "}
             <a
               href="/signup"
               className="text-primary underline-offset-2 hover:underline font-medium"
             >
               회원가입
             </a>
-            에서 1회 생성할 수 있습니다 (@dopa.ing 이메일). 이미 등록된
-            환경이면 해당 페이지가 닫혀 있습니다.
+            에서 @dopa.ing 이메일 인증 후 여러 명 생성할 수 있습니다.
           </p>
           <p>
             비밀번호를 잊으셨다면{" "}

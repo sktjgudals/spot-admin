@@ -9,7 +9,11 @@ import { adminFetchJson } from "@/auth/api/admin-http";
  *   POST /auth/v2/admin/bootstrap/complete
  */
 
-export type BootstrapStatus = { completed: boolean };
+export type BootstrapStatus = {
+  completed: boolean;
+  /** false 이면 가입 UI 마감. 기본 true (추가 SUPER_ADMIN 허용) */
+  open?: boolean;
+};
 
 export type BootstrapRequestResult = {
   email: string;
