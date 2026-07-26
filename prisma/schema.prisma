@@ -21,6 +21,7 @@ enum Provider {
   KAKAO
   NAVER
   APPLE
+  GOOGLE
 }
 
 enum ApplicationStatus {
