@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { bffFetch } from "@/lib/fetch-json";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -47,7 +48,7 @@ export default function BusinessRowActions({ business }: { business: Business })
     }
     const feeRateBps = Math.round(percent * 100);
     setLoading(true);
-    const res = await fetch(`/api/super-admin/businesses/${business.id}`, {
+    const res = await bffFetch(`/api/super-admin/businesses/${business.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ feeRateBps }),
@@ -65,7 +66,7 @@ export default function BusinessRowActions({ business }: { business: Business })
 
   const handleApprove = async () => {
     setLoading(true);
-    const res = await fetch(`/api/super-admin/businesses/${business.id}/approve`, {
+    const res = await bffFetch(`/api/super-admin/businesses/${business.id}/approve`, {
       method: "POST",
     });
     setLoading(false);
@@ -80,7 +81,7 @@ export default function BusinessRowActions({ business }: { business: Business })
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return toast.error("이메일을 입력하세요");
     setLoading(true);
-    const res = await fetch(`/api/super-admin/businesses/${business.id}/invite`, {
+    const res = await bffFetch(`/api/super-admin/businesses/${business.id}/invite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: inviteEmail }),

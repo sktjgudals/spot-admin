@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { bffFetch } from "@/lib/fetch-json";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export default function NewBusinessPage() {
 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
-    const res = await fetch("/api/super-admin/businesses", {
+    const res = await bffFetch("/api/super-admin/businesses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Check, X } from "lucide-react";
+import { bffFetch } from "@/lib/fetch-json";
 
 export default function ApplicationActions({ applicationId }: { applicationId: string }) {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function ApplicationActions({ applicationId }: { applicationId: s
 
   const handle = async (action: "approve" | "reject") => {
     setLoading(true);
-    const res = await fetch(`/api/business/applications/${applicationId}/${action}`, {
+    const res = await bffFetch(`/api/business/applications/${applicationId}/${action}`, {
       method: "POST",
     });
     setLoading(false);

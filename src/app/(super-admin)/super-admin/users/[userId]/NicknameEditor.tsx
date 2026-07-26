@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { bffFetch } from "@/lib/fetch-json";
 
 export default function NicknameEditor({
   userId,
@@ -28,7 +29,7 @@ export default function NicknameEditor({
     }
     if (trimmed === initialNickname) return;
     setSaving(true);
-    const res = await fetch(`/api/super-admin/users/${userId}`, {
+    const res = await bffFetch(`/api/super-admin/users/${userId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nickname: trimmed }),

@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchJson } from "@/lib/fetch-json";
+import { fetchJson, bffFetch } from "@/lib/fetch-json";
 import { queryKeys } from "@/lib/query-keys";
 
 interface CategoryItem {
@@ -57,7 +57,7 @@ export default function CategoryManager({ initialCategories }: Props) {
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/super-admin/party-categories", {
+      const res = await bffFetch("/api/super-admin/party-categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), status, sortOrder }),
@@ -79,7 +79,7 @@ export default function CategoryManager({ initialCategories }: Props) {
   async function patch(id: string, body: Record<string, unknown>) {
     setBusyId(id);
     try {
-      const res = await fetch(`/api/super-admin/party-categories/${id}`, {
+      const res = await bffFetch(`/api/super-admin/party-categories/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -103,7 +103,7 @@ export default function CategoryManager({ initialCategories }: Props) {
 
     setBusyId(item.id);
     try {
-      const res = await fetch(`/api/super-admin/party-categories/${item.id}`, {
+      const res = await bffFetch(`/api/super-admin/party-categories/${item.id}`, {
         method: "DELETE",
       });
       if (!res.ok && res.status !== 204) {

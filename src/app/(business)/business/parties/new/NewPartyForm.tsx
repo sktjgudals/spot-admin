@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { bffFetch } from "@/lib/fetch-json";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -64,11 +65,11 @@ export default function NewPartyForm() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
 
   useEffect(() => {
-    fetch("/api/business/forms")
+    bffFetch("/api/business/forms")
       .then((r) => (r.ok ? r.json() : []))
       .then((data: FormFieldItem[]) => setFormFields(data))
       .catch(() => setFormFields([]));
-    fetch("/api/party-categories")
+    bffFetch("/api/party-categories")
       .then((r) => (r.ok ? r.json() : []))
       .then((data: CategoryItem[]) => setCategories(data))
       .catch(() => setCategories([]));
@@ -101,7 +102,7 @@ export default function NewPartyForm() {
 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
-    const res = await fetch("/api/business/parties", {
+    const res = await bffFetch("/api/business/parties", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

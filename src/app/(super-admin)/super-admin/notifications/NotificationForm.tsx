@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { bffFetch } from "@/lib/fetch-json";
 import {
   Select,
   SelectContent,
@@ -73,7 +74,7 @@ export default function NotificationForm({ userCount, parties }: Props) {
     if (!query.trim()) return;
     setSearching(true);
     try {
-      const res = await fetch(
+      const res = await bffFetch(
         `/api/super-admin/users/search?q=${encodeURIComponent(query.trim())}`
       );
       const data = await res.json();
@@ -117,7 +118,7 @@ export default function NotificationForm({ userCount, parties }: Props) {
 
     setSending(true);
     try {
-      const res = await fetch("/api/super-admin/notifications", {
+      const res = await bffFetch("/api/super-admin/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

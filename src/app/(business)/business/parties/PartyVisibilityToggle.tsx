@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { bffFetch } from "@/lib/fetch-json";
 
 export default function PartyVisibilityToggle({
   partyId,
@@ -21,7 +22,7 @@ export default function PartyVisibilityToggle({
     const next = !visible;
     setSaving(true);
     setOptimistic(next);
-    const res = await fetch(`/api/business/parties/${partyId}`, {
+    const res = await bffFetch(`/api/business/parties/${partyId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: next }),

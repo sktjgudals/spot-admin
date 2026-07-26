@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { bffFetch } from "@/lib/fetch-json";
 
 export type BusinessProfileFields = {
   name: string;
@@ -47,7 +48,7 @@ export default function BusinessProfileEditor({
       return;
     }
     setSaving(true);
-    const res = await fetch(`/api/super-admin/businesses/${businessId}`, {
+    const res = await bffFetch(`/api/super-admin/businesses/${businessId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

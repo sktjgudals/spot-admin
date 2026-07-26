@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { bffFetch } from "@/lib/fetch-json";
 import { Building2 } from "lucide-react";
 
 interface Business {
@@ -37,7 +38,7 @@ export default function PartyBusinessMapper({
     if (value === null) return;
     setLoading(true);
     const businessId = value === "none" ? null : value;
-    const res = await fetch(`/api/super-admin/parties/${partyId}/business`, {
+    const res = await bffFetch(`/api/super-admin/parties/${partyId}/business`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ businessId }),

@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { fetchJson } from "@/lib/fetch-json";
+import { fetchJson, bffFetch } from "@/lib/fetch-json";
 import { queryKeys } from "@/lib/query-keys";
 
 type Kind = "CLAIMABLE" | "SYSTEM";
@@ -104,7 +104,7 @@ export default function CouponManager({ initialTemplates }: Props) {
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/super-admin/coupons", {
+      const res = await bffFetch("/api/super-admin/coupons", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -134,7 +134,7 @@ export default function CouponManager({ initialTemplates }: Props) {
   async function patch(id: string, body: Record<string, unknown>) {
     setBusyId(id);
     try {
-      const res = await fetch(`/api/super-admin/coupons/${id}`, {
+      const res = await bffFetch(`/api/super-admin/coupons/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -156,7 +156,7 @@ export default function CouponManager({ initialTemplates }: Props) {
     if (!confirm(`"${item.title}" 쿠폰을 삭제할까요?`)) return;
     setBusyId(item.id);
     try {
-      const res = await fetch(`/api/super-admin/coupons/${item.id}`, {
+      const res = await bffFetch(`/api/super-admin/coupons/${item.id}`, {
         method: "DELETE",
       });
       if (!res.ok && res.status !== 204) {
@@ -175,7 +175,7 @@ export default function CouponManager({ initialTemplates }: Props) {
   async function handleIssue(item: TemplateItem, email: string) {
     setBusyId(item.id);
     try {
-      const res = await fetch(`/api/super-admin/coupons/${item.id}/issue`, {
+      const res = await bffFetch(`/api/super-admin/coupons/${item.id}/issue`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -513,7 +513,7 @@ function IssueHistoryDialog({
     }
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/super-admin/coupons/${item.id}/issues`)
+    bffFetch(`/api/super-admin/coupons/${item.id}/issues`)
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.message ?? "조회 실패");

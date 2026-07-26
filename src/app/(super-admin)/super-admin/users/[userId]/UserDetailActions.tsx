@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { bffFetch } from "@/lib/fetch-json";
 
 type UserRole = "USER" | "ADMIN" | "SUPER_ADMIN";
 
@@ -54,7 +55,7 @@ export default function UserDetailActions({
 
   async function call(path: string, body?: object) {
     setLoading(true);
-    const res = await fetch(path, {
+    const res = await bffFetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,

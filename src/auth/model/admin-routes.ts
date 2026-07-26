@@ -9,10 +9,16 @@
 
 import type { AdminWebRole } from "@/auth/model/admin-auth.types";
 
-/** SUPER_ADMIN home */
+/** SUPER_ADMIN home — full admin chrome (banners, notifications, …) */
+export const ROUTE_SUPER_ADMIN_HOME = "/super-admin/dashboard";
+
+/** Nest-first businesses list (Auth v2 migration path) */
 export const ROUTE_BUSINESSES = "/app/businesses";
 
-/** BUSINESS_ADMIN home — own tenant parties only */
+/** BUSINESS_ADMIN home — full admin chrome (parties, settlements, chat, …) */
+export const ROUTE_BUSINESS_HOME = "/business/dashboard";
+
+/** Nest-first parties list (Auth v2 migration path — v2 shell internal nav) */
 export const ROUTE_MY_PARTIES = "/app/parties";
 
 export function businessDetailPath(businessId: string): string {
@@ -44,7 +50,7 @@ export function myPartyDetailPath(partyId: string): string {
 }
 
 export function homePathForRole(role: AdminWebRole): string {
-  return role === "SUPER_ADMIN" ? ROUTE_BUSINESSES : ROUTE_MY_PARTIES;
+  return role === "SUPER_ADMIN" ? ROUTE_SUPER_ADMIN_HOME : ROUTE_BUSINESS_HOME;
 }
 
 /**

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2 } from "lucide-react";
+import { bffFetch } from "@/lib/fetch-json";
 
 export interface RefundTierRow {
   hoursBeforeStart: number;
@@ -63,7 +64,7 @@ export default function RefundPolicyEditor({ businessId, initialTiers }: Props) 
     }
 
     setLoading(true);
-    const res = await fetch(
+    const res = await bffFetch(
       `/api/super-admin/businesses/${businessId}/refund-policy`,
       {
         method: "PUT",

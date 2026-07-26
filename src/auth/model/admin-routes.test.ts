@@ -7,12 +7,12 @@ import {
 } from "@/auth/model/admin-routes";
 
 describe("admin-routes scope contract", () => {
-  it("SUPER_ADMIN home is businesses list", () => {
-    expect(homePathForRole("SUPER_ADMIN")).toBe("/app/businesses");
+  it("SUPER_ADMIN home is super-admin dashboard", () => {
+    expect(homePathForRole("SUPER_ADMIN")).toBe("/super-admin/dashboard");
   });
 
-  it("BUSINESS_ADMIN home is own parties", () => {
-    expect(homePathForRole("BUSINESS_ADMIN")).toBe("/app/parties");
+  it("BUSINESS_ADMIN home is business dashboard", () => {
+    expect(homePathForRole("BUSINESS_ADMIN")).toBe("/business/dashboard");
   });
 
   it("SUPER_ADMIN party URL embeds businessId", () => {

@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { bffFetch } from "@/lib/fetch-json";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,7 +50,7 @@ export default function UserActions({ user }: { user: User }) {
 
   const callApi = async (path: string, body?: object) => {
     setLoading(true);
-    const res = await fetch(path, {
+    const res = await bffFetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,

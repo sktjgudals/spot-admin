@@ -1,11 +1,12 @@
-import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import SuperAdminShell from "./SuperAdminShell";
 
 /**
- * Legacy SUPER_ADMIN portal — cut over to Auth v2 `/app/businesses`.
- * NextAuth removed (PR3). Unmigrated features return via future Nest APIs.
+ * SUPER_ADMIN portal — original AdminSidebar chrome restored.
+ * force-dynamic: pages hit Prisma at request time (not build/prerender).
  */
 export const dynamic = "force-dynamic";
 
-export default function LegacySuperAdminLayout() {
-  redirect("/app/businesses");
+export default function SuperAdminLayout({ children }: { children: ReactNode }) {
+  return <SuperAdminShell>{children}</SuperAdminShell>;
 }

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { bffFetch } from "@/lib/fetch-json";
 
 export type BusinessAdminRow = {
   id: string;
@@ -35,7 +36,7 @@ export default function BusinessAdminsManager({
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch(
+      const res = await bffFetch(
         `/api/super-admin/businesses/${businessId}/admins`,
         {
           method: "POST",
@@ -60,7 +61,7 @@ export default function BusinessAdminsManager({
   async function toggleActive(admin: BusinessAdminRow) {
     setTogglingId(admin.id);
     try {
-      const res = await fetch(
+      const res = await bffFetch(
         `/api/super-admin/businesses/${businessId}/admins/${admin.id}`,
         {
           method: "PATCH",

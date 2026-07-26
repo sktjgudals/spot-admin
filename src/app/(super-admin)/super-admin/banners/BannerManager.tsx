@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchJson } from "@/lib/fetch-json";
+import { fetchJson, bffFetch } from "@/lib/fetch-json";
 import { queryKeys } from "@/lib/query-keys";
 import {
   BANNER_ACTION_HINTS,
@@ -71,7 +71,7 @@ export default function BannerManager({ initialBanners }: Props) {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/super-admin/banners/upload", {
+      const res = await bffFetch("/api/super-admin/banners/upload", {
         method: "POST",
         body: formData,
       });
@@ -98,7 +98,7 @@ export default function BannerManager({ initialBanners }: Props) {
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/super-admin/banners", {
+      const res = await bffFetch("/api/super-admin/banners", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -124,7 +124,7 @@ export default function BannerManager({ initialBanners }: Props) {
   }
 
   async function handleToggleActive(banner: BannerItem) {
-    const res = await fetch(`/api/super-admin/banners/${banner.id}`, {
+    const res = await bffFetch(`/api/super-admin/banners/${banner.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !banner.isActive }),
@@ -138,7 +138,7 @@ export default function BannerManager({ initialBanners }: Props) {
 
   async function handleDelete(banner: BannerItem) {
     if (!confirm(`"${banner.title}" 배너를 삭제할까요?`)) return;
-    const res = await fetch(`/api/super-admin/banners/${banner.id}`, {
+    const res = await bffFetch(`/api/super-admin/banners/${banner.id}`, {
       method: "DELETE",
     });
     if (!res.ok) {

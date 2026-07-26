@@ -15,8 +15,8 @@ describe("admin-auth.types", () => {
   });
 
   it("home paths by role", () => {
-    expect(homePathForRole("SUPER_ADMIN")).toBe("/app/businesses");
-    expect(homePathForRole("BUSINESS_ADMIN")).toBe("/app/parties");
+    expect(homePathForRole("SUPER_ADMIN")).toBe("/super-admin/dashboard");
+    expect(homePathForRole("BUSINESS_ADMIN")).toBe("/business/dashboard");
   });
 
   it("maps me payload to profile", () => {

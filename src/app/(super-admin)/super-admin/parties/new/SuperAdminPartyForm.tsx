@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { bffFetch } from "@/lib/fetch-json";
 import { PartyImageUploader } from "@/components/party-image-uploader";
 
 const schema = z.object({
@@ -72,7 +73,7 @@ export default function SuperAdminPartyForm({
 
   const onSubmit = async (data: FormValues) => {
     setLoading(true);
-    const res = await fetch("/api/super-admin/parties", {
+    const res = await bffFetch("/api/super-admin/parties", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

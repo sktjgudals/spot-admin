@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Loader2, ArrowLeft, Send } from "lucide-react";
 import { toast } from "sonner";
-import { fetchJson } from "@/lib/fetch-json";
+import { fetchJson, bffFetch } from "@/lib/fetch-json";
 import { queryKeys } from "@/lib/query-keys";
 import { uuidV7 } from "@/lib/uuid-v7";
 
@@ -94,7 +94,7 @@ export default function BusinessChatRoomPage() {
   const markRead = useCallback(
     async (seq: number) => {
       if (seq < 1) return;
-      await fetch(`/api/business/chat/rooms/${roomId}/read`, {
+      await bffFetch(`/api/business/chat/rooms/${roomId}/read`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ seq }),
@@ -108,7 +108,7 @@ export default function BusinessChatRoomPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const res = await fetch(
+      const res = await bffFetch(
         `/api/business/chat/rooms/${roomId}/messages?limit=50`,
       ).catch(() => null);
       if (cancelled) return;
@@ -131,7 +131,7 @@ export default function BusinessChatRoomPage() {
   // 신규 메시지 폴링 (afterSeq 커서)
   useEffect(() => {
     const timer = setInterval(async () => {
-      const res = await fetch(
+      const res = await bffFetch(
         `/api/business/chat/rooms/${roomId}/messages?afterSeq=${maxSeqRef.current}&limit=100`,
       ).catch(() => null);
       if (!res?.ok) return;
@@ -190,7 +190,7 @@ export default function BusinessChatRoomPage() {
     setMessages((previous) => [...(previous ?? []), optimistic]);
     setInput("");
     try {
-      const res = await fetch(`/api/business/chat/rooms/${roomId}/messages`, {
+      const res = await bffFetch(`/api/business/chat/rooms/${roomId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

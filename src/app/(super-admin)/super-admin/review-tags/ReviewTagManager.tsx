@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchJson } from "@/lib/fetch-json";
+import { fetchJson, bffFetch } from "@/lib/fetch-json";
 import { queryKeys } from "@/lib/query-keys";
 
 interface CategoryItem {
@@ -114,7 +114,7 @@ export default function ReviewTagManager({
   async function patchCategory(id: string, body: Record<string, unknown>) {
     setBusyId(id);
     try {
-      const res = await fetch(`/api/super-admin/review-tag-categories/${id}`, {
+      const res = await bffFetch(`/api/super-admin/review-tag-categories/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -134,7 +134,7 @@ export default function ReviewTagManager({
     if (!confirm(`"${item.name}" 카테고리를 삭제할까요?`)) return;
     setBusyId(item.id);
     try {
-      const res = await fetch(
+      const res = await bffFetch(
         `/api/super-admin/review-tag-categories/${item.id}`,
         { method: "DELETE" }
       );
@@ -165,7 +165,7 @@ export default function ReviewTagManager({
     }
     setCreating(true);
     try {
-      const res = await fetch("/api/super-admin/review-tags", {
+      const res = await bffFetch("/api/super-admin/review-tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -190,7 +190,7 @@ export default function ReviewTagManager({
   async function patch(id: string, body: Record<string, unknown>) {
     setBusyId(id);
     try {
-      const res = await fetch(`/api/super-admin/review-tags/${id}`, {
+      const res = await bffFetch(`/api/super-admin/review-tags/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -209,7 +209,7 @@ export default function ReviewTagManager({
     if (!confirm(`"${item.label}" 태그를 삭제할까요?`)) return;
     setBusyId(item.id);
     try {
-      const res = await fetch(`/api/super-admin/review-tags/${item.id}`, {
+      const res = await bffFetch(`/api/super-admin/review-tags/${item.id}`, {
         method: "DELETE",
       });
       if (!res.ok && res.status !== 204) {

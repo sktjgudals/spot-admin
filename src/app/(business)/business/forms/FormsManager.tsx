@@ -38,7 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchJson } from "@/lib/fetch-json";
+import { fetchJson, bffFetch } from "@/lib/fetch-json";
 import { queryKeys } from "@/lib/query-keys";
 
 type FieldType = "TEXT" | "TEXTAREA" | "NUMBER" | "SELECT" | "MULTISELECT";
@@ -115,7 +115,7 @@ export default function FormsManager({
 
   const patchField = useCallback(
     async (id: string, body: Record<string, unknown>) => {
-      const res = await fetch(`/api/business/forms/${id}`, {
+      const res = await bffFetch(`/api/business/forms/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -168,7 +168,7 @@ export default function FormsManager({
     if (adding) return;
     setAdding(true);
     try {
-      const res = await fetch("/api/business/forms", {
+      const res = await bffFetch("/api/business/forms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -202,7 +202,7 @@ export default function FormsManager({
   };
 
   const duplicateField = async (field: FormFieldItem) => {
-    const res = await fetch("/api/business/forms", {
+    const res = await bffFetch("/api/business/forms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -240,7 +240,7 @@ export default function FormsManager({
 
   const deleteField = async (id: string) => {
     if (!confirm("이 질문을 삭제할까요? 기존 신청 답변은 보존됩니다.")) return;
-    const res = await fetch(`/api/business/forms/${id}`, { method: "DELETE" });
+    const res = await bffFetch(`/api/business/forms/${id}`, { method: "DELETE" });
     if (!res.ok) {
       toast.error("삭제에 실패했습니다");
       return;

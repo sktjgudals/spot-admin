@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
+import { bffFetch } from "@/lib/fetch-json";
 
 type Kind = "INDIVIDUAL" | "COMPANY";
 
@@ -20,7 +21,7 @@ export default function BusinessKindEditor({
     if (next === kind) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/super-admin/businesses/${businessId}`, {
+      const res = await bffFetch(`/api/super-admin/businesses/${businessId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind: next }),

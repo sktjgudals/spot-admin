@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { bffFetch } from "@/lib/fetch-json";
 
 export default function RoleRequestActions({
   requestId,
@@ -19,7 +20,7 @@ export default function RoleRequestActions({
   const approve = async () => {
     if (loading) return;
     setLoading("approve");
-    const res = await fetch(
+    const res = await bffFetch(
       `/api/super-admin/business-role-requests/${requestId}/approve`,
       {
         method: "POST",
@@ -45,7 +46,7 @@ export default function RoleRequestActions({
     if (loading) return;
     if (!window.confirm("이 신청을 거절할까요?")) return;
     setLoading("reject");
-    const res = await fetch(
+    const res = await bffFetch(
       `/api/super-admin/business-role-requests/${requestId}/reject`,
       { method: "POST" },
     );
