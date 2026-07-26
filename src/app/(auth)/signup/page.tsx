@@ -201,6 +201,25 @@ export default function SuperAdminSignupPage() {
     }
   };
 
+  const resendCode = async () => {
+    if (!email || busy) return;
+    setBusy(true);
+    try {
+      const res = await requestBootstrapCode(email);
+      setDevCode(res.devCode ?? null);
+      codeForm.reset({ code: "" });
+      toast.success(
+        res.devCode
+          ? `개발용 코드: ${res.devCode}`
+          : "인증 코드를 다시 보냈습니다. 메일함·스팸함을 확인해 주세요.",
+      );
+    } catch (err) {
+      toast.error(mapBootstrapError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onPassword = async (data: PasswordValues) => {
     setBusy(true);
     try {
@@ -311,6 +330,14 @@ export default function SuperAdminSignupPage() {
                 {busy ? "확인 중…" : "코드 확인"}
               </Button>
             </div>
+            <button
+              type="button"
+              onClick={() => void resendCode()}
+              disabled={busy || !email}
+              className="w-full text-center text-xs font-medium text-primary underline-offset-4 hover:underline disabled:opacity-50 cursor-pointer"
+            >
+              코드를 받지 못했나요? 다시 보내기
+            </button>
           </form>
         )}
 
