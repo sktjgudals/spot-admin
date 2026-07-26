@@ -27,12 +27,14 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/app/parties", req.url));
   }
 
-  // Public auth pages (login, invite, first SUPER_ADMIN signup/bootstrap)
+  // Public auth pages (login, invite, signup/bootstrap, password reset)
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/invite") ||
-    pathname.startsWith("/signup")
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/reset-password")
   ) {
+    // 로그인·가입만 세션 있으면 앱으로. 비밀번호 찾기는 로그인 상태에서도 접근 가능.
     if (
       hasNestSession &&
       (pathname.startsWith("/login") || pathname.startsWith("/signup"))
