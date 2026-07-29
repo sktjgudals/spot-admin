@@ -105,4 +105,16 @@ export const NestAdminApi = {
   mailOutboxItem: (id: string) => `/admin/v2/auth-mail/outbox/${id}`,
   mailOutboxReprocess: (id: string) =>
     `/admin/v2/auth-mail/outbox/${id}/reprocess`,
+  refundPolicyRequests: () =>
+    "/admin/v2/refund-policy-change-requests",
+  refundPolicyRequest: (id: string) =>
+    `/admin/v2/refund-policy-change-requests/${encodeURIComponent(id)}`,
+  refundPolicyApprove: (id: string) =>
+    `/admin/v2/refund-policy-change-requests/${encodeURIComponent(id)}/approve`,
+  refundPolicyReject: (id: string) =>
+    `/admin/v2/refund-policy-change-requests/${encodeURIComponent(id)}/reject`,
+  refundRetry: (id: string) =>
+    `/admin/v2/refunds/${encodeURIComponent(id)}/retry`,
+  paymentManualRefund: (id: string) =>
+    `/admin/v2/payments/${encodeURIComponent(id)}/manual-refund`,
 } as const;

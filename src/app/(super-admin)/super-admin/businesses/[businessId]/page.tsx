@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronLeft } from "lucide-react";
 import BusinessStatusBadge from "../BusinessStatusBadge";
 import BusinessRowActions from "../BusinessRowActions";
-import RefundPolicyEditor from "./RefundPolicyEditor";
 import BusinessAdminsManager from "./BusinessAdminsManager";
 import BusinessKindEditor from "./BusinessKindEditor";
 import BusinessProfileEditor from "./BusinessProfileEditor";
@@ -121,13 +120,45 @@ export default async function BusinessDetailPage({ params }: Props) {
         initialAdmins={business.admins}
       />
 
-      <RefundPolicyEditor
-        businessId={business.id}
-        initialTiers={business.refundPolicyTiers.map((t) => ({
-          hoursBeforeStart: t.hoursBeforeStart,
-          refundPercent: t.refundPercent,
-        }))}
-      />
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">현재 환불 정책</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {(business.refundPolicyTiers.length
+            ? business.refundPolicyTiers
+            : [
+                { hoursBeforeStart: 168, refundPercent: 100 },
+                { hoursBeforeStart: 72, refundPercent: 50 },
+                { hoursBeforeStart: 0, refundPercent: 0 },
+              ]
+          ).map((tier) => (
+            <Row
+              key={tier.hoursBeforeStart}
+              label={
+                tier.hoursBeforeStart === 0
+                  ? "그 외"
+                  : `시작 ${tier.hoursBeforeStart}시간 전`
+              }
+              value={`${tier.refundPercent}% 환불 · 취소수수료 ${
+                100 - tier.refundPercent
+              }%`}
+            />
+          ))}
+          <p className="pt-2 text-xs text-muted-foreground">
+            직접 편집할 수 없습니다. 업체 앱의 신청안을 환불 정책 승인 큐에서
+            검토해 주세요.
+          </p>
+          <Button
+            nativeButton={false}
+            size="sm"
+            variant="outline"
+            render={<Link href="/super-admin/refund-policy-requests" />}
+          >
+            승인 큐 열기
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

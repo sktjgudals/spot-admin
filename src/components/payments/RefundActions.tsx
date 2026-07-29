@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { adminFetchJson } from "@/auth/api/admin-http";
+import { NestAdminApi } from "@/auth/model/admin-routes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,24 +24,20 @@ interface RefundInfo {
 }
 
 interface Props {
-  /** API 라우트 베이스: "/api/super-admin" 또는 "/api/business" */
-  apiBase: string;
   paymentId: string;
   /** 결제 상태 (환불 가능 여부 판단용) */
   paymentStatus: string;
   paymentAmount: number;
-  /** 진행 중(REQUESTED) 환불 요청. 있으면 승인/거절 노출. */
+  /** 관리자 확인/재시도가 필요한 환불. */
   pendingRefund: RefundInfo | null;
 }
 
 /**
  * 결제 상세에서 환불을 처리하는 액션 버튼.
- * - REQUESTED 환불이 있으면: 승인 / 거절
- * - 그 외 DONE/부분취소 결제면: 수동 환불(직접 실행)
- * 실제 Toss 취소는 백엔드 내부 API로 프록시된다.
+ * - REQUESTED/FAILED/ACTION_REQUIRED: SUPER_ADMIN이 자동 처리기를 재시도
+ * - 법정 청약철회·서비스 불이행: 사유와 금액을 남겨 수동 환불
  */
 export default function RefundActions({
-  apiBase,
   paymentId,
   paymentStatus,
   paymentAmount,
@@ -47,42 +45,65 @@ export default function RefundActions({
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [rejectOpen, setRejectOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [bank, setBank] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [holderName, setHolderName] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
   const [manualAmount, setManualAmount] = useState(String(paymentAmount));
   const [manualReason, setManualReason] = useState("");
 
   const post = async (path: string, body?: unknown, successMsg?: string) => {
     setLoading(true);
-    const res = await fetch(`${apiBase}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    setLoading(false);
-    const data = await res.json().catch(() => null);
-    if (res.ok) {
+    try {
+      await adminFetchJson(path, {
+        method: "POST",
+        body: JSON.stringify(body ?? {}),
+      });
       toast.success(successMsg ?? "처리되었습니다");
       router.refresh();
       return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "처리에 실패했습니다");
+      return false;
+    } finally {
+      setLoading(false);
     }
-    toast.error(data?.message ?? "처리에 실패했습니다");
-    return false;
   };
 
-  const handleApprove = () =>
-    post(`/refunds/${pendingRefund!.id}/approve`, {}, "환불을 승인하고 결제를 취소했습니다");
+  const handleRetry = () => {
+    if (pendingRefund?.status === "ACTION_REQUIRED") {
+      setAccountOpen(true);
+      return;
+    }
+    void post(
+      NestAdminApi.refundRetry(pendingRefund!.id),
+      {},
+      "환불 자동 처리를 재시도했습니다",
+    );
+  };
 
-  const handleReject = async () => {
+  const handleAccountRetry = async () => {
+    if (!bank.trim() || !accountNumber.trim() || !holderName.trim()) {
+      toast.error("은행 코드, 계좌번호, 예금주를 모두 입력해 주세요");
+      return;
+    }
     const ok = await post(
-      `/refunds/${pendingRefund!.id}/reject`,
-      { reason: rejectReason.trim() || undefined },
-      "환불 요청을 거절했습니다",
+      NestAdminApi.refundRetry(pendingRefund!.id),
+      {
+        refundReceiveAccount: {
+          bank: bank.trim(),
+          accountNumber: accountNumber.trim(),
+          holderName: holderName.trim(),
+        },
+      },
+      "환불 계좌를 저장하고 자동 처리를 재시도했습니다",
     );
     if (ok) {
-      setRejectOpen(false);
-      setRejectReason("");
+      setAccountOpen(false);
+      setBank("");
+      setAccountNumber("");
+      setHolderName("");
     }
   };
 
@@ -91,9 +112,12 @@ export default function RefundActions({
     if (!Number.isInteger(amount) || amount < 0 || amount > paymentAmount) {
       return toast.error(`환불 금액은 0 ~ ${paymentAmount.toLocaleString()}원 사이여야 합니다`);
     }
+    if (!manualReason.trim()) {
+      return toast.error("정책 외 수동 환불 사유를 입력해 주세요");
+    }
     const ok = await post(
-      `/payments/${paymentId}/refund`,
-      { amount, reason: manualReason.trim() || undefined },
+      NestAdminApi.paymentManualRefund(paymentId),
+      { amount, reason: manualReason.trim() },
       "환불을 실행했습니다",
     );
     if (ok) {
@@ -108,14 +132,11 @@ export default function RefundActions({
   return (
     <div className="flex flex-wrap gap-2">
       {pendingRefund && (
-        <>
-          <Button onClick={handleApprove} disabled={loading}>
-            환불 승인 (₩{pendingRefund.amount.toLocaleString()})
-          </Button>
-          <Button variant="destructive" onClick={() => setRejectOpen(true)} disabled={loading}>
-            환불 거절
-          </Button>
-        </>
+        <Button onClick={handleRetry} disabled={loading}>
+          {pendingRefund.status === "ACTION_REQUIRED"
+            ? "환불 계좌 입력"
+            : `환불 재시도 (₩${pendingRefund.amount.toLocaleString()})`}
+        </Button>
       )}
 
       {canManualRefund && (
@@ -124,32 +145,41 @@ export default function RefundActions({
         </Button>
       )}
 
-      {/* 거절 다이얼로그 */}
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+      <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>환불 요청 거절</DialogTitle>
+            <DialogTitle>가상계좌 환불 계좌</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label>거절 사유 (선택)</Label>
-              <Textarea
-                placeholder="예: 환불 규정상 취소 불가 기간입니다"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
+              <Label>은행 코드</Label>
+              <Input
+                value={bank}
+                onChange={(e) => setBank(e.target.value)}
+                placeholder="Toss 은행 코드"
               />
-              <p className="text-xs text-muted-foreground">
-                거절해도 참가 취소(좌석 반납)는 이미 반영된 상태입니다. 환불(금액)만
-                진행되지 않습니다.
-              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>계좌번호</Label>
+              <Input
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>예금주</Label>
+              <Input
+                value={holderName}
+                onChange={(e) => setHolderName(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectOpen(false)}>
+            <Button variant="outline" onClick={() => setAccountOpen(false)}>
               닫기
             </Button>
-            <Button variant="destructive" onClick={handleReject} disabled={loading}>
-              거절하기
+            <Button onClick={handleAccountRetry} disabled={loading}>
+              자동 환불 재시도
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -177,7 +207,7 @@ export default function RefundActions({
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label>사유 (선택)</Label>
+              <Label>정책 외 환불 사유 (필수)</Label>
               <Textarea
                 placeholder="환불 사유"
                 value={manualReason}

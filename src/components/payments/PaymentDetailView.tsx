@@ -49,19 +49,19 @@ function fmtDateTime(d: Date | null): string {
 
 /**
  * 결제 상세 + 환불 처리 화면 (슈퍼어드민/업체 공용, 서버 컴포넌트).
- * @param apiBase 환불 액션 API 베이스 ("/api/super-admin" | "/api/business")
  * @param backHref 목록으로 돌아가는 경로
  */
 export default function PaymentDetailView({
   payment,
-  apiBase,
   backHref,
 }: {
   payment: PaymentDetailData;
-  apiBase: string;
   backHref: string;
 }) {
-  const pending = payment.refunds.find((r) => r.status === "REQUESTED") ?? null;
+  const pending =
+    payment.refunds.find((r) =>
+      ["REQUESTED", "FAILED", "ACTION_REQUIRED"].includes(r.status),
+    ) ?? null;
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -116,11 +116,11 @@ export default function PaymentDetailView({
           {pending ? (
             <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-1">
               <p className="font-medium">
-                환불 요청 대기 중 · ₩{pending.amount.toLocaleString()} ({pending.refundPercent}%)
+                관리자 확인 필요 · ₩{pending.amount.toLocaleString()} ({pending.refundPercent}%)
               </p>
               <p className="text-xs text-muted-foreground">
-                참가자가 취소해 규정({pending.refundPercent}%)에 따라 환불이 요청되었습니다.
-                승인하면 Toss로 실제 환불이 실행됩니다.
+                좌석 취소는 유지됩니다. 기존 대기·실패 환불은 상태와 계좌를 확인한 뒤
+                자동 처리기를 재시도하세요.
               </p>
             </div>
           ) : (
@@ -128,7 +128,6 @@ export default function PaymentDetailView({
           )}
 
           <RefundActions
-            apiBase={apiBase}
             paymentId={payment.id}
             paymentStatus={payment.status}
             paymentAmount={payment.amount}

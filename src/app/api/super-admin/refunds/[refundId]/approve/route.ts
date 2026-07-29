@@ -9,19 +9,17 @@
 
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/api-auth";
-import { proxyBackendInternal } from "@/lib/backend-internal";
 
-interface Params {
-  params: Promise<{ refundId: string }>;
-}
-
-/** 환불 승인 → spot-backend 내부 API로 프록시 (Toss 실제 취소). */
-export async function POST(_req: Request, { params }: Params) {
-  const { session, error } = await requireRole("SUPER_ADMIN");
+/** 구 수동 승인 BFF는 폐기. 일반 환불은 자동 처리한다. */
+export async function POST() {
+  const { error } = await requireRole("SUPER_ADMIN");
   if (error) return error;
 
-  const { refundId } = await params;
-  return proxyBackendInternal(`/internal/refunds/${refundId}/approve`, {
-    decidedBy: session.user.email ?? session.user.name,
-  });
+  return NextResponse.json(
+    {
+      code: "LEGACY_REFUND_API_DISABLED",
+      message: "자동 환불 재시도 또는 Admin JWT 기반 수동 환불을 이용해 주세요.",
+    },
+    { status: 410 },
+  );
 }

@@ -154,8 +154,16 @@ enum BusinessRoleRequestStatus {
   REJECTED
 }
 
+enum RefundPolicyChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum RefundStatus {
   REQUESTED
+  PROCESSING
+  ACTION_REQUIRED
   REJECTED
   COMPLETED
   FAILED
@@ -204,6 +212,7 @@ model User {
   inquiries           Inquiry[]
   coupons             UserCoupon[]
   businessRoleRequests BusinessRoleRequest[]
+  refundPolicyChangeRequests RefundPolicyChangeRequest[] @relation("RefundPolicyRequester")
 
   // 업체 어드민(role=ADMIN) 지정 시 담당 업체
   businessId      String?
@@ -609,6 +618,7 @@ model AdminAccount {
 
   /// 앱 operator User 링크 (backend 마이그레이션과 공유)
   userId String? @unique
+  reviewedRefundPolicyChanges RefundPolicyChangeRequest[] @relation("RefundPolicyReviewer")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -657,6 +667,7 @@ model Business {
   settlements      Settlement[]
   invitations      BusinessInvitation[]
   refundPolicyTiers RefundPolicyTier[]
+  refundPolicyChangeRequests RefundPolicyChangeRequest[]
   formFields       BusinessFormField[]
   chatRooms        ChatRoom[]
   adminUsers       User[]               @relation("BusinessAdminUsers")
@@ -698,6 +709,34 @@ model RefundPolicyTier {
 
   @@index([businessId])
   @@map("refund_policy_tiers")
+}
+
+model RefundPolicyChangeRequest {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  requestedByUserId String?
+  requestedByUser   User? @relation("RefundPolicyRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  proposedTiers Json
+  reason        String?
+  status        RefundPolicyChangeRequestStatus @default(PENDING)
+
+  reviewedByAdminId String?
+  reviewedByAdmin   AdminAccount? @relation("RefundPolicyReviewer", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  reviewReason      String?
+  reviewedAt        DateTime?
+  appliedFingerprint String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([businessId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([requestedByUserId])
+  @@index([reviewedByAdminId])
+  @@map("refund_policy_change_requests")
 }
 
 /// 업체 어드민 초대 링크 (슈퍼 어드민 → 업체 이메일로 발송)
@@ -749,6 +788,9 @@ model Payment {
 
   /// Toss API 원본 응답 JSON
   tossRawResponse Json?
+  refundPolicySnapshot Json?
+  refundPolicyFingerprint String?
+  refundPolicyAcceptedAt DateTime?
 
   /// 유료 파티 커스텀 신청 폼 답변 (spot-backend 미러링)
   formAnswers Json?
@@ -782,6 +824,8 @@ model PaymentTransaction {
   reason     String?
   /// Toss 트랜잭션 키
   transactionKey String?
+  refundId       String? @unique
+  refund         Refund? @relation(fields: [refundId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
@@ -830,10 +874,15 @@ model Refund {
   status        RefundStatus @default(REQUESTED)
   reason        String?
   tossTransactionKey String?
+  processingStartedAt DateTime?
+  attemptCount        Int       @default(0)
+  lastErrorCode       String?
+  refundReceiveAccount Json?
 
   requestedAt DateTime  @default(now())
   decidedAt   DateTime?
   decidedBy   String?
+  transaction PaymentTransaction?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

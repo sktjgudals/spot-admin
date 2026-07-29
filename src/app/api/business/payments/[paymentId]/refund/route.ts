@@ -7,36 +7,19 @@
  * UI: legacy pages redirected; do not add new callers.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/api-auth";
-import { prisma } from "@/lib/prisma";
-import { proxyBackendInternal } from "@/lib/backend-internal";
 
-interface Params {
-  params: Promise<{ paymentId: string }>;
-}
-
-/** 업체 수동 환불. 우리 업체 파티 결제만 처리 가능. */
-export async function POST(req: NextRequest, { params }: Params) {
-  const { session, error } = await requireRole("BUSINESS");
+/** 업체는 환불 승인·수동 환불을 직접 실행할 수 없다. */
+export async function POST() {
+  const { error } = await requireRole("BUSINESS");
   if (error) return error;
 
-  const { paymentId } = await params;
-  const businessId = session.user.businessId;
-
-  const payment = await prisma.payment.findUnique({
-    where: { id: paymentId },
-    select: { id: true, party: { select: { businessId: true } } },
-  });
-  if (!payment) return NextResponse.json({ message: "NOT_FOUND" }, { status: 404 });
-  if (payment.party.businessId !== businessId) {
-    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
-  }
-
-  const body = await req.json().catch(() => ({}));
-  return proxyBackendInternal(`/internal/payments/${paymentId}/refund`, {
-    amount: body?.amount,
-    reason: body?.reason,
-    decidedBy: session.user.email ?? session.user.name,
-  });
+  return NextResponse.json(
+    {
+      code: "BUSINESS_REFUND_DECISION_DISABLED",
+      message: "환불 처리는 도파 관리자 경로를 이용해 주세요.",
+    },
+    { status: 410 },
+  );
 }

@@ -25,7 +25,6 @@ export default async function SuperAdminPaymentDetailPage({ params }: Props) {
   return (
     <PaymentDetailView
       payment={payment}
-      apiBase="/api/super-admin"
       backHref="/super-admin/payments"
     />
   );
