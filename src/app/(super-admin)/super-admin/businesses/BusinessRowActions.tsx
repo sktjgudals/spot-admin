@@ -8,7 +8,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { bffFetch } from "@/lib/fetch-json";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -121,10 +120,6 @@ export default function BusinessRowActions({ business }: { business: Business })
           <DropdownMenuItem onClick={() => setFeeOpen(true)}>
             <Percent className="w-4 h-4 mr-2" />
             수수료 설정
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-destructive">
-            업체 정지
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

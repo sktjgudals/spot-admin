@@ -141,6 +141,8 @@ enum BusinessStatus {
   PENDING
   ACTIVE
   SUSPENDED
+  /// Soft-delete / 운영 비활성 (파티·결제·로그 보존) — backend 동기화 필수
+  DISABLED
 }
 
 enum BusinessKind {
@@ -655,6 +657,9 @@ model Business {
   businessNumber String?
   status         BusinessStatus @default(PENDING)
 
+  /// Soft delete — hard delete 금지. 파티/결제/신고/로그 보존. (backend 동기화)
+  deletedAt DateTime?
+
   /// 플랫폼 중개 수수료율 (basis points, 0~10000). 1000 = 10%.
   /// 파트너/제휴 업체는 낮게(예: 500 = 5%) 설정한다. spot-backend 정산에서 사용.
   feeRateBps Int @default(1000)
@@ -673,6 +678,7 @@ model Business {
   adminUsers       User[]               @relation("BusinessAdminUsers")
 
   @@index([status])
+  @@index([deletedAt])
   @@map("businesses")
 }
 

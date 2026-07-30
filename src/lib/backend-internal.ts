@@ -8,7 +8,7 @@ import { NextResponse } from "next/server";
 export async function proxyBackendInternal(
   path: string,
   body?: unknown,
-  method: "POST" | "GET" = "POST",
+  method: "POST" | "GET" | "PATCH" = "POST",
 ): Promise<NextResponse> {
   const backendUrl = process.env.BACKEND_INTERNAL_URL;
   const apiKey = process.env.BACKEND_INTERNAL_API_KEY;

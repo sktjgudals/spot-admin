@@ -8,6 +8,7 @@ import { ChevronLeft } from "lucide-react";
 import BusinessStatusBadge from "../BusinessStatusBadge";
 import BusinessRowActions from "../BusinessRowActions";
 import BusinessAdminsManager from "./BusinessAdminsManager";
+import AppBusinessAdminsManager from "./AppBusinessAdminsManager";
 import BusinessKindEditor from "./BusinessKindEditor";
 import BusinessProfileEditor from "./BusinessProfileEditor";
 
@@ -24,7 +25,14 @@ export default async function BusinessDetailPage({ params }: Props) {
     where: { id: businessId },
     include: {
       refundPolicyTiers: { orderBy: { hoursBeforeStart: "desc" } },
-      _count: { select: { admins: true, parties: true, settlements: true } },
+      _count: {
+        select: {
+          admins: true,
+          parties: true,
+          settlements: true,
+          adminUsers: true,
+        },
+      },
       admins: {
         where: { role: "BUSINESS" },
         select: {
@@ -33,6 +41,16 @@ export default async function BusinessDetailPage({ params }: Props) {
           name: true,
           isActive: true,
           createdAt: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      adminUsers: {
+        where: { role: "ADMIN" },
+        select: {
+          id: true,
+          email: true,
+          nickname: true,
+          role: true,
         },
         orderBy: { createdAt: "asc" },
       },
@@ -57,7 +75,7 @@ export default async function BusinessDetailPage({ params }: Props) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold truncate">{business.name}</h1>
-              <BusinessStatusBadge status={business.status} />
+              <BusinessStatusBadge status={business.status} deletedAt={business.deletedAt} />
               <Badge variant="outline" className="text-xs">
                 {business.kind === "INDIVIDUAL" ? "개인 사업자" : "일반 업체"}
               </Badge>
@@ -110,10 +128,17 @@ export default async function BusinessDetailPage({ params }: Props) {
             )}%`}
           />
           <Row label="웹 어드민" value={`${business._count.admins}명`} />
+          <Row label="앱 어드민" value={`${business._count.adminUsers}명`} />
           <Row label="파티" value={`${business._count.parties}개`} />
           <Row label="정산" value={`${business._count.settlements}건`} />
         </CardContent>
       </Card>
+
+      <AppBusinessAdminsManager
+        businessId={business.id}
+        businessName={business.name}
+        initialAdmins={business.adminUsers}
+      />
 
       <BusinessAdminsManager
         businessId={business.id}

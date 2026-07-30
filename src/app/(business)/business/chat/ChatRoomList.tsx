@@ -17,6 +17,8 @@ interface BizRoom {
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   unreadCount: number;
+  assignedAdminId: string | null;
+  assignedAdminName: string | null;
 }
 
 const ROOMS_POLL_MS = 15_000;
@@ -85,6 +87,16 @@ export default function ChatRoomList() {
                   <p className="text-sm text-muted-foreground truncate max-w-[90%]">
                     {room.lastMessagePreview ?? "보낸 메시지가 없습니다."}
                   </p>
+                  <div className="mt-1">
+                    <Badge
+                      variant={room.assignedAdminId ? "secondary" : "outline"}
+                      className="text-[10px] font-medium"
+                    >
+                      {room.assignedAdminName
+                        ? `담당 · ${room.assignedAdminName}`
+                        : "미지정 · 전원 알림"}
+                    </Badge>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-3 shrink-0">

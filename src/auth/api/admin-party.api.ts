@@ -3,6 +3,19 @@ import { NestAdminApi } from "@/auth/model/admin-routes";
 
 export type AdmissionMode = "INSTANT" | "APPROVAL";
 
+export type AdminPartyInclusion = {
+  id: string;
+  label: string;
+  sortOrder: number;
+};
+
+export type AdminPartyFaq = {
+  id: string;
+  question: string;
+  answer: string;
+  sortOrder: number;
+};
+
 export type AdminParty = {
   id: string;
   title: string;
@@ -20,6 +33,8 @@ export type AdminParty = {
   categoryId: string | null;
   placeName: string | null;
   address: string | null;
+  inclusions: AdminPartyInclusion[];
+  faqs: AdminPartyFaq[];
   businessId: string;
   createdAt: string;
   updatedAt: string;
@@ -38,6 +53,8 @@ export type CreatePartyInput = {
   categoryId?: string;
   placeName?: string;
   address?: string;
+  inclusions?: Array<{ label: string }>;
+  faqs?: Array<{ question: string; answer: string }>;
 };
 
 export type UpdatePartyInput = Partial<CreatePartyInput> & {

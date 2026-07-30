@@ -2,11 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Loader2, ArrowLeft, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -22,6 +29,15 @@ interface BizRoom {
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   unreadCount: number;
+  assignedAdminId: string | null;
+  assignedAdminName: string | null;
+  assignedAdminUserId: string | null;
+}
+
+interface BusinessChatAssignee {
+  id: string;
+  name: string;
+  userId: string | null;
 }
 
 interface ChatMessage {
@@ -76,6 +92,53 @@ export default function BusinessChatRoomPage() {
   });
 
   const room = rooms?.find((r) => r.id === roomId) ?? null;
+  const { data: assignees = [] } = useQuery({
+    queryKey: ["business-chat-assignees"],
+    queryFn: () =>
+      fetchJson<BusinessChatAssignee[]>("/api/business/chat/assignees"),
+  });
+  const assignment = useMutation({
+    mutationFn: async (assigneeAdminId: string | null) => {
+      const res = await bffFetch(
+        `/api/business/chat/rooms/${roomId}/assignment`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assigneeAdminId }),
+        },
+      );
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          message?: string;
+        };
+        throw new Error(data.message ?? "담당자를 변경하지 못했습니다");
+      }
+      return (await res.json()) as {
+        assignedAdminId: string | null;
+        assignedAdminName: string | null;
+        assignedAdminUserId: string | null;
+      };
+    },
+    onSuccess: (next) => {
+      queryClient.setQueryData<BizRoom[]>(queryKeys.chatRooms, (previous) =>
+        previous?.map((item) =>
+          item.id === roomId ? { ...item, ...next } : item,
+        ) ?? previous,
+      );
+      toast.success(
+        next.assignedAdminId
+          ? "문의 담당자를 지정했습니다"
+          : "미지정으로 변경했습니다. 운영자 전원에게 알림이 갑니다.",
+      );
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "담당자를 변경하지 못했습니다",
+      );
+    },
+  });
 
   const markRoomReadLocally = useCallback(() => {
     queryClient.setQueryData<BizRoom[]>(queryKeys.chatRooms, (prev) =>
@@ -251,7 +314,7 @@ export default function BusinessChatRoomPage() {
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <Avatar className="h-9 w-9 border shrink-0">
             {room?.userProfileImage && (
               <AvatarImage src={room.userProfileImage} />
@@ -266,6 +329,32 @@ export default function BusinessChatRoomPage() {
             </h1>
             <p className="text-xs text-muted-foreground mt-1">1:1 채팅 문의</p>
           </div>
+        </div>
+        <div className="ml-auto w-[220px]">
+          <Select
+            value={room?.assignedAdminId ?? "__unassigned__"}
+            disabled={!room || assignment.isPending}
+            onValueChange={(value) =>
+              assignment.mutate(
+                value === "__unassigned__" ? null : value,
+              )
+            }
+          >
+            <SelectTrigger aria-label="문의 담당자">
+              <SelectValue placeholder="담당자 선택" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__unassigned__">
+                미지정 · 전원 알림
+              </SelectItem>
+              {assignees.map((assignee) => (
+                <SelectItem key={assignee.id} value={assignee.id}>
+                  {assignee.name}
+                  {assignee.userId ? "" : " · 앱 미연결"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

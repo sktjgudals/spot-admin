@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { Plus, Trash2 } from "lucide-react";
 import {
   createParty,
   updateParty,
@@ -67,6 +68,12 @@ export function PartyForm({
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [inclusions, setInclusions] = useState<string[]>(
+    party?.inclusions?.map((item) => item.label) ?? [],
+  );
+  const [faqs, setFaqs] = useState<Array<{ question: string; answer: string }>>(
+    party?.faqs?.map(({ question, answer }) => ({ question, answer })) ?? [],
+  );
 
   const {
     register,
@@ -99,6 +106,23 @@ export function PartyForm({
   });
 
   const onSubmit = async (data: FormValues) => {
+    const normalizedInclusions = inclusions
+      .map((label) => label.trim())
+      .filter(Boolean)
+      .map((label) => ({ label }));
+    const normalizedFaqs = faqs.map(({ question, answer }) => ({
+      question: question.trim(),
+      answer: answer.trim(),
+    }));
+    if (
+      normalizedFaqs.some(
+        ({ question, answer }) => question.length === 0 || answer.length === 0,
+      )
+    ) {
+      toast.error("FAQ의 질문과 답변을 모두 입력해 주세요");
+      return;
+    }
+
     setLoading(true);
     try {
       const dateIso = new Date(data.date).toISOString();
@@ -114,6 +138,8 @@ export function PartyForm({
           admissionMode: data.admissionMode,
           placeName: data.placeName?.trim() || undefined,
           address: data.address?.trim() || undefined,
+          inclusions: normalizedInclusions,
+          faqs: normalizedFaqs,
         });
         toast.success("파티가 생성되었습니다");
         router.replace(successHref(created.id));
@@ -129,6 +155,8 @@ export function PartyForm({
           admissionMode: data.admissionMode,
           placeName: data.placeName?.trim() || undefined,
           address: data.address?.trim() || undefined,
+          inclusions: normalizedInclusions,
+          faqs: normalizedFaqs,
           isActive: data.isActive,
         });
         toast.success("저장되었습니다");
@@ -144,7 +172,7 @@ export function PartyForm({
   };
 
   return (
-    <Card className="max-w-lg">
+    <Card className="max-w-2xl">
       <CardHeader>
         <CardTitle>
           {mode === "create" ? "파티 등록" : "파티 수정"}
@@ -194,6 +222,146 @@ export function PartyForm({
           <Field label="주소">
             <Input {...register("address")} />
           </Field>
+          <section className="space-y-3 rounded-lg border bg-muted/20 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold">포함 사항</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  앱 파티 상세에 입력 순서대로 칩 형태로 표시됩니다.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={inclusions.length >= 20}
+                onClick={() => setInclusions((items) => [...items, ""])}
+              >
+                <Plus className="size-4" />
+                추가
+              </Button>
+            </div>
+            {inclusions.length === 0 ? (
+              <p className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+                등록된 포함 사항이 없습니다.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {inclusions.map((label, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      aria-label={`포함 사항 ${index + 1}`}
+                      maxLength={80}
+                      placeholder="예: 웰컴 드링크"
+                      value={label}
+                      onChange={(event) =>
+                        setInclusions((items) =>
+                          items.map((item, itemIndex) =>
+                            itemIndex === index ? event.target.value : item,
+                          ),
+                        )
+                      }
+                    />
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      aria-label={`포함 사항 ${index + 1} 삭제`}
+                      onClick={() =>
+                        setInclusions((items) =>
+                          items.filter((_, itemIndex) => itemIndex !== index),
+                        )
+                      }
+                    >
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+          <section className="space-y-3 rounded-lg border bg-muted/20 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold">자주 묻는 질문</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  질문은 아코디언 제목으로, 답변은 펼쳤을 때 표시됩니다.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={faqs.length >= 20}
+                onClick={() =>
+                  setFaqs((items) => [...items, { question: "", answer: "" }])
+                }
+              >
+                <Plus className="size-4" />
+                질문 추가
+              </Button>
+            </div>
+            {faqs.length === 0 ? (
+              <p className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+                등록된 FAQ가 없습니다.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {faqs.map((faq, index) => (
+                  <div key={index} className="space-y-2 rounded-md border bg-background p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          aria-label={`FAQ ${index + 1} 질문`}
+                          maxLength={200}
+                          placeholder="질문을 입력하세요"
+                          value={faq.question}
+                          onChange={(event) =>
+                            setFaqs((items) =>
+                              items.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, question: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                        <Textarea
+                          aria-label={`FAQ ${index + 1} 답변`}
+                          maxLength={2000}
+                          rows={3}
+                          placeholder="답변을 입력하세요"
+                          value={faq.answer}
+                          onChange={(event) =>
+                            setFaqs((items) =>
+                              items.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, answer: event.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        aria-label={`FAQ ${index + 1} 삭제`}
+                        onClick={() =>
+                          setFaqs((items) =>
+                            items.filter((_, itemIndex) => itemIndex !== index),
+                          )
+                        }
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
           {mode === "edit" && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" {...register("isActive")} />
