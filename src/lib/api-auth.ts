@@ -110,7 +110,12 @@ export async function requireRole(role: AdminRole): Promise<AuthResult> {
       error: NextResponse.json({ message: "Unauthorized" }, { status: 401 }),
     };
   }
-  if (session.user.role !== role) {
+  // SUPER_ADMIN 은 모든 BUSINESS 전용 BFF 에도 통과 (업체 화면에서 이미지 업로드 등)
+  const ok =
+    session.user.role === role ||
+    (role === AdminRole.BUSINESS &&
+      session.user.role === AdminRole.SUPER_ADMIN);
+  if (!ok) {
     await trackLegacyBffAuth({
       status: "forbidden",
       role: String(session.user.role),

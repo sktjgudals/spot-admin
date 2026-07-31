@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { bffFetch } from "@/lib/fetch-json";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
@@ -72,7 +73,8 @@ async function uploadOptimized(
 
   const { blob, contentType } = await optimizeImage(file);
 
-  const presignRes = await fetch(uploadUrl, {
+  // BFF requireRole 은 Authorization Bearer 필요 — bare fetch 는 항상 401 Unauthorized
+  const presignRes = await bffFetch(uploadUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ contentType, sizeBytes: blob.size }),
