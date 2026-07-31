@@ -5,11 +5,14 @@
  * Replacement: Nest /admin/v2/... (see docs/LEGACY_BFF_INVENTORY.md)
  * Removal target: 2026-10 (or earlier per inventory)
  * UI: legacy pages redirected; do not add new callers.
+ *
+ * 역할 변경은 Nest `POST /internal/users/:userId/role` 로 위임한다.
+ * (Prisma 직접 업데이트만 하면 Redis SecurityContext 가 남아 앱 403 이 난다.)
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/api-auth";
+import { proxyBackendInternal } from "@/lib/backend-internal";
 
 const ROLES = ["USER", "ADMIN", "SUPER_ADMIN"] as const;
 type UserRole = (typeof ROLES)[number];
@@ -32,32 +35,16 @@ export async function POST(
     return NextResponse.json({ message: "잘못된 권한 값" }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) {
-    return NextResponse.json({ message: "USER_NOT_FOUND" }, { status: 404 });
-  }
-
   const role = body.role;
-  // 업체 어드민(ADMIN) 지정 시 담당 업체 필수 — 나머지 권한은 업체 연결 해제
-  let businessId: string | null = null;
   if (role === "ADMIN") {
     if (typeof body?.businessId !== "string" || !body.businessId) {
       return NextResponse.json({ message: "업체를 선택해주세요" }, { status: 400 });
     }
-    const biz = await prisma.business.findUnique({
-      where: { id: body.businessId },
-      select: { id: true },
-    });
-    if (!biz) {
-      return NextResponse.json({ message: "업체를 찾을 수 없습니다" }, { status: 404 });
-    }
-    businessId = biz.id;
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { role, businessId },
+  // Nest: DB 업데이트 + Redis 권한 캐시 무효화
+  return proxyBackendInternal(`/internal/users/${encodeURIComponent(userId)}/role`, {
+    role,
+    businessId: role === "ADMIN" ? body.businessId : null,
   });
-
-  return NextResponse.json({ success: true, role, businessId });
 }
