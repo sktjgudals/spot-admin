@@ -101,6 +101,23 @@ export const NestAdminApi = {
   parties: (businessId: string) =>
     `/admin/v2/businesses/${businessId}/parties`,
   party: (partyId: string) => `/admin/v2/parties/${partyId}`,
+  partyTransitions: (partyId: string) =>
+    `/admin/v2/parties/${partyId}/transitions`,
+  partyStatusHistory: (partyId: string) =>
+    `/admin/v2/parties/${partyId}/status-history`,
+  businessUserReviewTags: () => "/admin/v2/businesses/me/user-review-tags",
+  reviewableMembers: (partyId: string) =>
+    `/admin/v2/parties/${partyId}/reviewable-members`,
+  businessUserReview: (partyId: string, userId: string) =>
+    `/admin/v2/parties/${partyId}/user-reviews/${encodeURIComponent(userId)}`,
+  applicationUserReviews: (applicationId: string) =>
+    `/admin/v2/applications/${applicationId}/user-reviews`,
+  superBusinessUserReviewTags: () =>
+    "/admin/v2/super/business-user-review-tags",
+  superBusinessUserReviewTag: (tagId: string) =>
+    `/admin/v2/super/business-user-review-tags/${encodeURIComponent(tagId)}`,
+  superBusinessUserReview: (reviewId: string) =>
+    `/admin/v2/super/business-user-reviews/${encodeURIComponent(reviewId)}`,
   mailOutbox: () => "/admin/v2/auth-mail/outbox",
   mailOutboxItem: (id: string) => `/admin/v2/auth-mail/outbox/${id}`,
   mailOutboxReprocess: (id: string) =>

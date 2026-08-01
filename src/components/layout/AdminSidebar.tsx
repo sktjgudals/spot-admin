@@ -48,7 +48,7 @@ const superAdminNav: NavItem[] = [
   { href: "/super-admin/businesses", label: "업체 관리", icon: Building2 },
   { href: "/super-admin/business-role-requests", label: "권한 신청", icon: ClipboardList },
   { href: "/super-admin/refund-policy-requests", label: "환불 정책 승인", icon: BadgeCheck },
-  { href: "/super-admin/parties", label: "파티 관리", icon: PartyPopper },
+  { href: "/app/parties", label: "파티 관리", icon: PartyPopper },
   { href: "/super-admin/categories", label: "카테고리 관리", icon: Tags },
   { href: "/super-admin/review-tags", label: "리뷰 태그 관리", icon: ThumbsUp },
   { href: "/super-admin/coupons", label: "쿠폰 관리", icon: Ticket },
@@ -62,7 +62,7 @@ const superAdminNav: NavItem[] = [
 const businessNav: NavItem[] = [
   { href: "/business/dashboard", label: "대시보드", icon: LayoutDashboard },
   { href: "/business/profile", label: "업체 프로필", icon: Building2 },
-  { href: "/business/parties", label: "파티 관리", icon: PartyPopper },
+  { href: "/app/parties", label: "파티 관리", icon: PartyPopper },
   { href: "/business/forms", label: "신청 폼 관리", icon: ClipboardList },
   { href: "/business/applications", label: "신청 관리", icon: FileText },
   { href: "/business/chat", label: "채팅 문의", icon: MessageSquare },

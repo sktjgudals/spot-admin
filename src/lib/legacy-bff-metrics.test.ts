@@ -20,9 +20,9 @@ describe("legacy-bff-metrics", () => {
     ).toBe("super_admin_businesses_id_invite");
     expect(
       normalizeLegacyBffRoute(
-        "/api/business/parties/550e8400-e29b-41d4-a716-446655440000/close",
+        "/api/business/payments/550e8400-e29b-41d4-a716-446655440000/refund",
       ),
-    ).toBe("business_parties_id_close");
+    ).toBe("business_payments_id_refund");
   });
 
   it("increments counters without PII labels", () => {

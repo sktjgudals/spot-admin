@@ -2,6 +2,19 @@ import { adminFetchJson } from "@/auth/api/admin-http";
 import { NestAdminApi } from "@/auth/model/admin-routes";
 
 export type AdmissionMode = "INSTANT" | "APPROVAL";
+export type PartyOperationalStatus =
+  | "DRAFT"
+  | "RECRUITING"
+  | "CONFIRMED"
+  | "CHECKIN_OPEN"
+  | "LIVE"
+  | "INTEREST_OPEN"
+  | "INTEREST_CLOSED"
+  | "MATCH_PENDING"
+  | "MATCH_REVEALED"
+  | "AFTER_PARTY"
+  | "COMPLETED"
+  | "CANCELLED";
 
 export type AdminPartyInclusion = {
   id: string;
@@ -21,6 +34,15 @@ export type AdminParty = {
   title: string;
   description: string;
   date: string;
+  startsAt: string;
+  endsAt: string;
+  operationalStatus: PartyOperationalStatus;
+  operationalVersion: number;
+  completedAt: string | null;
+  cancelledAt: string | null;
+  interestLimit: number;
+  allowedTransitions: PartyOperationalStatus[];
+  canBusinessReview: boolean;
   location: string;
   maxCapacity: number;
   currentCount: number;
@@ -44,6 +66,7 @@ export type CreatePartyInput = {
   title: string;
   description: string;
   date: string;
+  endsAt: string;
   location: string;
   maxCapacity: number;
   coverImage?: string;
@@ -57,8 +80,17 @@ export type CreatePartyInput = {
   faqs?: Array<{ question: string; answer: string }>;
 };
 
-export type UpdatePartyInput = Partial<CreatePartyInput> & {
-  isActive?: boolean;
+export type UpdatePartyInput = Partial<CreatePartyInput>;
+
+export type PartyStatusTransition = {
+  id: string;
+  partyId: string;
+  fromStatus: PartyOperationalStatus;
+  toStatus: PartyOperationalStatus;
+  version: number;
+  actorType: "USER" | "ADMIN_ACCOUNT" | "SYSTEM";
+  reason: string | null;
+  createdAt: string;
 };
 
 export async function listParties(businessId: string): Promise<AdminParty[]> {
@@ -89,11 +121,25 @@ export async function updateParty(
   });
 }
 
-/** Soft-close (isActive=false). */
-export async function softCloseParty(partyId: string): Promise<AdminParty> {
-  return adminFetchJson<AdminParty>(NestAdminApi.party(partyId), {
-    method: "DELETE",
+export async function transitionParty(
+  partyId: string,
+  input: {
+    toStatus: PartyOperationalStatus;
+    expectedVersion: number;
+    idempotencyKey: string;
+    reason?: string;
+  },
+): Promise<AdminParty> {
+  return adminFetchJson<AdminParty>(NestAdminApi.partyTransitions(partyId), {
+    method: "POST",
+    body: JSON.stringify(input),
   });
+}
+
+export async function getPartyStatusHistory(
+  partyId: string,
+): Promise<PartyStatusTransition[]> {
+  return adminFetchJson<PartyStatusTransition[]>(NestAdminApi.partyStatusHistory(partyId));
 }
 
 export const partyQueryKeys = {

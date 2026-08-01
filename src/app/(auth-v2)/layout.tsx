@@ -32,6 +32,14 @@ function AuthV2Chrome({ children }: { children: ReactNode }) {
             Auth v2 · {admin?.role}
             {admin?.businessId ? ` · ${admin.businessId.slice(0, 8)}…` : ""}
           </span>
+          <Link href="/app/parties" className="text-xs text-primary">
+            파티
+          </Link>
+          {admin?.role === "SUPER_ADMIN" && (
+            <Link href="/app/business-user-reviews" className="text-xs text-primary">
+              업체 유저리뷰 관리
+            </Link>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[180px]">

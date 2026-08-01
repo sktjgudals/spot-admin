@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PartyOperationsPanel } from "./PartyOperationsPanel";
+import { BusinessUserReviewsPanel } from "./BusinessUserReviewsPanel";
 import {
   Card,
   CardContent,
@@ -31,14 +33,17 @@ const schema = z.object({
   title: z.string().min(1, "제목 필수").max(200),
   description: z.string().min(1, "설명 필수").max(10000),
   date: z.string().min(1, "일시 필수"),
+  endsAt: z.string().min(1, "종료 일시 필수"),
   location: z.string().min(1, "장소 필수").max(500),
-  maxCapacity: z.coerce.number().int().min(1),
+  maxCapacity: z.coerce.number().int().min(2).max(100),
   priceMale: z.coerce.number().int().min(0).optional(),
   priceFemale: z.coerce.number().int().min(0).optional(),
   admissionMode: z.enum(["APPROVAL", "INSTANT"]),
   placeName: z.string().optional(),
   address: z.string().optional(),
-  isActive: z.boolean().optional(),
+}).refine((value) => new Date(value.endsAt) > new Date(value.date), {
+  message: "종료 일시는 시작 일시보다 늦어야 합니다",
+  path: ["endsAt"],
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -87,6 +92,7 @@ export function PartyForm({
           title: party.title,
           description: party.description,
           date: toLocalInputValue(party.date),
+          endsAt: toLocalInputValue(party.endsAt),
           location: party.location,
           maxCapacity: party.maxCapacity,
           priceMale: party.priceMale,
@@ -94,14 +100,12 @@ export function PartyForm({
           admissionMode: party.admissionMode as AdmissionMode,
           placeName: party.placeName ?? "",
           address: party.address ?? "",
-          isActive: party.isActive,
         }
       : {
           admissionMode: "APPROVAL",
           maxCapacity: 20,
           priceMale: 0,
           priceFemale: 0,
-          isActive: true,
         },
   });
 
@@ -126,11 +130,13 @@ export function PartyForm({
     setLoading(true);
     try {
       const dateIso = new Date(data.date).toISOString();
+      const endsAtIso = new Date(data.endsAt).toISOString();
       if (mode === "create") {
         const created = await createParty(businessId, {
           title: data.title.trim(),
           description: data.description.trim(),
           date: dateIso,
+          endsAt: endsAtIso,
           location: data.location.trim(),
           maxCapacity: data.maxCapacity,
           priceMale: data.priceMale ?? 0,
@@ -148,6 +154,7 @@ export function PartyForm({
           title: data.title.trim(),
           description: data.description.trim(),
           date: dateIso,
+          endsAt: endsAtIso,
           location: data.location.trim(),
           maxCapacity: data.maxCapacity,
           priceMale: data.priceMale ?? 0,
@@ -157,7 +164,6 @@ export function PartyForm({
           address: data.address?.trim() || undefined,
           inclusions: normalizedInclusions,
           faqs: normalizedFaqs,
-          isActive: data.isActive,
         });
         toast.success("저장되었습니다");
         router.replace(successHref(updated.id));
@@ -172,6 +178,7 @@ export function PartyForm({
   };
 
   return (
+    <div className="space-y-4">
     <Card className="max-w-2xl">
       <CardHeader>
         <CardTitle>
@@ -190,8 +197,11 @@ export function PartyForm({
           <Field label="설명 *" error={errors.description?.message}>
             <Textarea rows={4} {...register("description")} />
           </Field>
-          <Field label="일시 *" error={errors.date?.message}>
+          <Field label="시작 일시 *" error={errors.date?.message}>
             <Input type="datetime-local" {...register("date")} />
+          </Field>
+          <Field label="종료 일시 *" error={errors.endsAt?.message}>
+            <Input type="datetime-local" {...register("endsAt")} />
           </Field>
           <Field label="장소 *" error={errors.location?.message}>
             <Input {...register("location")} />
@@ -362,12 +372,6 @@ export function PartyForm({
               </div>
             )}
           </section>
-          {mode === "edit" && (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" {...register("isActive")} />
-              활성 (isActive)
-            </label>
-          )}
           <div className="flex gap-2 pt-2">
             <Button type="submit" disabled={loading}>
               {loading ? "저장 중…" : "저장"}
@@ -384,6 +388,9 @@ export function PartyForm({
         </form>
       </CardContent>
     </Card>
+    {mode === "edit" && party && <PartyOperationsPanel party={party} />}
+    {mode === "edit" && party?.canBusinessReview && <BusinessUserReviewsPanel partyId={party.id} />}
+    </div>
   );
 }
 

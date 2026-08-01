@@ -1,18 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import {
   listParties,
   partyQueryKeys,
-  softCloseParty,
   type AdminParty,
 } from "@/auth/api/admin-party.api";
-import { AdminAuthError } from "@/auth/model/admin-auth.errors";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PartyStatusBadge } from "./PartyOperationsPanel";
 import {
   Table,
   TableBody,
@@ -49,7 +46,6 @@ export function PartyListPanel({
   title = "파티",
   description,
 }: Props) {
-  const qc = useQueryClient();
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: partyQueryKeys.list(businessId),
     queryFn: () => listParties(businessId),
@@ -57,19 +53,6 @@ export function PartyListPanel({
   });
 
   const rows: AdminParty[] = data ?? [];
-
-  const onSoftClose = async (party: AdminParty) => {
-    if (!window.confirm(`「${party.title}」을 soft-close 할까요?`)) return;
-    try {
-      await softCloseParty(party.id);
-      toast.success("Soft-close 완료");
-      await qc.invalidateQueries({ queryKey: partyQueryKeys.list(businessId) });
-    } catch (err) {
-      toast.error(
-        err instanceof AdminAuthError ? err.message : "실패했습니다",
-      );
-    }
-  };
 
   return (
     <div className="space-y-4">
@@ -164,11 +147,7 @@ export function PartyListPanel({
                     {p.currentCount}/{p.maxCapacity}
                   </TableCell>
                   <TableCell>
-                    {p.isActive ? (
-                      <Badge>ACTIVE</Badge>
-                    ) : (
-                      <Badge variant="outline">CLOSED</Badge>
-                    )}
+                    <PartyStatusBadge status={p.operationalStatus} />
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
@@ -180,16 +159,6 @@ export function PartyListPanel({
                       >
                         수정
                       </Button>
-                      {p.isActive && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void onSoftClose(p)}
-                        >
-                          Close
-                        </Button>
-                      )}
                     </div>
                   </TableCell>
                 </TableRow>

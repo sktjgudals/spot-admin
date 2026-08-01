@@ -20,6 +20,10 @@ import { toast } from "sonner";
 import { fetchJson, bffFetch } from "@/lib/fetch-json";
 import { queryKeys } from "@/lib/query-keys";
 import { uuidV7 } from "@/lib/uuid-v7";
+import {
+  adminChatGatewayUrl,
+  issueAdminChatGatewayTicket,
+} from "@/auth/api/admin-chat.api";
 
 interface BizRoom {
   id: string;
@@ -54,16 +58,7 @@ interface ChatMessage {
   mediaUrl?: string | null;
   thumbnailUrl?: string | null;
   createdAt: string;
-  deliveryState?: "pending" | "accepted" | "failed";
-}
-
-interface MessageAcceptance {
-  state: "accepted";
-  messageId: string;
-  clientMessageId: string;
-  roomSequence: number;
-  acceptedAt: string;
-  routeVersion: 2;
+  deliveryState?: "pending" | "accepted" | "committed" | "failed";
 }
 
 const ROOMS_POLL_MS = 15_000;
@@ -120,10 +115,12 @@ export default function BusinessChatRoomPage() {
       };
     },
     onSuccess: (next) => {
-      queryClient.setQueryData<BizRoom[]>(queryKeys.chatRooms, (previous) =>
-        previous?.map((item) =>
-          item.id === roomId ? { ...item, ...next } : item,
-        ) ?? previous,
+      queryClient.setQueryData<BizRoom[]>(
+        queryKeys.chatRooms,
+        (previous) =>
+          previous?.map((item) =>
+            item.id === roomId ? { ...item, ...next } : item,
+          ) ?? previous,
       );
       toast.success(
         next.assignedAdminId
@@ -133,18 +130,17 @@ export default function BusinessChatRoomPage() {
     },
     onError: (error) => {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "담당자를 변경하지 못했습니다",
+        error instanceof Error ? error.message : "담당자를 변경하지 못했습니다",
       );
     },
   });
 
   const markRoomReadLocally = useCallback(() => {
-    queryClient.setQueryData<BizRoom[]>(queryKeys.chatRooms, (prev) =>
-      prev?.map((r) =>
-        r.id === roomId ? { ...r, unreadCount: 0 } : r,
-      ) ?? prev,
+    queryClient.setQueryData<BizRoom[]>(
+      queryKeys.chatRooms,
+      (prev) =>
+        prev?.map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r)) ??
+        prev,
     );
   }, [queryClient, roomId]);
 
@@ -153,19 +149,189 @@ export default function BusinessChatRoomPage() {
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const maxSeqRef = useRef(0);
+  const socketRef = useRef<WebSocket | null>(null);
+  const ackSequenceRef = useRef(0);
+  const joinAckRef = useRef<string | null>(null);
+  const pendingSendAcksRef = useRef(new Map<string, string>());
+  const [socketState, setSocketState] = useState<
+    "connecting" | "connected" | "disconnected"
+  >("connecting");
+
+  const emit = useCallback((type: string, payload: Record<string, unknown>) => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return null;
+    const ackId = `web-${++ackSequenceRef.current}`;
+    socket.send(JSON.stringify({ type, ackId, payload }));
+    return ackId;
+  }, []);
 
   const markRead = useCallback(
     async (seq: number) => {
       if (seq < 1) return;
-      await bffFetch(`/api/business/chat/rooms/${roomId}/read`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seq }),
-      }).catch(() => null);
+      emit("chat:read", { roomId, roomSeq: seq });
       markRoomReadLocally();
     },
-    [roomId, markRoomReadLocally],
+    [emit, roomId, markRoomReadLocally],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const mergeCommitted = (raw: Record<string, unknown>) => {
+      const roomSeq = Number(raw.roomSeq ?? 0);
+      const committed: ChatMessage = {
+        id: String(raw.messageId ?? raw.id),
+        messageId: String(raw.messageId ?? raw.id),
+        clientMessageId:
+          typeof raw.clientMessageId === "string" ? raw.clientMessageId : null,
+        seq: roomSeq,
+        roomSequence: roomSeq,
+        roomId: String(raw.roomId ?? roomId),
+        senderType:
+          raw.senderType === "BUSINESS" || raw.senderType === "SYSTEM"
+            ? raw.senderType
+            : "USER",
+        senderNickname:
+          typeof raw.senderNickname === "string" ? raw.senderNickname : null,
+        content: typeof raw.content === "string" ? raw.content : "",
+        type: raw.type === "IMAGE" || raw.type === "VIDEO" ? raw.type : "TEXT",
+        createdAt:
+          typeof raw.createdAt === "string"
+            ? raw.createdAt
+            : new Date().toISOString(),
+        deliveryState: "committed",
+      };
+      setMessages((previous) => {
+        const merged = [...(previous ?? [])];
+        const index = merged.findIndex(
+          (message) =>
+            message.id === committed.id ||
+            (committed.clientMessageId != null &&
+              message.clientMessageId === committed.clientMessageId),
+        );
+        if (index >= 0) merged[index] = committed;
+        else merged.push(committed);
+        return merged.sort(
+          (left, right) =>
+            (left.roomSequence ?? Number.MAX_SAFE_INTEGER) -
+            (right.roomSequence ?? Number.MAX_SAFE_INTEGER),
+        );
+      });
+      maxSeqRef.current = Math.max(maxSeqRef.current, roomSeq);
+      void markRead(roomSeq);
+    };
+
+    const connect = async () => {
+      setSocketState("connecting");
+      try {
+        const ticket = await issueAdminChatGatewayTicket(roomId);
+        if (cancelled) return;
+        const url = new URL(adminChatGatewayUrl());
+        url.searchParams.set("token", ticket.accessToken);
+        const socket = new WebSocket(url);
+        socketRef.current = socket;
+        socket.onopen = () => {
+          const ackId = `web-${++ackSequenceRef.current}`;
+          joinAckRef.current = ackId;
+          socket.send(
+            JSON.stringify({
+              type: "chat:join",
+              ackId,
+              payload: { roomId, generation: 1 },
+            }),
+          );
+        };
+        socket.onmessage = (event) => {
+          if (typeof event.data !== "string") return;
+          let frame: Record<string, unknown>;
+          try {
+            frame = JSON.parse(event.data) as Record<string, unknown>;
+          } catch {
+            return;
+          }
+          if (frame.type === "ack") {
+            const ackId = typeof frame.ackId === "string" ? frame.ackId : "";
+            if (ackId === joinAckRef.current) {
+              joinAckRef.current = null;
+              setSocketState(frame.ok === true ? "connected" : "disconnected");
+              return;
+            }
+            const clientMessageId = pendingSendAcksRef.current.get(ackId);
+            if (!clientMessageId) return;
+            pendingSendAcksRef.current.delete(ackId);
+            const data =
+              frame.data && typeof frame.data === "object"
+                ? (frame.data as Record<string, unknown>)
+                : {};
+            setMessages(
+              (previous) =>
+                previous?.map((message) =>
+                  message.clientMessageId === clientMessageId
+                    ? {
+                        ...message,
+                        messageId:
+                          typeof data.messageId === "string"
+                            ? data.messageId
+                            : message.messageId,
+                        deliveryState:
+                          frame.ok === true ? "accepted" : "failed",
+                      }
+                    : message,
+                ) ?? null,
+            );
+            if (frame.ok !== true) toast.error("전송에 실패했습니다");
+            return;
+          }
+          const payload =
+            frame.payload && typeof frame.payload === "object"
+              ? (frame.payload as Record<string, unknown>)
+              : {};
+          if (frame.type === "chat:message-committed") mergeCommitted(payload);
+          if (frame.type === "chat:message-rejected") {
+            const clientMessageId = payload.clientMessageId;
+            setMessages(
+              (previous) =>
+                previous?.map((message) =>
+                  message.clientMessageId === clientMessageId
+                    ? { ...message, deliveryState: "failed" }
+                    : message,
+                ) ?? null,
+            );
+          }
+        };
+        socket.onclose = () => {
+          if (socketRef.current === socket) socketRef.current = null;
+          setSocketState("disconnected");
+          if (!cancelled)
+            reconnectTimer = setTimeout(() => void connect(), 1500);
+        };
+        socket.onerror = () => socket.close();
+      } catch {
+        setSocketState("disconnected");
+        if (!cancelled) reconnectTimer = setTimeout(() => void connect(), 3000);
+      }
+    };
+
+    void connect();
+    return () => {
+      cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      const socket = socketRef.current;
+      socketRef.current = null;
+      if (socket?.readyState === WebSocket.OPEN) {
+        socket.send(
+          JSON.stringify({
+            type: "chat:leave",
+            ackId: `web-${++ackSequenceRef.current}`,
+            payload: { roomId },
+          }),
+        );
+      }
+      socket?.close();
+      pendingSendAcksRef.current.clear();
+    };
+  }, [markRead, roomId]);
 
   // 초기 로드 (최신 50개, desc → asc)
   useEffect(() => {
@@ -235,7 +401,7 @@ export default function BusinessChatRoomPage() {
 
   async function send() {
     const content = input.trim();
-    if (!content || sending) return;
+    if (!content || sending || socketState !== "connected") return;
     setSending(true);
     const clientMessageId = uuidV7();
     const optimistic: ChatMessage = {
@@ -253,48 +419,23 @@ export default function BusinessChatRoomPage() {
     setMessages((previous) => [...(previous ?? []), optimistic]);
     setInput("");
     try {
-      const res = await bffFetch(`/api/business/chat/rooms/${roomId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content,
-          clientMessageId,
-        }),
+      const ackId = emit("chat:send", {
+        roomId,
+        content,
+        clientMessageId,
+        clientCreatedAt: optimistic.createdAt,
+        type: "TEXT",
       });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as {
-          message?: string;
-        };
-        toast.error(data.message ?? "전송에 실패했습니다");
-        setMessages((previous) =>
+      if (!ackId) throw new Error("CHAT_GATEWAY_DISCONNECTED");
+      pendingSendAcksRef.current.set(ackId, clientMessageId);
+    } catch {
+      setMessages(
+        (previous) =>
           previous?.map((message) =>
             message.clientMessageId === clientMessageId
               ? { ...message, deliveryState: "failed" }
               : message,
           ) ?? null,
-        );
-        return;
-      }
-      const accepted = (await res.json()) as MessageAcceptance;
-      setMessages((previous) =>
-        previous?.map((message) =>
-          message.clientMessageId === accepted.clientMessageId
-            ? {
-                ...message,
-                messageId: accepted.messageId,
-                roomSequence: accepted.roomSequence,
-                deliveryState: "accepted",
-              }
-            : message,
-        ) ?? null,
-      );
-    } catch {
-      setMessages((previous) =>
-        previous?.map((message) =>
-          message.clientMessageId === clientMessageId
-            ? { ...message, deliveryState: "failed" }
-            : message,
-        ) ?? null,
       );
       toast.error("전송에 실패했습니다");
     } finally {
@@ -325,9 +466,17 @@ export default function BusinessChatRoomPage() {
           </Avatar>
           <div>
             <h1 className="text-lg font-bold leading-none">
-              {room?.userNickname ?? (rooms === null ? "불러오는 중..." : "탈퇴한 사용자")}
+              {room?.userNickname ??
+                (rooms === null ? "불러오는 중..." : "탈퇴한 사용자")}
             </h1>
             <p className="text-xs text-muted-foreground mt-1">1:1 채팅 문의</p>
+            <p className="text-[10px] text-muted-foreground">
+              {socketState === "connected"
+                ? "실시간 연결됨"
+                : socketState === "connecting"
+                  ? "연결 중"
+                  : "재연결 중"}
+            </p>
           </div>
         </div>
         <div className="ml-auto w-[220px]">
@@ -335,18 +484,14 @@ export default function BusinessChatRoomPage() {
             value={room?.assignedAdminId ?? "__unassigned__"}
             disabled={!room || assignment.isPending}
             onValueChange={(value) =>
-              assignment.mutate(
-                value === "__unassigned__" ? null : value,
-              )
+              assignment.mutate(value === "__unassigned__" ? null : value)
             }
           >
             <SelectTrigger aria-label="문의 담당자">
               <SelectValue placeholder="담당자 선택" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__unassigned__">
-                미지정 · 전원 알림
-              </SelectItem>
+              <SelectItem value="__unassigned__">미지정 · 전원 알림</SelectItem>
               {assignees.map((assignee) => (
                 <SelectItem key={assignee.id} value={assignee.id}>
                   {assignee.name}
@@ -390,7 +535,12 @@ export default function BusinessChatRoomPage() {
                   )}
                 >
                   {m.type === "IMAGE" && m.mediaUrl ? (
-                    <a href={m.mediaUrl} target="_blank" rel="noreferrer" className="block rounded-xl overflow-hidden border">
+                    <a
+                      href={m.mediaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-xl overflow-hidden border"
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={m.mediaUrl}
@@ -448,7 +598,7 @@ export default function BusinessChatRoomPage() {
           />
           <Button
             onClick={() => void send()}
-            disabled={sending || !input.trim()}
+            disabled={sending || !input.trim() || socketState !== "connected"}
             size="icon"
             className="shrink-0 h-11 w-11"
           >

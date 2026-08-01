@@ -25,6 +25,8 @@ ARG NEXT_PUBLIC_NEST_API_URL=https://api.dopa.ing
 ENV NEXT_PUBLIC_NEST_API_URL=$NEXT_PUBLIC_NEST_API_URL
 ARG NEXT_PUBLIC_APP_URL=https://admin.dopa.ing
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_CHAT_WS_URL=wss://chat.dopa.ing/v2/chat
+ENV NEXT_PUBLIC_CHAT_WS_URL=$NEXT_PUBLIC_CHAT_WS_URL
 RUN npx prisma generate && npm run build
 
 # ============================================================

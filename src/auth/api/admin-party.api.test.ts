@@ -9,7 +9,7 @@ import {
   createParty,
   getParty,
   listParties,
-  softCloseParty,
+  transitionParty,
   updateParty,
 } from "@/auth/api/admin-party.api";
 
@@ -32,6 +32,7 @@ describe("admin-party.api", () => {
       title: "T",
       description: "D",
       date: "2030-01-01T12:00:00.000Z",
+      endsAt: "2030-01-01T15:00:00.000Z",
       location: "Seoul",
       maxCapacity: 10,
     });
@@ -41,7 +42,7 @@ describe("admin-party.api", () => {
     );
   });
 
-  it("get/update/softClose use party id path", async () => {
+  it("get/update/transition use party id paths", async () => {
     vi.mocked(adminFetchJson).mockResolvedValue({ id: "p1" });
     await getParty("p1");
     expect(adminFetchJson).toHaveBeenCalledWith("/admin/v2/parties/p1");
@@ -50,10 +51,14 @@ describe("admin-party.api", () => {
       "/admin/v2/parties/p1",
       expect.objectContaining({ method: "PATCH" }),
     );
-    await softCloseParty("p1");
+    await transitionParty("p1", {
+      toStatus: "RECRUITING",
+      expectedVersion: 0,
+      idempotencyKey: "publish-p1",
+    });
     expect(adminFetchJson).toHaveBeenCalledWith(
-      "/admin/v2/parties/p1",
-      expect.objectContaining({ method: "DELETE" }),
+      "/admin/v2/parties/p1/transitions",
+      expect.objectContaining({ method: "POST" }),
     );
   });
 });
