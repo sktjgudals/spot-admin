@@ -42,6 +42,12 @@ const schema = z.object({
   admissionMode: z.enum(["APPROVAL", "INSTANT"]),
   placeName: z.string().optional(),
   address: z.string().optional(),
+  interestLimit: z.coerce.number().int().min(1).max(20).optional(),
+  genderRatio: z.string().optional(),
+  maxMale: z.coerce.number().int().min(0).optional().or(z.literal("")),
+  maxFemale: z.coerce.number().int().min(0).optional().or(z.literal("")),
+  minBirthYear: z.coerce.number().int().min(1950).max(2015).optional().or(z.literal("")),
+  maxBirthYear: z.coerce.number().int().min(1950).max(2015).optional().or(z.literal("")),
 }).refine((value) => new Date(value.endsAt) > new Date(value.date), {
   message: "종료 일시는 시작 일시보다 늦어야 합니다",
   path: ["endsAt"],
@@ -133,14 +139,27 @@ export function PartyForm({
           admissionMode: party.admissionMode as AdmissionMode,
           placeName: party.placeName ?? "",
           address: party.address ?? "",
+          interestLimit: party.interestLimit ?? 3,
+          genderRatio: party.genderRatio ?? "",
+          maxMale: party.maxMale ?? undefined,
+          maxFemale: party.maxFemale ?? undefined,
+          minBirthYear: party.minBirthYear ?? undefined,
+          maxBirthYear: party.maxBirthYear ?? undefined,
         }
       : {
           admissionMode: "APPROVAL",
           maxCapacity: 20,
           priceMale: 0,
           priceFemale: 0,
+          interestLimit: 3,
         },
   });
+
+  function optionalInt(v: unknown): number | null | undefined {
+    if (v === "" || v === undefined || v === null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
 
   const watchedPlaceName = watch("placeName");
   const watchedAddress = watch("address");
@@ -237,6 +256,12 @@ export function PartyForm({
           placeLatitude: placeCoords?.latitude,
           placeLongitude: placeCoords?.longitude,
           placeKakaoId: placeCoords?.kakaoId || undefined,
+          interestLimit: data.interestLimit,
+          genderRatio: data.genderRatio?.trim() || undefined,
+          maxMale: optionalInt(data.maxMale),
+          maxFemale: optionalInt(data.maxFemale),
+          minBirthYear: optionalInt(data.minBirthYear),
+          maxBirthYear: optionalInt(data.maxBirthYear),
           images,
           coverImage: images[0],
           inclusions: normalizedInclusions,
@@ -260,6 +285,12 @@ export function PartyForm({
           placeLatitude: placeCoords?.latitude,
           placeLongitude: placeCoords?.longitude,
           placeKakaoId: placeCoords?.kakaoId || undefined,
+          interestLimit: data.interestLimit,
+          genderRatio: data.genderRatio?.trim() || undefined,
+          maxMale: optionalInt(data.maxMale),
+          maxFemale: optionalInt(data.maxFemale),
+          minBirthYear: optionalInt(data.minBirthYear),
+          maxBirthYear: optionalInt(data.maxBirthYear),
           images,
           coverImage: images[0],
           inclusions: normalizedInclusions,
@@ -367,6 +398,30 @@ export function PartyForm({
           <Field label="정원 *" error={errors.maxCapacity?.message}>
             <Input type="number" {...register("maxCapacity")} />
           </Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="남성 정원 (선택)">
+              <Input type="number" placeholder="제한 없음" {...register("maxMale")} />
+            </Field>
+            <Field label="여성 정원 (선택)">
+              <Input type="number" placeholder="제한 없음" {...register("maxFemale")} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="신청 최소 출생연도">
+              <Input type="number" placeholder="예: 1995" {...register("minBirthYear")} />
+            </Field>
+            <Field label="신청 최대 출생연도">
+              <Input type="number" placeholder="예: 2005" {...register("maxBirthYear")} />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="호감 선택 상한">
+              <Input type="number" {...register("interestLimit")} />
+            </Field>
+            <Field label="성비 안내 (선택)">
+              <Input placeholder="예: 1:1" {...register("genderRatio")} />
+            </Field>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Field label="남성 가격">
               <Input type="number" {...register("priceMale")} />
