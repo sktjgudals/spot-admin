@@ -59,7 +59,6 @@ export type AdminParty = {
   placeLatitude?: number | null;
   placeLongitude?: number | null;
   placeKakaoId?: string | null;
-  interestLimit?: number;
   genderRatio?: string | null;
   maxMale?: number | null;
   maxFemale?: number | null;

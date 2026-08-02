@@ -28,26 +28,44 @@ export function BusinessUserReviewsPanel({ partyId }: { partyId: string }) {
   });
 
   return (
-    <Card className="max-w-2xl">
+    <Card className="w-full max-w-3xl">
       <CardHeader>
         <CardTitle>참가자 비공개 리뷰</CardTitle>
         <CardDescription>
           리뷰 대상 유저에게는 보이지 않으며, 이후 신청을 받은 다른 업체와 슈퍼관리자만 확인합니다.
+          참가자별로 별점·태그·메모를 남겨 두면 다음 파티 승인 판단에 활용할 수 있습니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {(members.isLoading || tags.isLoading) && <p className="text-sm text-muted-foreground">리뷰 대상을 불러오는 중…</p>}
-        {(members.isError || tags.isError) && <p className="text-sm text-destructive">리뷰 정보를 불러오지 못했습니다.</p>}
-        {members.data?.members.length === 0 && <p className="text-sm text-muted-foreground">승인된 참가자가 없습니다.</p>}
-        {members.data?.members.map((member) => (
-          <ReviewableMemberCard key={member.userId} partyId={partyId} member={member} tags={tags.data ?? []} />
-        ))}
+        {(members.isLoading || tags.isLoading) && (
+          <p className="text-sm text-muted-foreground">리뷰 대상을 불러오는 중…</p>
+        )}
+        {(members.isError || tags.isError) && (
+          <p className="text-sm text-destructive">리뷰 정보를 불러오지 못했습니다.</p>
+        )}
+        {members.data?.members.length === 0 && (
+          <p className="text-sm text-muted-foreground">승인된 참가자가 없습니다.</p>
+        )}
+        <div className="grid gap-3">
+          {members.data?.members.map((member) => (
+            <ReviewableMemberCard
+              key={member.userId}
+              partyId={partyId}
+              member={member}
+              tags={tags.data ?? []}
+            />
+          ))}
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function ReviewableMemberCard({ partyId, member, tags }: {
+function ReviewableMemberCard({
+  partyId,
+  member,
+  tags,
+}: {
   partyId: string;
   member: ReviewableMember;
   tags: Awaited<ReturnType<typeof listBusinessUserReviewTags>>;
@@ -64,6 +82,11 @@ function ReviewableMemberCard({ partyId, member, tags }: {
     return member.review.canEdit ? "작성 완료 · 수정 가능" : "작성 완료 · 수정 종료";
   }, [member.review]);
 
+  const tagById = useMemo(() => {
+    const map = new Map(tags.map((t) => [t.id, t]));
+    return map;
+  }, [tags]);
+
   const toggleEditor = () => {
     if (editing) {
       setScore(5);
@@ -73,6 +96,10 @@ function ReviewableMemberCard({ partyId, member, tags }: {
       setScore(member.review.score);
       setSelected(member.review.tagIds);
       setMemo(member.review.memo ?? "");
+    } else {
+      setScore(5);
+      setSelected([]);
+      setMemo("");
     }
     setEditing((value) => !value);
   };
@@ -107,39 +134,134 @@ function ReviewableMemberCard({ partyId, member, tags }: {
     }
   };
 
+  const reviewTagLabels =
+    member.review?.tagIds
+      .map((id) => tagById.get(id)?.label)
+      .filter((label): label is string => Boolean(label)) ?? [];
+
   return (
-    <div className="space-y-3 rounded-lg border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{member.nickname}</span>
-            <Badge variant={member.attendance === "NO_SHOW" ? "destructive" : "outline"}>{member.attendance === "NO_SHOW" ? "노쇼" : "참석"}</Badge>
+    <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-base font-semibold leading-none">
+              {member.nickname}
+            </span>
+            <Badge
+              variant={member.attendance === "NO_SHOW" ? "destructive" : "secondary"}
+              className="shrink-0"
+            >
+              {member.attendance === "NO_SHOW" ? "노쇼" : "참석"}
+            </Badge>
+            <span className="text-xs text-muted-foreground">{status}</span>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{status}</p>
+
+          {member.review && !editing && (
+            <div className="space-y-2 rounded-lg bg-muted/50 p-3">
+              <p className="text-sm font-medium tabular-nums">
+                별점 {member.review.score}/5
+              </p>
+              {reviewTagLabels.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {reviewTagLabels.map((label) => (
+                    <Badge key={label} variant="outline" className="font-normal">
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {member.review.memo ? (
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+                  {member.review.memo}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">메모 없음</p>
+              )}
+            </div>
+          )}
+
+          {!member.review && !editing && (
+            <p className="text-sm text-muted-foreground">아직 작성된 비공개 리뷰가 없습니다.</p>
+          )}
         </div>
+
         {(!member.review || member.review.canEdit) && (
-          <Button type="button" size="sm" variant="outline" onClick={toggleEditor}>
+          <Button
+            type="button"
+            size="sm"
+            variant={editing ? "ghost" : "outline"}
+            className="shrink-0 self-start"
+            onClick={toggleEditor}
+          >
             {editing ? "닫기" : member.review ? "수정" : "리뷰 작성"}
           </Button>
         )}
       </div>
+
       {editing && (
-        <div className="space-y-3 border-t pt-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm">별점</span>
-            {[1, 2, 3, 4, 5].map((value) => (
-              <Button key={value} type="button" size="sm" variant={score === value ? "default" : "outline"} onClick={() => setScore(value)}>{value}</Button>
-            ))}
+        <div className="mt-4 space-y-4 border-t pt-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium">별점</p>
+            <div className="flex flex-wrap gap-2">
+              {[1, 2, 3, 4, 5].map((value) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  className="min-w-10"
+                  variant={score === value ? "default" : "outline"}
+                  onClick={() => setScore(value)}
+                >
+                  {value}
+                </Button>
+              ))}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <Button key={tag.id} type="button" size="sm" variant={selected.includes(tag.id) ? "default" : "outline"} onClick={() => toggle(tag.id)}>
-                {tag.polarity === "CAUTION" ? "주의 · " : ""}{tag.label}
-              </Button>
-            ))}
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">
+              태그 <span className="font-normal text-muted-foreground">(1~5개)</span>
+            </p>
+            {tags.length === 0 ? (
+              <p className="text-sm text-muted-foreground">등록된 태그가 없습니다.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => (
+                  <Button
+                    key={tag.id}
+                    type="button"
+                    size="sm"
+                    variant={selected.includes(tag.id) ? "default" : "outline"}
+                    className="h-auto whitespace-normal px-3 py-1.5 text-left leading-snug"
+                    onClick={() => toggle(tag.id)}
+                  >
+                    {tag.polarity === "CAUTION" ? "주의 · " : ""}
+                    {tag.label}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
-          <Textarea value={memo} onChange={(event) => setMemo(event.target.value)} maxLength={500} placeholder="업체 전용 메모 (선택, 최대 500자)" />
-          <Button type="button" disabled={saving || !canSubmit} onClick={() => void save()}>{saving ? "저장 중…" : "비공개 리뷰 저장"}</Button>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">업체 전용 메모</p>
+            <Textarea
+              value={memo}
+              onChange={(event) => setMemo(event.target.value)}
+              maxLength={500}
+              rows={3}
+              className="min-h-[88px] resize-y"
+              placeholder="다음 파티 승인 판단에 참고할 메모 (선택, 최대 500자)"
+            />
+          </div>
+
+          <Button
+            type="button"
+            disabled={saving || !canSubmit}
+            onClick={() => void save()}
+          >
+            {saving ? "저장 중…" : "비공개 리뷰 저장"}
+          </Button>
         </div>
       )}
     </div>
