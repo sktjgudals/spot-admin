@@ -153,9 +153,10 @@ export function PartyForm({
     }
     setPlaceSearching(true);
     try {
-      // Bearer 포함 — bare fetch 는 requireRole 401
-      const { fetchJson } = await import("@/lib/fetch-json");
-      const data = await fetchJson<
+      // Nest admin JWT — single KakaoLocalService (no Next BFF duplicate)
+      const { adminFetchJson } = await import("@/auth/api/admin-http");
+      const { NestAdminApi } = await import("@/auth/model/admin-routes");
+      const data = await adminFetchJson<
         Array<{
           id: string;
           placeName: string;
@@ -164,7 +165,9 @@ export function PartyForm({
           latitude: number;
           longitude: number;
         }>
-      >(`/api/places/kakao-search?query=${encodeURIComponent(q)}`);
+      >(
+        `${NestAdminApi.placesKakaoSearch()}?query=${encodeURIComponent(q)}&size=12`,
+      );
       setPlaceResults(data);
       if (data.length === 0) toast.message("검색 결과가 없어요");
     } catch {
