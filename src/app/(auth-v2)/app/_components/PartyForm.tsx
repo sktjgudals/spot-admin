@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { PartyOperationsPanel } from "./PartyOperationsPanel";
 import { BusinessUserReviewsPanel } from "./BusinessUserReviewsPanel";
+import { PartyImageUploader } from "@/components/party-image-uploader";
 import {
   Card,
   CardContent,
@@ -73,6 +74,11 @@ export function PartyForm({
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<string[]>(() => {
+    if (party?.images?.length) return [...party.images];
+    if (party?.coverImage) return [party.coverImage];
+    return [];
+  });
   const [inclusions, setInclusions] = useState<string[]>(
     party?.inclusions?.map((item) => item.label) ?? [],
   );
@@ -144,6 +150,8 @@ export function PartyForm({
           admissionMode: data.admissionMode,
           placeName: data.placeName?.trim() || undefined,
           address: data.address?.trim() || undefined,
+          images,
+          coverImage: images[0],
           inclusions: normalizedInclusions,
           faqs: normalizedFaqs,
         });
@@ -162,6 +170,8 @@ export function PartyForm({
           admissionMode: data.admissionMode,
           placeName: data.placeName?.trim() || undefined,
           address: data.address?.trim() || undefined,
+          images,
+          coverImage: images[0],
           inclusions: normalizedInclusions,
           faqs: normalizedFaqs,
         });
@@ -231,6 +241,15 @@ export function PartyForm({
           </Field>
           <Field label="주소">
             <Input {...register("address")} />
+          </Field>
+          <Field label="커버 이미지 (최대 10장)">
+            <PartyImageUploader
+              mode="multiple"
+              maxFiles={10}
+              value={images}
+              onChange={setImages}
+              uploadUrl="/api/business/parties/media-upload-url"
+            />
           </Field>
           <section className="space-y-3 rounded-lg border bg-muted/20 p-4">
             <div className="flex items-start justify-between gap-4">

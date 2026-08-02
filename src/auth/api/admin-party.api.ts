@@ -49,6 +49,7 @@ export type AdminParty = {
   isActive: boolean;
   closedAt: string | null;
   coverImage: string | null;
+  images: string[];
   priceMale: number;
   priceFemale: number;
   admissionMode: AdmissionMode;
@@ -70,6 +71,7 @@ export type CreatePartyInput = {
   location: string;
   maxCapacity: number;
   coverImage?: string;
+  images?: string[];
   priceMale?: number;
   priceFemale?: number;
   admissionMode?: AdmissionMode;
