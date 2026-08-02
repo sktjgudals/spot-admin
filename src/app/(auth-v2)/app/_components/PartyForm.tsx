@@ -153,26 +153,23 @@ export function PartyForm({
     }
     setPlaceSearching(true);
     try {
-      const res = await fetch(
-        `/api/places/kakao-search?query=${encodeURIComponent(q)}`,
-      );
-      if (!res.ok) {
-        toast.error("장소 검색에 실패했어요. 카카오 REST API 키를 확인해 주세요");
-        setPlaceResults([]);
-        return;
-      }
-      const data = (await res.json()) as Array<{
-        id: string;
-        placeName: string;
-        address: string;
-        locationLabel: string;
-        latitude: number;
-        longitude: number;
-      }>;
+      // Bearer 포함 — bare fetch 는 requireRole 401
+      const { fetchJson } = await import("@/lib/fetch-json");
+      const data = await fetchJson<
+        Array<{
+          id: string;
+          placeName: string;
+          address: string;
+          locationLabel: string;
+          latitude: number;
+          longitude: number;
+        }>
+      >(`/api/places/kakao-search?query=${encodeURIComponent(q)}`);
       setPlaceResults(data);
       if (data.length === 0) toast.message("검색 결과가 없어요");
     } catch {
-      toast.error("장소 검색에 실패했어요");
+      toast.error("장소 검색에 실패했어요. 로그인·카카오 REST 키를 확인해 주세요");
+      setPlaceResults([]);
     } finally {
       setPlaceSearching(false);
     }

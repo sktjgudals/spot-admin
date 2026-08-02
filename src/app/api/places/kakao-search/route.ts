@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireRole } from "@/lib/api-auth";
 
 /**
  * 카카오 로컬 키워드 검색 프록시 (업체 어드민 파티 등록).
  * REST API 키는 서버 env 만 사용 — 브라우저에 노출 금지.
+ * 반드시 BUSINESS/SUPER_ADMIN Bearer (requireRole) — 공개 남용 차단.
  */
 export async function GET(req: NextRequest) {
+  const { error } = await requireRole("BUSINESS");
+  if (error) return error;
+
   const query = req.nextUrl.searchParams.get("query")?.trim() ?? "";
   if (query.length < 1) {
     return NextResponse.json({ message: "PLACE_QUERY_REQUIRED" }, { status: 400 });
