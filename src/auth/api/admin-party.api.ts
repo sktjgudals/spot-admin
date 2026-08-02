@@ -56,6 +56,9 @@ export type AdminParty = {
   categoryId: string | null;
   placeName: string | null;
   address: string | null;
+  placeLatitude?: number | null;
+  placeLongitude?: number | null;
+  placeKakaoId?: string | null;
   inclusions: AdminPartyInclusion[];
   faqs: AdminPartyFaq[];
   businessId: string;
@@ -78,6 +81,9 @@ export type CreatePartyInput = {
   categoryId?: string;
   placeName?: string;
   address?: string;
+  placeLatitude?: number;
+  placeLongitude?: number;
+  placeKakaoId?: string;
   inclusions?: Array<{ label: string }>;
   faqs?: Array<{ question: string; answer: string }>;
 };

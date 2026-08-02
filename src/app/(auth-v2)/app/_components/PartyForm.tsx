@@ -85,10 +85,37 @@ export function PartyForm({
   const [faqs, setFaqs] = useState<Array<{ question: string; answer: string }>>(
     party?.faqs?.map(({ question, answer }) => ({ question, answer })) ?? [],
   );
+  const [placeQuery, setPlaceQuery] = useState("");
+  const [placeResults, setPlaceResults] = useState<
+    Array<{
+      id: string;
+      placeName: string;
+      address: string;
+      locationLabel: string;
+      latitude: number;
+      longitude: number;
+    }>
+  >([]);
+  const [placeSearching, setPlaceSearching] = useState(false);
+  const [placeCoords, setPlaceCoords] = useState<{
+    latitude: number;
+    longitude: number;
+    kakaoId: string;
+  } | null>(() =>
+    party?.placeLatitude != null && party?.placeLongitude != null
+      ? {
+          latitude: party.placeLatitude,
+          longitude: party.placeLongitude,
+          kakaoId: party.placeKakaoId ?? "",
+        }
+      : null,
+  );
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({
     // zod v4 + coerce typing noise — runtime validation still applied
@@ -114,6 +141,63 @@ export function PartyForm({
           priceFemale: 0,
         },
   });
+
+  const watchedPlaceName = watch("placeName");
+  const watchedAddress = watch("address");
+
+  async function searchPlaces() {
+    const q = placeQuery.trim();
+    if (q.length < 1) {
+      toast.error("검색어를 입력해 주세요");
+      return;
+    }
+    setPlaceSearching(true);
+    try {
+      const res = await fetch(
+        `/api/places/kakao-search?query=${encodeURIComponent(q)}`,
+      );
+      if (!res.ok) {
+        toast.error("장소 검색에 실패했어요. 카카오 REST API 키를 확인해 주세요");
+        setPlaceResults([]);
+        return;
+      }
+      const data = (await res.json()) as Array<{
+        id: string;
+        placeName: string;
+        address: string;
+        locationLabel: string;
+        latitude: number;
+        longitude: number;
+      }>;
+      setPlaceResults(data);
+      if (data.length === 0) toast.message("검색 결과가 없어요");
+    } catch {
+      toast.error("장소 검색에 실패했어요");
+    } finally {
+      setPlaceSearching(false);
+    }
+  }
+
+  function selectPlace(item: {
+    id: string;
+    placeName: string;
+    address: string;
+    locationLabel: string;
+    latitude: number;
+    longitude: number;
+  }) {
+    setValue("location", item.locationLabel, { shouldValidate: true });
+    setValue("placeName", item.placeName, { shouldValidate: true });
+    setValue("address", item.address, { shouldValidate: true });
+    setPlaceCoords({
+      latitude: item.latitude,
+      longitude: item.longitude,
+      kakaoId: item.id,
+    });
+    setPlaceResults([]);
+    setPlaceQuery(item.placeName);
+    toast.success("장소가 선택되었습니다");
+  }
 
   const onSubmit = async (data: FormValues) => {
     const normalizedInclusions = inclusions
@@ -150,6 +234,9 @@ export function PartyForm({
           admissionMode: data.admissionMode,
           placeName: data.placeName?.trim() || undefined,
           address: data.address?.trim() || undefined,
+          placeLatitude: placeCoords?.latitude,
+          placeLongitude: placeCoords?.longitude,
+          placeKakaoId: placeCoords?.kakaoId || undefined,
           images,
           coverImage: images[0],
           inclusions: normalizedInclusions,
@@ -170,6 +257,9 @@ export function PartyForm({
           admissionMode: data.admissionMode,
           placeName: data.placeName?.trim() || undefined,
           address: data.address?.trim() || undefined,
+          placeLatitude: placeCoords?.latitude,
+          placeLongitude: placeCoords?.longitude,
+          placeKakaoId: placeCoords?.kakaoId || undefined,
           images,
           coverImage: images[0],
           inclusions: normalizedInclusions,
@@ -213,9 +303,67 @@ export function PartyForm({
           <Field label="종료 일시 *" error={errors.endsAt?.message}>
             <Input type="datetime-local" {...register("endsAt")} />
           </Field>
-          <Field label="장소 *" error={errors.location?.message}>
-            <Input {...register("location")} />
+          <Field label="장소 검색 (카카오맵)">
+            <div className="flex gap-2">
+              <Input
+                value={placeQuery}
+                onChange={(e) => setPlaceQuery(e.target.value)}
+                placeholder="예: 강남역 카페"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void searchPlaces();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={placeSearching}
+                onClick={() => void searchPlaces()}
+              >
+                {placeSearching ? "검색 중…" : "검색"}
+              </Button>
+            </div>
+            {placeResults.length > 0 && (
+              <ul className="mt-2 max-h-48 overflow-auto rounded-md border bg-background text-sm">
+                {placeResults.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-left hover:bg-muted"
+                      onClick={() => selectPlace(item)}
+                    >
+                      <div className="font-medium">{item.placeName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {item.address}
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-1 text-xs text-muted-foreground">
+              선택 시 공개 위치·상세 주소·좌표가 자동 입력됩니다. 확정 참가자만 상세
+              주소를 봅니다.
+            </p>
           </Field>
+          <Field label="공개 위치 (목록) *" error={errors.location?.message}>
+            <Input {...register("location")} placeholder="예: 서울 강남구" />
+          </Field>
+          <Field label="장소명 (상세 · 확정 후 공개)">
+            <Input {...register("placeName")} />
+          </Field>
+          <Field label="주소 (상세 · 확정 후 공개)">
+            <Input {...register("address")} />
+          </Field>
+          {(watchedPlaceName || watchedAddress || placeCoords) && (
+            <p className="text-xs text-muted-foreground">
+              {placeCoords
+                ? `좌표: ${placeCoords.latitude.toFixed(5)}, ${placeCoords.longitude.toFixed(5)}`
+                : "좌표 없음 — 검색으로 다시 선택하면 지도 연동이 됩니다"}
+            </p>
+          )}
           <Field label="정원 *" error={errors.maxCapacity?.message}>
             <Input type="number" {...register("maxCapacity")} />
           </Field>
@@ -235,12 +383,6 @@ export function PartyForm({
               <option value="APPROVAL">APPROVAL</option>
               <option value="INSTANT">INSTANT</option>
             </select>
-          </Field>
-          <Field label="장소명 (상세)">
-            <Input {...register("placeName")} />
-          </Field>
-          <Field label="주소">
-            <Input {...register("address")} />
           </Field>
           <Field label="커버 이미지 (최대 10장)">
             <PartyImageUploader
