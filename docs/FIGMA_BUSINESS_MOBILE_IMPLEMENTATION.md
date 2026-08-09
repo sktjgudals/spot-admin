@@ -39,3 +39,18 @@ Admin Web의 Auth v2 토큰은 현재 Nest admin audience이고, Cloudflare의
 `/chat/operator/*`, `/parties/*` 운영자 경로는 Cloudflare user/operator audience를 요구한다.
 화면에서 해당 정식 경로를 호출하도록 구현했지만, 실 staging E2E 전에는 admin→operator
 단기 토큰 교환을 Cloudflare 쪽에 옮겨야 한다. Firebase Auth/Firestore는 사용하지 않는다.
+
+## 2026-08-09 릴리즈 게이트 검증
+
+- Figma `411:206`을 다시 대조해 솔로파티 목록, 모집 상태 탭, 신청자 현황, QR 체크인,
+  파티 만들기 구조를 확인했다. 화면의 업체명·파티명·인원은 예시가 아니라 API 값으로 그린다.
+- Vitest 17개 파일, 51개 테스트가 통과했다.
+- ESLint의 오류는 0건이다. 생성된 Prisma 코드는 소스 lint 대상에서 제외했다.
+- Next.js production build가 36개 정적 페이지와 전체 동적 route를 생성했다.
+- 빌드 시 Google Fonts를 다운로드하던 의존성을 제거하고 Figma 기준인 Pretendard 우선
+  시스템 글꼴 스택을 사용한다. 네트워크 단절 때문에 배포 빌드가 실패하지 않는다.
+- React effect 내부의 동기 상태 갱신을 제거해 인증 부트, 쿠폰 이력, 업체 선택 및 모바일
+  breakpoint 구독이 React 19 릴리즈 게이트를 통과한다.
+
+실제 staging 업체 계정 E2E는 위 인증 audience 경계가 해결된 다음 수행한다. 기존 GCP
+Cloud Run 프록시는 Cloudflare-only 최종 배포 경로로 간주하지 않는다.

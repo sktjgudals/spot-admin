@@ -115,7 +115,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   }, [applyAuthenticated, applyUnauthenticated]);
 
   useEffect(() => {
-    void boot();
+    const timeout = window.setTimeout(() => void boot(), 0);
+    return () => window.clearTimeout(timeout);
   }, [boot]);
 
   const login = useCallback(

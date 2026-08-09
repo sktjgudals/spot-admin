@@ -287,6 +287,7 @@ export default function CouponManager({ initialTemplates }: Props) {
       />
 
       <IssueHistoryDialog
+        key={historyItem?.id ?? "closed"}
         item={historyItem}
         onClose={() => setHistoryItem(null)}
       />
@@ -503,16 +504,12 @@ function IssueHistoryDialog({
   item: TemplateItem | null;
   onClose: () => void;
 }) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(item !== null);
   const [issues, setIssues] = useState<IssueItem[]>([]);
 
   useEffect(() => {
-    if (!item) {
-      setIssues([]);
-      return;
-    }
+    if (!item) return;
     let cancelled = false;
-    setLoading(true);
     bffFetch(`/api/super-admin/coupons/${item.id}/issues`)
       .then(async (res) => {
         const data = await res.json();

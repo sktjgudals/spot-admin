@@ -1,15 +1,9 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
-import { Geist } from "next/font/google";
 import { useEffect } from "react";
 import "./globals.css";
 import { Button } from "@/components/ui/button";
-
-const geist = Geist({
-  variable: "--font-geist",
-  subsets: ["latin"],
-});
 
 export default function GlobalError({
   error,
@@ -33,7 +27,7 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="ko" className={`${geist.variable} h-full antialiased`}>
+    <html lang="ko" className="h-full antialiased">
       <body className="min-h-full bg-background text-foreground">
         <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
           <div className="w-full max-w-md text-center space-y-6">

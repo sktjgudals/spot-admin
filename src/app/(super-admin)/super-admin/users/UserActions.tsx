@@ -78,8 +78,10 @@ export default function UserActions({ user }: { user: User }) {
   useEffect(() => {
     if (!adminOpen) return;
     let cancelled = false;
-    setLoadingBiz(true);
     void (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setLoadingBiz(true);
       try {
         const res = await bffFetch("/api/super-admin/businesses?status=ACTIVE");
         const data = await res.json().catch(() => ({}));

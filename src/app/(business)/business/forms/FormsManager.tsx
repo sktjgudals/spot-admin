@@ -475,11 +475,6 @@ function ActiveEditor({
     field.options.length > 0 ? field.options : [""]
   );
 
-  useEffect(() => {
-    setLabel(field.label);
-    setOptions(field.options.length > 0 ? field.options : [""]);
-  }, [field.id, field.label, field.options]);
-
   const commitLabel = () => {
     const next = label.trim() || "제목 없는 질문";
     if (next !== field.label) {
