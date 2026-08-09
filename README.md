@@ -1,66 +1,58 @@
-# Dopa Admin
+# DOPA 업체 어드민
 
-Dopa 서비스의 관리자 패널입니다. 슈퍼 어드민과 업체 어드민을 위한 풀스택 웹 애플리케이션입니다.
+솔로파티 업체가 파티 생성, 참가자 승인, 체크인, 운영 채팅과 정산을 관리하는 Next.js 16 어드민입니다. Figma 기반 `/app/*` 화면을 현재 릴리스 후보로 사용합니다.
 
-## 기술 스택
+## 현재 배포 구조
 
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript
-- **Database**: PostgreSQL + Prisma ORM
-- **Auth**: NextAuth v5 (이메일/패스워드)
-- **UI**: shadcn/ui + Tailwind CSS v4
-- **Payments**: Toss Payments
+- 웹 런타임: Cloudflare Workers + OpenNext
+- staging Worker: `dopa-admin-staging`
+- staging API: `https://dopa-backend-staging.ceoofspot.workers.dev`
+- staging WebSocket: `wss://dopa-backend-staging.ceoofspot.workers.dev/v2/chat`
+- 데이터 정본: Cloudflare D1 및 Durable Objects
+- Firebase 용도: 모바일 푸시와 분석만 사용
 
-## 시작하기
+운영 Worker와 커스텀 도메인 배포는 아직 구성하지 않았습니다. 별도 승인 전에는 staging만 배포할 수 있도록 `wrangler.jsonc`와 배포 스크립트가 제한합니다.
 
-### 환경 변수 설정
-
-`.env` 파일을 생성하고 아래 변수를 설정하세요:
-
-```env
-DATABASE_URL=postgresql://...
-AUTH_SECRET=...
-SENTRY_DSN=                 # server (Secret Manager: sentry-dsn-admin)
-NEXT_PUBLIC_SENTRY_DSN=     # client (same DSN; optional at build time)
-```
-
-Sentry Slack 알림: `bash scripts/sentry-slack-setup-checklist.sh` 참고.
-DSN 발급 후 Cloud Run 연결: `bash scripts/wire-sentry-secrets.sh '<api-dsn>' '<admin-dsn>'`
-
-### 설치 및 실행
+## 로컬 실행
 
 ```bash
 npm install
-
-# DB 스키마 반영
-npm run db:push
-
-# 시드 데이터 삽입 (슈퍼 어드민 계정 생성)
-npm run db:seed
-
-# 개발 서버 실행 (http://localhost:3001)
+cp .dev.vars.example .dev.vars
 npm run dev
 ```
 
-## 역할
-
-| 역할 | 설명 |
-|------|------|
-| `SUPER_ADMIN` | 전체 관리 — 유저, 업체, 파티, 정산 |
-| `BUSINESS` | 소속 업체의 파티 및 정산만 관리 |
-
-## 주요 기능
-
-- **유저 관리**: 가입 유저 조회, 차단/해제
-- **파티 관리**: 파티 생성·수정·삭제, 신청자 승인/거절
-- **업체 관리**: 업체 등록, 어드민 초대, 상태 관리
-- **정산 관리**: Toss Payments 기반 결제 및 정산 내역
-- **슈퍼 어드민**: 어드민 계정 생성, 업체 배정
-
-## DB 명령어
+## 검증
 
 ```bash
-npm run db:push     # 스키마 변경사항 DB에 반영
-npm run db:seed     # 초기 데이터 삽입
-npm run db:studio   # Prisma Studio 실행
+npm run test
+npm run test:release
+npm run lint
+npm run cf:build
+
+# 한 번에 실행
+npm run verify
 ```
+
+`npm run check:cloudflare-only`는 활성 코드와 배포 설정에서 삭제된 인프라, 퇴역한 채팅 호스트, 잘못된 제품 분류 표현, production 라우트를 차단합니다.
+
+## Cloudflare staging
+
+```bash
+# 실제 변경 없이 대상 확인
+npm run cf:deploy:staging:plan
+
+# 로컬 workerd 미리보기
+npm run cf:preview
+
+# 명시적 승인 문자열이 있을 때만 staging 배포
+DOPA_ADMIN_STAGING_DEPLOY_ACK=I_ACKNOWLEDGE_STAGING_ADMIN_DEPLOY \
+  npm run cf:deploy:staging
+```
+
+GitHub Actions 배포에는 staging environment의 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` secret이 필요합니다. 자동 운영 배포는 없습니다.
+
+## 남은 인증 전환
+
+새 업체 어드민 화면은 Cloudflare API를 사용하지만, 로그인과 일부 기존 `/super-admin`, `/business` 화면은 레거시 자격증명/Prisma 경로가 남아 있습니다. 업체 어드민 Google OIDC audience와 Cloudflare 역할·업체 배정이 완료되기 전에는 새 화면을 production으로 승격하지 않습니다.
+
+관련 설계와 검증 기록은 [docs/CLOUDFLARE_DEPLOY.md](docs/CLOUDFLARE_DEPLOY.md), [docs/FIGMA_BUSINESS_MOBILE_IMPLEMENTATION.md](docs/FIGMA_BUSINESS_MOBILE_IMPLEMENTATION.md)를 참고하세요.

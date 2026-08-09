@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "dopa-admin-staging",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-09",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "vars": {
+    "ADMIN_ENVIRONMENT": "staging",
+    "NEXT_PUBLIC_API_URL": "https://dopa-backend-staging.ceoofspot.workers.dev",
+    "NEXT_PUBLIC_CHAT_WS_URL": "wss://dopa-backend-staging.ceoofspot.workers.dev/v2/chat"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

@@ -1,11 +1,11 @@
 ---
-description: spot-admin(Next.js 16) 프로젝트 전역 규칙 (스택·구조·DB 규칙·배포)
+description: spot-admin(Next.js 16) 프로젝트 전역 규칙 (스택·구조·DB 규칙·Cloudflare 배포)
 alwaysApply: true
 ---
 
 # spot-admin (Dopa Admin)
 
-Next.js 16 어드민 패널. 백엔드: `../spot-backend`, DB는 spot-backend와 공유.
+Next.js 16 솔로파티 업체 어드민. 릴리스 백엔드: `../spot-cloudflare-backend`.
 
 ## ⚠️ 이 Next.js는 당신이 아는 Next.js가 아니다
 
@@ -49,20 +49,15 @@ npm run build                       # 통과 필수
 npm run lint
 ```
 
-## 배포 (Cloud Run, GCP spot-4749d, 서울)
+## 배포 (Cloudflare Workers, staging 전용)
 
 ```bash
-# 이미지 빌드 (버전 태그 올려서)
-gcloud builds submit --tag asia-northeast3-docker.pkg.dev/spot-4749d/dopa/dopa-admin:vN \
-  --region asia-northeast3 --project spot-4749d
-# 배포
-gcloud run services update dopa-admin \
-  --image asia-northeast3-docker.pkg.dev/spot-4749d/dopa/dopa-admin:vN \
-  --region asia-northeast3 --project spot-4749d
+npm run verify
+npm run cf:deploy:staging:plan
+DOPA_ADMIN_STAGING_DEPLOY_ACK=I_ACKNOWLEDGE_STAGING_ADMIN_DEPLOY npm run cf:deploy:staging
 ```
 
-- 서비스 URL: https://dopa-admin-407436072297.asia-northeast3.run.app
-- 커스텀 도메인(admin.dopa.ing)은 Cloudflare Worker 프록시 (`scripts/cloudflare-worker.js`)
-- **Firebase Hosting 경유 금지** — `__session` 외 쿠키를 제거해 로그인이 깨짐
-- 이미지 업로드는 Cloudflare R2(`media.dopa.ing`) — 배너/파티는 `BACKEND_INTERNAL_URL` + `x-internal-api-key`로 백엔드 프록시. GCS `dopa-assets`는 레거시 URL 읽기·정적 에셋용
-- 환경변수/시크릿: DATABASE_URL, AUTH_SECRET(=NEXTAUTH_SECRET), BACKEND_INTERNAL_API_KEY — Secret Manager 연결됨
+- Worker 이름은 `dopa-admin-staging`만 허용한다.
+- REST와 WebSocket은 모두 `dopa-backend-staging`을 사용한다.
+- production 환경·라우트·배포 명령은 별도 승인 전까지 추가하지 않는다.
+- 기존 Prisma/BFF 화면은 레거시이며 Figma `/app/*` 화면의 Cloudflare 계약을 릴리스 기준으로 삼는다.

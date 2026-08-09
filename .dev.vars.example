@@ -1,0 +1,4 @@
+NEXTJS_ENV=development
+ADMIN_ENVIRONMENT=staging
+NEXT_PUBLIC_API_URL=https://dopa-backend-staging.ceoofspot.workers.dev
+NEXT_PUBLIC_CHAT_WS_URL=wss://dopa-backend-staging.ceoofspot.workers.dev/v2/chat
