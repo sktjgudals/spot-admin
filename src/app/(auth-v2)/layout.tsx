@@ -5,6 +5,7 @@ import { AuthGuard } from "@/auth/guards/AuthGuard";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { BusinessMobileChrome } from "@/components/business-mobile/BusinessMobileChrome";
 
 /**
  * Auth v2 shell layout — Nest cookies + memory access token.
@@ -20,6 +21,10 @@ export default function AuthV2AppLayout({ children }: { children: ReactNode }) {
 
 function AuthV2Chrome({ children }: { children: ReactNode }) {
   const { admin, logout } = useAdminAuth();
+
+  if (admin?.role === "BUSINESS_ADMIN") {
+    return <BusinessMobileChrome>{children}</BusinessMobileChrome>;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">

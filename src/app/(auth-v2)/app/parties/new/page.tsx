@@ -3,10 +3,9 @@
 import { RoleGuard } from "@/auth/guards/RoleGuard";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
-  myPartyDetailPath,
   resolveBusinessScope,
 } from "@/auth/model/admin-routes";
-import { PartyForm } from "../../_components/PartyForm";
+import { BusinessMobilePartyForm } from "@/components/business-mobile/BusinessMobilePartyForm";
 
 export default function NewMyPartyPage() {
   return (
@@ -30,12 +29,5 @@ function Form() {
     );
   }
 
-  return (
-    <PartyForm
-      mode="create"
-      businessId={scope.businessId}
-      successHref={(id) => myPartyDetailPath(id)}
-      cancelHref="/app/parties"
-    />
-  );
+  return <BusinessMobilePartyForm businessId={scope.businessId} />;
 }

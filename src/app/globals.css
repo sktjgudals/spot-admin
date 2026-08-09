@@ -131,3 +131,32 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  .font-pretendard {
+    font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+      "Noto Sans KR", "Segoe UI", sans-serif;
+  }
+
+  .mobile-input {
+    width: 100%;
+    border: 1px solid #dedede;
+    border-radius: 12px;
+    background: #fff;
+    padding-inline: 14px;
+    color: #2d2d2d;
+    font-size: 14px;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .mobile-input::placeholder {
+    color: #a5a5a5;
+  }
+
+  .mobile-input:focus {
+    border-color: #9c6cf2;
+    box-shadow: 0 0 0 3px rgb(156 108 242 / 12%);
+  }
+}

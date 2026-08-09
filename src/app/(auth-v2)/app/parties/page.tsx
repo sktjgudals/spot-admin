@@ -75,6 +75,7 @@ function MyPartiesShell() {
       description="businessId = /me.businessId only · URL 테넌트 무시"
       partyHref={(id) => myPartyDetailPath(id)}
       createHref="/app/parties/new"
+      variant="business-mobile"
     />
   );
 }

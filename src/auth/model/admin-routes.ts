@@ -16,7 +16,7 @@ export const ROUTE_SUPER_ADMIN_HOME = "/super-admin/dashboard";
 export const ROUTE_BUSINESSES = "/app/businesses";
 
 /** BUSINESS_ADMIN home — full admin chrome (parties, settlements, chat, …) */
-export const ROUTE_BUSINESS_HOME = "/business/dashboard";
+export const ROUTE_BUSINESS_HOME = "/app/parties";
 
 /** Nest-first parties list (Auth v2 migration path — v2 shell internal nav) */
 export const ROUTE_MY_PARTIES = "/app/parties";

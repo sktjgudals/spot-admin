@@ -11,8 +11,8 @@ describe("admin-routes scope contract", () => {
     expect(homePathForRole("SUPER_ADMIN")).toBe("/super-admin/dashboard");
   });
 
-  it("BUSINESS_ADMIN home is business dashboard", () => {
-    expect(homePathForRole("BUSINESS_ADMIN")).toBe("/business/dashboard");
+  it("BUSINESS_ADMIN home is the Auth v2 mobile party list", () => {
+    expect(homePathForRole("BUSINESS_ADMIN")).toBe("/app/parties");
   });
 
   it("SUPER_ADMIN party URL embeds businessId", () => {
@@ -68,4 +68,3 @@ describe("admin-routes scope contract", () => {
     expect(r).toEqual({ error: "CROSS_TENANT_BLOCKED" });
   });
 });
-

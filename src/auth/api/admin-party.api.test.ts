@@ -8,6 +8,7 @@ import { adminFetchJson } from "@/auth/api/admin-http";
 import {
   createParty,
   getParty,
+  listPartyCategories,
   listParties,
   transitionParty,
   updateParty,
@@ -24,6 +25,22 @@ describe("admin-party.api", () => {
     expect(adminFetchJson).toHaveBeenCalledWith(
       "/admin/v2/businesses/biz-1/parties",
     );
+  });
+
+  it("lists active party categories through the public catalog contract", async () => {
+    const categories = [
+      {
+        id: "category-1",
+        name: "솔로파티",
+        status: "FIXED" as const,
+        sortOrder: 1,
+        iconUrl: null,
+      },
+    ];
+    vi.mocked(adminFetchJson).mockResolvedValue({ categories });
+
+    await expect(listPartyCategories()).resolves.toEqual(categories);
+    expect(adminFetchJson).toHaveBeenCalledWith("/party-categories");
   });
 
   it("createParty posts under business", async () => {

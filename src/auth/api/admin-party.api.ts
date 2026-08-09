@@ -29,6 +29,14 @@ export type AdminPartyFaq = {
   sortOrder: number;
 };
 
+export type PartyCategory = {
+  id: string;
+  name: string;
+  status: "FIXED" | "NORMAL";
+  sortOrder: number;
+  iconUrl: string | null;
+};
+
 export type AdminParty = {
   id: string;
   title: string;
@@ -46,6 +54,8 @@ export type AdminParty = {
   location: string;
   maxCapacity: number;
   currentCount: number;
+  pendingApplicationCount?: number;
+  approvedApplicationCount?: number;
   isActive: boolean;
   closedAt: string | null;
   coverImage: string | null;
@@ -120,6 +130,13 @@ export async function listParties(businessId: string): Promise<AdminParty[]> {
   return adminFetchJson<AdminParty[]>(NestAdminApi.parties(businessId));
 }
 
+export async function listPartyCategories(): Promise<PartyCategory[]> {
+  const result = await adminFetchJson<{ categories: PartyCategory[] }>(
+    "/party-categories",
+  );
+  return result.categories;
+}
+
 export async function getParty(partyId: string): Promise<AdminParty> {
   return adminFetchJson<AdminParty>(NestAdminApi.party(partyId));
 }
@@ -167,6 +184,7 @@ export async function getPartyStatusHistory(
 
 export const partyQueryKeys = {
   all: ["admin", "parties"] as const,
+  categories: ["admin", "party-categories"] as const,
   list: (businessId: string) =>
     [...partyQueryKeys.all, "list", businessId] as const,
   detail: (partyId: string) =>
