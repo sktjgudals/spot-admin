@@ -51,5 +51,8 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // App Router emits `/icon.png`, while `public/` also serves the sidebar
+  // logo and other immutable assets.  Let every file-like path bypass auth;
+  // otherwise a signed-out browser receives `/login` instead of a favicon.
+  matcher: ["/((?!api|_next/static|_next/image|.*\\..*).*)"],
 };
