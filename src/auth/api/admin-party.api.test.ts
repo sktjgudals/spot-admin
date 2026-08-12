@@ -19,12 +19,10 @@ describe("admin-party.api", () => {
     vi.mocked(adminFetchJson).mockReset();
   });
 
-  it("listParties uses business-scoped path", async () => {
+  it("listParties uses the authenticated operator scope", async () => {
     vi.mocked(adminFetchJson).mockResolvedValue([]);
     await listParties("biz-1");
-    expect(adminFetchJson).toHaveBeenCalledWith(
-      "/admin/v2/businesses/biz-1/parties",
-    );
+    expect(adminFetchJson).toHaveBeenCalledWith("/businesses/me/parties");
   });
 
   it("lists active party categories through the public catalog contract", async () => {
@@ -43,7 +41,7 @@ describe("admin-party.api", () => {
     expect(adminFetchJson).toHaveBeenCalledWith("/party-categories");
   });
 
-  it("createParty posts under business", async () => {
+  it("createParty posts under the authenticated operator business", async () => {
     vi.mocked(adminFetchJson).mockResolvedValue({ id: "p1" });
     await createParty("biz-1", {
       title: "T",
@@ -54,7 +52,7 @@ describe("admin-party.api", () => {
       maxCapacity: 10,
     });
     expect(adminFetchJson).toHaveBeenCalledWith(
-      "/admin/v2/businesses/biz-1/parties",
+      "/businesses/me/parties",
       expect.objectContaining({ method: "POST" }),
     );
   });
@@ -62,10 +60,10 @@ describe("admin-party.api", () => {
   it("get/update/transition use party id paths", async () => {
     vi.mocked(adminFetchJson).mockResolvedValue({ id: "p1" });
     await getParty("p1");
-    expect(adminFetchJson).toHaveBeenCalledWith("/admin/v2/parties/p1");
+    expect(adminFetchJson).toHaveBeenCalledWith("/businesses/me/parties/p1");
     await updateParty("p1", { title: "X" });
     expect(adminFetchJson).toHaveBeenCalledWith(
-      "/admin/v2/parties/p1",
+      "/businesses/me/parties/p1",
       expect.objectContaining({ method: "PATCH" }),
     );
     await transitionParty("p1", {
@@ -74,8 +72,9 @@ describe("admin-party.api", () => {
       idempotencyKey: "publish-p1",
     });
     expect(adminFetchJson).toHaveBeenCalledWith(
-      "/admin/v2/parties/p1/transitions",
+      "/parties/p1/transitions",
       expect.objectContaining({ method: "POST" }),
     );
+    expect(adminFetchJson).toHaveBeenLastCalledWith("/businesses/me/parties/p1");
   });
 });

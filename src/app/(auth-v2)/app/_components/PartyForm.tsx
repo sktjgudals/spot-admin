@@ -35,6 +35,7 @@ const schema = z.object({
   description: z.string().min(1, "설명 필수").max(10000),
   date: z.string().min(1, "일시 필수"),
   endsAt: z.string().min(1, "종료 일시 필수"),
+  applicationDeadline: z.string().min(1, "신청 마감일 필수"),
   location: z.string().min(1, "장소 필수").max(500),
   maxCapacity: z.coerce.number().int().min(2).max(100),
   priceMale: z.coerce.number().int().min(0).optional(),
@@ -51,6 +52,9 @@ const schema = z.object({
 }).refine((value) => new Date(value.endsAt) > new Date(value.date), {
   message: "종료 일시는 시작 일시보다 늦어야 합니다",
   path: ["endsAt"],
+}).refine((value) => new Date(value.applicationDeadline) <= new Date(value.date), {
+  message: "신청 마감일은 시작 일시보다 늦을 수 없습니다",
+  path: ["applicationDeadline"],
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -132,6 +136,7 @@ export function PartyForm({
           description: party.description,
           date: toLocalInputValue(party.date),
           endsAt: toLocalInputValue(party.endsAt),
+          applicationDeadline: toLocalInputValue(party.applicationDeadline),
           location: party.location,
           maxCapacity: party.maxCapacity,
           priceMale: party.priceMale,
@@ -166,8 +171,8 @@ export function PartyForm({
 
   async function searchPlaces() {
     const q = placeQuery.trim();
-    if (q.length < 1) {
-      toast.error("검색어를 입력해 주세요");
+    if (q.length < 2) {
+      toast.error("검색어를 2자 이상 입력해 주세요");
       return;
     }
     setPlaceSearching(true);
@@ -240,12 +245,14 @@ export function PartyForm({
     try {
       const dateIso = new Date(data.date).toISOString();
       const endsAtIso = new Date(data.endsAt).toISOString();
+      const applicationDeadlineIso = new Date(data.applicationDeadline).toISOString();
       if (mode === "create") {
         const created = await createParty(businessId, {
           title: data.title.trim(),
           description: data.description.trim(),
           date: dateIso,
           endsAt: endsAtIso,
+          applicationDeadline: applicationDeadlineIso,
           location: data.location.trim(),
           maxCapacity: data.maxCapacity,
           priceMale: data.priceMale ?? 0,
@@ -275,6 +282,7 @@ export function PartyForm({
           description: data.description.trim(),
           date: dateIso,
           endsAt: endsAtIso,
+          applicationDeadline: applicationDeadlineIso,
           location: data.location.trim(),
           maxCapacity: data.maxCapacity,
           priceMale: data.priceMale ?? 0,
@@ -333,6 +341,9 @@ export function PartyForm({
           </Field>
           <Field label="종료 일시 *" error={errors.endsAt?.message}>
             <Input type="datetime-local" {...register("endsAt")} />
+          </Field>
+          <Field label="신청 마감일 *" error={errors.applicationDeadline?.message}>
+            <Input type="datetime-local" {...register("applicationDeadline")} />
           </Field>
           <Field label="장소 검색 (카카오맵)">
             <div className="flex gap-2">

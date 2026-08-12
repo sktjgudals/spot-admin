@@ -102,7 +102,7 @@ export const NestAdminApi = {
     `/admin/v2/businesses/${businessId}/parties`,
   party: (partyId: string) => `/admin/v2/parties/${partyId}`,
   /** Kakao place search — Nest SoT (no Next BFF) */
-  placesKakaoSearch: () => `/admin/v2/places/kakao/search`,
+  placesKakaoSearch: () => `/places/kakao/search`,
   partyTransitions: (partyId: string) =>
     `/admin/v2/parties/${partyId}/transitions`,
   partyStatusHistory: (partyId: string) =>
