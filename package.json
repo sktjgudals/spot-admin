@@ -17,6 +17,8 @@
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "cf:deploy:staging:plan": "node scripts/deploy-cloudflare-staging.mjs plan",
     "cf:deploy:staging": "node scripts/deploy-cloudflare-staging.mjs execute",
+    "cf:build:production": "ADMIN_ENVIRONMENT=production NEXT_PUBLIC_API_URL=https://api.dopa.ing NEXT_PUBLIC_CHAT_WS_URL=wss://api.dopa.ing/v2/chat opennextjs-cloudflare build",
+    "cf:deploy:production": "wrangler deploy --config wrangler.production.jsonc",
     "verify": "npm run test && npm run test:release && npm run lint && npm run cf:build",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
