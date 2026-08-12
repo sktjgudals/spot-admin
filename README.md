@@ -5,13 +5,15 @@
 ## 현재 배포 구조
 
 - 웹 런타임: Cloudflare Workers + OpenNext
+- production: `https://admin.dopa.ing` (`dopa-admin` Worker)
+- production API/WebSocket: `https://api.dopa.ing` / `wss://api.dopa.ing/v2/chat`
 - staging Worker: `dopa-admin-staging`
 - staging API: `https://dopa-backend-staging.ceoofspot.workers.dev`
 - staging WebSocket: `wss://dopa-backend-staging.ceoofspot.workers.dev/v2/chat`
 - 데이터 정본: Cloudflare D1 및 Durable Objects
 - Firebase 용도: 모바일 푸시와 분석만 사용
 
-운영 Worker와 커스텀 도메인 배포는 아직 구성하지 않았습니다. 별도 승인 전에는 staging만 배포할 수 있도록 `wrangler.jsonc`와 배포 스크립트가 제한합니다.
+`wrangler.jsonc`는 staging, `wrangler.production.jsonc`는 production을 담당합니다. production 명령은 항상 `api.dopa.ing`으로 OpenNext를 새로 빌드한 뒤 `admin.dopa.ing`에 배포합니다.
 
 ## 로컬 실행
 
@@ -51,8 +53,16 @@ DOPA_ADMIN_STAGING_DEPLOY_ACK=I_ACKNOWLEDGE_STAGING_ADMIN_DEPLOY \
 
 GitHub Actions 배포에는 staging environment의 `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` secret이 필요합니다. 자동 운영 배포는 없습니다.
 
+## Cloudflare production
+
+```bash
+npm run cf:deploy:production
+```
+
+이 명령은 production 환경변수로 빌드부터 다시 실행하므로 staging `.open-next` 산출물을 운영에 재사용하지 않습니다.
+
 ## 남은 인증 전환
 
-새 업체 어드민 화면은 Cloudflare API를 사용하지만, 로그인과 일부 기존 `/super-admin`, `/business` 화면은 레거시 자격증명/Prisma 경로가 남아 있습니다. 업체 어드민 Google OIDC audience와 Cloudflare 역할·업체 배정이 완료되기 전에는 새 화면을 production으로 승격하지 않습니다.
+새 `/app/*` 어드민 화면은 production Cloudflare API를 사용합니다. 기존 `/super-admin`, `/business` 경로는 전환 호환을 위해 남아 있으므로 신규 운영은 `/app/*`를 기준으로 합니다.
 
 관련 설계와 검증 기록은 [docs/CLOUDFLARE_DEPLOY.md](docs/CLOUDFLARE_DEPLOY.md), [docs/FIGMA_BUSINESS_MOBILE_IMPLEMENTATION.md](docs/FIGMA_BUSINESS_MOBILE_IMPLEMENTATION.md)를 참고하세요.
