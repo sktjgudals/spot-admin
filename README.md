@@ -1,6 +1,7 @@
-# DOPA 업체 어드민
+# DOPA Admin
 
-솔로파티 업체가 파티 생성, 참가자 승인, 체크인, 운영 채팅과 정산을 관리하는 Next.js 16 어드민입니다. Figma 기반 `/app/*` 화면을 현재 릴리스 후보로 사용합니다.
+DOPA의 슈퍼어드민과 업체 운영자가 사용하는 Next.js 16 관리 웹입니다. 인증·데이터·채팅은
+모두 `spot-cloudflare-backend`를 사용하며, 이 Worker는 Prisma나 D1에 직접 접근하지 않습니다.
 
 ## 현재 배포 구조
 
@@ -11,6 +12,7 @@
 - staging API: `https://dopa-backend-staging.ceoofspot.workers.dev`
 - staging WebSocket: `wss://dopa-backend-staging.ceoofspot.workers.dev/v2/chat`
 - 데이터 정본: Cloudflare D1 및 Durable Objects
+- 관리자 전역 조회: `DB_ADMIN_00` read model + `dopa-admin-projection` Queue
 - Firebase 용도: 모바일 푸시와 분석만 사용
 
 `wrangler.jsonc`는 staging, `wrangler.production.jsonc`는 production을 담당합니다. production 명령은 항상 `api.dopa.ing`으로 OpenNext를 새로 빌드한 뒤 `admin.dopa.ing`에 배포합니다.
@@ -35,7 +37,8 @@ npm run cf:build
 npm run verify
 ```
 
-`npm run check:cloudflare-only`는 활성 코드와 배포 설정에서 삭제된 인프라, 퇴역한 채팅 호스트, 잘못된 제품 분류 표현, production 라우트를 차단합니다.
+`npm run test:release`와 `npm run check:admin-runtime`은 Prisma, `DATABASE_URL`, 직접 DB 접근,
+레거시 `/api/super-admin/*` BFF 호출의 재유입을 차단합니다.
 
 ## Cloudflare staging
 
@@ -61,8 +64,13 @@ npm run cf:deploy:production
 
 이 명령은 production 환경변수로 빌드부터 다시 실행하므로 staging `.open-next` 산출물을 운영에 재사용하지 않습니다.
 
-## 남은 인증 전환
+## 현재 기능
 
-새 `/app/*` 어드민 화면은 production Cloudflare API를 사용합니다. 기존 `/super-admin`, `/business` 경로는 전환 호환을 위해 남아 있으므로 신규 운영은 `/app/*`를 기준으로 합니다.
+- 가입 완료 응답의 세션을 즉시 적용하고 인증 확정 뒤 역할별 홈으로 이동
+- 슈퍼어드민 대시보드, 사용자, 업체, 파티, 초대, 권한 신청, 환불 정책, 결제·환불
+- 쿠폰, 문의, 알림 캠페인, 배너, 파티 카테고리, 리뷰 태그, 런타임 설정
+- 업체 파티 생성·수정, 참가 신청 승인·거절, 체크인, 채팅, 리뷰 관리
+- 업체별 파티 템플릿 저장·불러오기 및 `businessId` 소유권 검증
+- 카드 단위 로딩·빈 결과·403·재시도 가능한 서버 오류 처리
 
-관련 설계와 검증 기록은 [docs/CLOUDFLARE_DEPLOY.md](docs/CLOUDFLARE_DEPLOY.md), [docs/FIGMA_BUSINESS_MOBILE_IMPLEMENTATION.md](docs/FIGMA_BUSINESS_MOBILE_IMPLEMENTATION.md)를 참고하세요.
+라우트, 인증, 배포, 롤백과 E2E 기준은 [운영 정본](docs/OPERATIONS.md)을 참고하세요.
