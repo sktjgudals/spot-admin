@@ -2,11 +2,7 @@ import { adminFetchJson } from "@/auth/api/admin-http";
 import { AdminApi } from "@/auth/model/admin-routes";
 
 export type BusinessKind = "INDIVIDUAL" | "COMPANY";
-export type BusinessStatus =
-  | "PENDING"
-  | "ACTIVE"
-  | "SUSPENDED"
-  | "DISABLED";
+export type BusinessStatus = "PENDING" | "ACTIVE" | "SUSPENDED" | "DISABLED";
 
 export type AdminBusiness = {
   id: string;
@@ -23,6 +19,28 @@ export type AdminBusiness = {
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type BusinessAdminCandidate = {
+  id: string;
+  email: string | null;
+  nickname: string;
+  profileImage: string | null;
+  role: "USER" | "ADMIN";
+  status: "ACTIVE";
+  assignedBusinessId: string | null;
+};
+
+export type BusinessAdminAssignment = {
+  userId: string;
+  email: string | null;
+  nickname: string;
+  role: "BUSINESS_ADMIN";
+  businessId: string;
+  businessName: string;
+  relationshipId: string;
+  assignedAt: string;
+  alreadyAssigned: boolean;
 };
 
 export type CreateBusinessInput = {
@@ -59,9 +77,7 @@ export async function listBusinesses(
 ): Promise<AdminBusiness[]> {
   const response = await adminFetchJson<
     AdminBusiness[] | { items: AdminBusiness[] }
-  >(
-    `${AdminApi.businesses()}${listQuery(params)}`,
-  );
+  >(`${AdminApi.businesses()}${listQuery(params)}`);
   return Array.isArray(response) ? response : response.items;
 }
 
@@ -122,9 +138,32 @@ export async function restoreBusiness(id: string): Promise<AdminBusiness> {
   });
 }
 
+export async function searchBusinessAdminCandidates(query: string): Promise<{
+  items: BusinessAdminCandidate[];
+  nextCursor: string | null;
+  asOf: string;
+}> {
+  const params = new URLSearchParams({ q: query.trim(), limit: "20" });
+  return adminFetchJson(
+    AdminApi.businessOperatorCandidates() + `?${params.toString()}`,
+  );
+}
+
+export async function assignBusinessAdmin(
+  businessId: string,
+  userId: string,
+): Promise<{ assignment: BusinessAdminAssignment; auditId: string }> {
+  return adminFetchJson(AdminApi.businessOperators(businessId), {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
+}
+
 export const businessQueryKeys = {
   all: ["admin", "businesses"] as const,
   list: (params?: ListBusinessesParams) =>
     [...businessQueryKeys.all, "list", params ?? {}] as const,
   detail: (id: string) => [...businessQueryKeys.all, "detail", id] as const,
+  operatorCandidates: (query: string) =>
+    [...businessQueryKeys.all, "operator-candidates", query] as const,
 };

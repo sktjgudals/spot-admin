@@ -63,7 +63,9 @@ export function resolveBusinessScope(input: {
   profileBusinessId: string | null;
   /** From URL params — SUPER_ADMIN only */
   routeBusinessId?: string | null;
-}): { businessId: string } | { error: "MISSING_BUSINESS_SCOPE" | "CROSS_TENANT_BLOCKED" } {
+}):
+  | { businessId: string }
+  | { error: "MISSING_BUSINESS_SCOPE" | "CROSS_TENANT_BLOCKED" } {
   if (input.role === "BUSINESS_ADMIN") {
     if (!input.profileBusinessId) {
       return { error: "MISSING_BUSINESS_SCOPE" };
@@ -92,14 +94,16 @@ export const AdminApi = {
   businessDisable: (id: string) => `/admin/v2/businesses/${id}/disable`,
   businessEnable: (id: string) => `/admin/v2/businesses/${id}/enable`,
   businessRestore: (id: string) => `/admin/v2/businesses/${id}/restore`,
+  businessOperatorCandidates: () => "/admin/v2/business-operator-candidates",
+  businessOperators: (businessId: string) =>
+    `/admin/v2/businesses/${encodeURIComponent(businessId)}/operators`,
   invitations: (businessId: string) =>
     `/admin/v2/businesses/${businessId}/invitations`,
   invitationCancel: (businessId: string, invitationId: string) =>
     `/admin/v2/businesses/${businessId}/invitations/${invitationId}/cancel`,
   invitationResend: (businessId: string, invitationId: string) =>
     `/admin/v2/businesses/${businessId}/invitations/${invitationId}/resend`,
-  parties: (businessId: string) =>
-    `/admin/v2/businesses/${businessId}/parties`,
+  parties: (businessId: string) => `/admin/v2/businesses/${businessId}/parties`,
   party: (partyId: string) => `/admin/v2/parties/${partyId}`,
   /** Kakao place search provided by the Cloudflare API. */
   placesKakaoSearch: () => `/places/kakao/search`,
@@ -124,8 +128,7 @@ export const AdminApi = {
   mailOutboxItem: (id: string) => `/admin/v2/auth-mail/outbox/${id}`,
   mailOutboxReprocess: (id: string) =>
     `/admin/v2/auth-mail/outbox/${id}/reprocess`,
-  refundPolicyRequests: () =>
-    "/admin/v2/refund-policy-change-requests",
+  refundPolicyRequests: () => "/admin/v2/refund-policy-change-requests",
   refundPolicyRequest: (id: string) =>
     `/admin/v2/refund-policy-change-requests/${encodeURIComponent(id)}`,
   refundPolicyApprove: (id: string) =>

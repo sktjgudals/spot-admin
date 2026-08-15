@@ -6,11 +6,13 @@ vi.mock("@/auth/api/admin-http", () => ({
 
 import { adminFetchJson } from "@/auth/api/admin-http";
 import {
+  assignBusinessAdmin,
   createBusiness,
   disableBusiness,
   getBusiness,
   listBusinesses,
   restoreBusiness,
+  searchBusinessAdminCandidates,
   softDeleteBusiness,
 } from "@/auth/api/admin-business.api";
 
@@ -60,6 +62,29 @@ describe("admin-business.api", () => {
     expect(adminFetchJson).toHaveBeenCalledWith(
       "/admin/v2/businesses/b1/restore",
       expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("searches existing users and assigns the selected business admin", async () => {
+    vi.mocked(adminFetchJson).mockResolvedValue({
+      items: [],
+      nextCursor: null,
+    });
+    await searchBusinessAdminCandidates("민 정");
+    expect(adminFetchJson).toHaveBeenCalledWith(
+      "/admin/v2/business-operator-candidates?q=%EB%AF%BC+%EC%A0%95&limit=20",
+    );
+
+    vi.mocked(adminFetchJson).mockResolvedValue({
+      assignment: { userId: "u1" },
+    });
+    await assignBusinessAdmin("biz 1", "u1");
+    expect(adminFetchJson).toHaveBeenCalledWith(
+      "/admin/v2/businesses/biz%201/operators",
+      {
+        method: "POST",
+        body: JSON.stringify({ userId: "u1" }),
+      },
     );
   });
 });

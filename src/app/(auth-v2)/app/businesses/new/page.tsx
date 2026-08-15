@@ -8,7 +8,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
-import { createBusiness } from "@/auth/api/admin-business.api";
+import {
+  assignBusinessAdmin,
+  createBusiness,
+  type BusinessAdminCandidate,
+} from "@/auth/api/admin-business.api";
 import { businessDetailPath } from "@/auth/model/admin-routes";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 import { Button } from "@/components/ui/button";
@@ -22,6 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { BusinessAdminPicker } from "../_components/BusinessAdminPicker";
 
 const schema = z.object({
   name: z.string().min(1, "업체명을 입력하세요").max(200),
@@ -47,6 +52,8 @@ export default function NewBusinessPage() {
 function NewBusinessForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] =
+    useState<BusinessAdminCandidate | null>(null);
   const {
     register,
     handleSubmit,
@@ -69,7 +76,24 @@ function NewBusinessForm() {
         businessNumber: data.businessNumber?.trim() || undefined,
         feeRateBps: data.feeRateBps,
       });
-      toast.success("업체가 생성되었습니다. 초대로 관리자를 추가하세요.");
+      if (selectedAdmin) {
+        try {
+          await assignBusinessAdmin(created.id, selectedAdmin.id);
+          toast.success(
+            `업체를 생성하고 ${selectedAdmin.nickname}님을 관리자로 할당했습니다.`,
+          );
+        } catch (assignmentError) {
+          toast.error(
+            assignmentError instanceof AdminAuthError
+              ? `업체는 생성됐지만 관리자 할당에 실패했습니다: ${assignmentError.message}`
+              : "업체는 생성됐지만 관리자 할당에 실패했습니다. 상세 화면에서 다시 시도하세요.",
+          );
+        }
+      } else {
+        toast.success(
+          "업체가 생성되었습니다. 상세 화면에서 관리자를 할당할 수 있습니다.",
+        );
+      }
       router.replace(businessDetailPath(created.id));
     } catch (err) {
       toast.error(
@@ -85,7 +109,8 @@ function NewBusinessForm() {
       <CardHeader>
         <CardTitle>업체 등록</CardTitle>
         <CardDescription>
-          Business만 생성됩니다. 관리자는 초대(Invite)로 추가합니다.
+          기존 가입자를 검색해 바로 업체 관리자로 할당하거나, 생성 후 이메일로
+          초대할 수 있습니다.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -118,7 +143,11 @@ function NewBusinessForm() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="contactEmail">연락 이메일</Label>
-            <Input id="contactEmail" type="email" {...register("contactEmail")} />
+            <Input
+              id="contactEmail"
+              type="email"
+              {...register("contactEmail")}
+            />
             {errors.contactEmail && (
               <p className="text-xs text-destructive">
                 {errors.contactEmail.message}
@@ -135,11 +164,37 @@ function NewBusinessForm() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="feeRateBps">수수료 (bps, 1000=10%)</Label>
-            <Input
-              id="feeRateBps"
-              type="number"
-              {...register("feeRateBps")}
+            <Input id="feeRateBps" type="number" {...register("feeRateBps")} />
+          </div>
+          <div className="space-y-2 rounded-lg border p-3">
+            <div>
+              <Label>업체 관리자 선택</Label>
+              <p className="text-xs text-muted-foreground">
+                선택 사항입니다. 활성 상태인 기존 사용자만 할당할 수 있습니다.
+              </p>
+            </div>
+            <BusinessAdminPicker
+              selectedUserId={selectedAdmin?.id}
+              onSelect={setSelectedAdmin}
+              disabled={loading}
             />
+            {selectedAdmin && (
+              <div className="flex items-center justify-between gap-2 rounded-md bg-muted p-2 text-sm">
+                <span>
+                  선택: {selectedAdmin.nickname} ·{" "}
+                  {selectedAdmin.email ?? "이메일 없음"}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedAdmin(null)}
+                  disabled={loading}
+                >
+                  선택 해제
+                </Button>
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={loading}>

@@ -4,10 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
-import {
-  businessQueryKeys,
-  getBusiness,
-} from "@/auth/api/admin-business.api";
+import { businessQueryKeys, getBusiness } from "@/auth/api/admin-business.api";
 import {
   businessInvitationsPath,
   businessPartiesPath,
@@ -15,6 +12,7 @@ import {
 } from "@/auth/model/admin-routes";
 import { BusinessStatusBadge } from "../_components/BusinessStatusBadge";
 import { BusinessLifecycleActions } from "../_components/BusinessLifecycleActions";
+import { BusinessAdminPicker } from "../_components/BusinessAdminPicker";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -122,10 +120,23 @@ function BusinessDetail() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">업체 관리자 할당</CardTitle>
+          <CardDescription>
+            기존 사용자 목록에서 이름이나 이메일로 검색해 이 업체의 관리자로
+            할당합니다. 이미 다른 업체에 할당된 사용자는 이동되지 않습니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BusinessAdminPicker businessId={data.id} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">라이프사이클</CardTitle>
           <CardDescription>
-            Disable = 운영 중지 · Soft-delete = tombstone + 세션 폐기 · Restore =
-            복구 승인(ACTIVE)
+            Disable = 운영 중지 · Soft-delete = tombstone + 세션 폐기 · Restore
+            = 복구 승인(ACTIVE)
           </CardDescription>
         </CardHeader>
         <CardContent>

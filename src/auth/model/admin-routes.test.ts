@@ -24,6 +24,15 @@ describe("admin-routes scope contract", () => {
     );
   });
 
+  it("business operator assignment has explicit SUPER_ADMIN routes", () => {
+    expect(AdminApi.businessOperatorCandidates()).toBe(
+      "/admin/v2/business-operator-candidates",
+    );
+    expect(AdminApi.businessOperators("biz-1")).toBe(
+      "/admin/v2/businesses/biz-1/operators",
+    );
+  });
+
   it("BUSINESS_ADMIN always uses profile businessId", () => {
     expect(
       resolveBusinessScope({

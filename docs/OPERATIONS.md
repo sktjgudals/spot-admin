@@ -7,15 +7,15 @@
 
 ## 운영 상태
 
-| 항목 | 현재 값 |
-|---|---|
-| Production Worker | `dopa-admin` |
-| Production URL | `https://admin.dopa.ing` |
-| Production Worker version | `0ac6c295-6ebe-48c9-bad8-30d82080e8be` |
-| API | `https://api.dopa.ing` |
-| WebSocket | `wss://api.dopa.ing/v2/chat` |
-| Staging Worker | `dopa-admin-staging` |
-| Staging API | `https://dopa-backend-staging.ceoofspot.workers.dev` |
+| 항목                      | 현재 값                                              |
+| ------------------------- | ---------------------------------------------------- |
+| Production Worker         | `dopa-admin`                                         |
+| Production URL            | `https://admin.dopa.ing`                             |
+| Production Worker version | `0ac6c295-6ebe-48c9-bad8-30d82080e8be`               |
+| API                       | `https://api.dopa.ing`                               |
+| WebSocket                 | `wss://api.dopa.ing/v2/chat`                         |
+| Staging Worker            | `dopa-admin-staging`                                 |
+| Staging API               | `https://dopa-backend-staging.ceoofspot.workers.dev` |
 
 2026-08-15 운영 배포 뒤 `/`, `/login`, `/icon.png`, `/dopa-logo.png`는 HTTP 200,
 비로그인 `/super-admin/dashboard`는 `/login`으로 307 응답했다. 주요 화면 smoke 중 Worker
@@ -36,15 +36,15 @@
 
 ## 라우트와 권한
 
-| 화면 | 권한 | 정식 경로 |
-|---|---|---|
-| 로그인·가입·비밀번호 재설정 | Public | `/login`, `/signup`, `/reset-password` |
-| 슈퍼어드민 대시보드 | `SUPER_ADMIN` | `/super-admin/dashboard` |
-| 업체 목록·상세·초대·업체별 파티 | `SUPER_ADMIN` | `/app/businesses/*` |
-| 전역 관리 콘솔 | `SUPER_ADMIN` | `/super-admin/:section` |
-| 업체 운영 홈·내 업체 | `BUSINESS_ADMIN` | `/app`, `/app/my` |
-| 업체 파티·신청·체크인 | `BUSINESS_ADMIN` | `/app/parties/*` |
-| 업체 채팅·리뷰 | `BUSINESS_ADMIN` | `/app/chat/*`, `/app/reviews` |
+| 화면                            | 권한             | 정식 경로                              |
+| ------------------------------- | ---------------- | -------------------------------------- |
+| 로그인·가입·비밀번호 재설정     | Public           | `/login`, `/signup`, `/reset-password` |
+| 슈퍼어드민 대시보드             | `SUPER_ADMIN`    | `/super-admin/dashboard`               |
+| 업체 목록·상세·초대·업체별 파티 | `SUPER_ADMIN`    | `/app/businesses/*`                    |
+| 전역 관리 콘솔                  | `SUPER_ADMIN`    | `/super-admin/:section`                |
+| 업체 운영 홈·내 업체            | `BUSINESS_ADMIN` | `/app`, `/app/my`                      |
+| 업체 파티·신청·체크인           | `BUSINESS_ADMIN` | `/app/parties/*`                       |
+| 업체 채팅·리뷰                  | `BUSINESS_ADMIN` | `/app/chat/*`, `/app/reviews`          |
 
 전역 관리 콘솔은 사용자 제재, 업체 권한 신청, 환불 정책 변경, 결제·환불, 쿠폰, 문의,
 알림 캠페인, 배너, 파티 카테고리, 리뷰 태그, 런타임 설정을 제공한다. 모든 요청은
@@ -60,6 +60,12 @@
 
 대시보드는 `GET /admin/v2/dashboard/summary`를 사용한다. 조회 실패는 전체 Next.js 오류
 화면으로 전파하지 않고 카드 또는 화면 단위 오류와 재시도를 표시한다.
+
+업체 어드민은 업체 생성 또는 상세 화면에서 기존 사용자 이름·이메일을 2자 이상 검색해
+할당한다. 후보 조회는 `GET /admin/v2/business-operator-candidates`, 할당은
+`POST /admin/v2/businesses/:businessId/operators`를 사용한다. 이미 다른 업체에 활성 할당된
+사용자는 선택할 수 없으며, 같은 업체에 대한 재요청은 멱등하게 성공한다. 초대 메일은 기존
+사용자 검색으로 찾을 수 없는 신규 담당자를 위한 별도 흐름으로 유지한다.
 
 ## 검증
 
@@ -78,8 +84,10 @@ git diff --check
 2. 기존 계정 로그인, hard reload, refresh, logout, 만료·폐기 세션을 확인한다.
 3. `SUPER_ADMIN`은 전체 콘솔을 사용할 수 있고 다른 역할은 `/admin/v2/*`에서 403이어야 한다.
 4. 업체·파티·초대와 각 관리 콘솔의 목록, 생성, 수정, 승인, 거절, 재시도를 확인한다.
-5. 업체 A 계정으로 업체 B의 파티·템플릿·신청·채팅에 접근할 수 없어야 한다.
-6. 브라우저 콘솔과 Workers tail에서 새 5xx와 인증 반복 요청이 없어야 한다.
+5. 기존 사용자를 이름·이메일로 검색해 업체에 할당하고, 해당 계정이 업체 운영 홈에
+   접근하는지 확인한다. 다른 업체에 이미 할당된 사용자는 409여야 한다.
+6. 업체 A 계정으로 업체 B의 파티·템플릿·신청·채팅에 접근할 수 없어야 한다.
+7. 브라우저 콘솔과 Workers tail에서 새 5xx와 인증 반복 요청이 없어야 한다.
 
 ## 배포와 롤백
 
