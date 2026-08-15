@@ -50,6 +50,7 @@ export async function refreshSession(): Promise<RefreshResponse> {
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ useCookie: true }),
+      signal: AbortSignal.timeout(12_000),
     });
   } catch {
     throw new AdminAuthError("NETWORK_ERROR", "Network error — check connection", {

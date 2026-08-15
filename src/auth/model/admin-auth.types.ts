@@ -41,6 +41,9 @@ export type LoginResponse = {
   refreshToken?: string;
 };
 
+/** A session already issued by login/bootstrap and safe to adopt without another login. */
+export type IssuedAdminSession = Pick<LoginResponse, "accessToken" | "admin">;
+
 export type RefreshResponse = {
   accessToken: string;
   sessionId: string;

@@ -7,25 +7,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
   LayoutDashboard,
-  Users,
   Building2,
   PartyPopper,
   FileText,
   LogOut,
   ChevronRight,
   BarChart3,
-  Bell,
   Menu,
   MessageSquare,
   Receipt,
-  Image as ImageIcon,
   ClipboardList,
-  BadgeCheck,
-  Settings,
-  Tags,
-  ThumbsUp,
-  Inbox,
-  Ticket,
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -34,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { AdminRole } from "@/generated/prisma";
 
 interface NavItem {
   href: string;
@@ -44,19 +34,6 @@ interface NavItem {
 
 const superAdminNav: NavItem[] = [
   { href: "/super-admin/dashboard", label: "대시보드", icon: LayoutDashboard },
-  { href: "/super-admin/users", label: "유저 관리", icon: Users },
-  { href: "/super-admin/businesses", label: "업체 관리", icon: Building2 },
-  { href: "/super-admin/business-role-requests", label: "권한 신청", icon: ClipboardList },
-  { href: "/super-admin/refund-policy-requests", label: "환불 정책 승인", icon: BadgeCheck },
-  { href: "/app/parties", label: "파티 관리", icon: PartyPopper },
-  { href: "/super-admin/categories", label: "카테고리 관리", icon: Tags },
-  { href: "/super-admin/review-tags", label: "리뷰 태그 관리", icon: ThumbsUp },
-  { href: "/super-admin/coupons", label: "쿠폰 관리", icon: Ticket },
-  { href: "/super-admin/inquiries", label: "문의 관리", icon: Inbox },
-  { href: "/super-admin/payments", label: "결제/환불", icon: Receipt },
-  { href: "/super-admin/notifications", label: "알림 발송", icon: Bell },
-  { href: "/super-admin/banners", label: "배너 관리", icon: ImageIcon },
-  { href: "/super-admin/config", label: "런타임 설정", icon: Settings },
 ];
 
 const businessNav: NavItem[] = [
@@ -71,7 +48,7 @@ const businessNav: NavItem[] = [
 ];
 
 interface Props {
-  role: AdminRole;
+  role: "SUPER_ADMIN" | "BUSINESS" | "BUSINESS_ADMIN";
   name: string;
   email: string;
   businessName?: string;

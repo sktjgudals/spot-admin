@@ -31,6 +31,7 @@ import {
   type AdminAuthState,
   type AdminProfile,
   type AdminWebRole,
+  type IssuedAdminSession,
 } from "@/auth/model/admin-auth.types";
 import {
   AdminAuthError,
@@ -39,6 +40,7 @@ import {
 
 type AdminAuthContextValue = AdminAuthState & {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<AdminWebRole>;
+  acceptIssuedSession: (session: IssuedAdminSession) => AdminWebRole;
   logout: () => Promise<void>;
   retryBoot: () => Promise<void>;
   /** Home path for current role */
@@ -140,6 +142,24 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     [applyAuthenticated, queryClient],
   );
 
+  const acceptIssuedSession = useCallback(
+    (session: IssuedAdminSession) => {
+      const profile = toAdminProfile(session.admin);
+      if (!profile) {
+        clearAccessToken();
+        throw new AdminAuthError(
+          "UNSUPPORTED_ROLE",
+          "이 역할은 Admin Web에서 지원하지 않습니다",
+          { permanent: true },
+        );
+      }
+      queryClient.clear();
+      applyAuthenticated(session.accessToken, profile);
+      return profile.role;
+    },
+    [applyAuthenticated, queryClient],
+  );
+
   const logout = useCallback(async () => {
     try {
       await logoutSession();
@@ -163,11 +183,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     return {
       ...state,
       login,
+      acceptIssuedSession,
       logout,
       retryBoot: boot,
       homePath,
     };
-  }, [state, login, logout, boot]);
+  }, [state, login, acceptIssuedSession, logout, boot]);
 
   return (
     <AdminAuthContext.Provider value={value}>

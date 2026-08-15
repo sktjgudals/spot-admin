@@ -40,6 +40,14 @@ export function middleware(req: NextRequest) {
     if (!hasSession) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
+    // Recovery gate: only expose a super-admin route after its /admin/v2 API
+    // and client UI ship together. Legacy pages still contain direct DB access.
+    if (
+      pathname.startsWith("/super-admin/") &&
+      pathname !== "/super-admin/dashboard"
+    ) {
+      return NextResponse.redirect(new URL("/super-admin/dashboard", req.url));
+    }
     return NextResponse.next();
   }
 

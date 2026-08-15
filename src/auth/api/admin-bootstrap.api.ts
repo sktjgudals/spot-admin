@@ -1,4 +1,5 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
+import type { LoginResponse } from "@/auth/model/admin-auth.types";
 
 /**
  * Nest Auth v2 — first SUPER_ADMIN bootstrap.
@@ -35,6 +36,7 @@ export type BootstrapCompleteResult = {
   accessToken: string;
   refreshToken?: string;
   sessionId: string;
+  admin: LoginResponse["admin"];
 };
 
 export async function fetchBootstrapStatus(): Promise<BootstrapStatus> {

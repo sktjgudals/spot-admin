@@ -9,6 +9,13 @@ export type AdminFetchInit = RequestInit & {
   _authRetried?: boolean;
 };
 
+const REQUEST_TIMEOUT_MS = 12_000;
+
+function requestSignal(signal?: AbortSignal | null): AbortSignal {
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
+
 function apiBaseUrl(): string {
   const base =
     process.env.NEXT_PUBLIC_API_URL ??
@@ -62,6 +69,7 @@ export async function adminFetch(
       ...init,
       headers,
       credentials: "include",
+      signal: requestSignal(init.signal),
     });
   } catch {
     throw new AdminAuthError(

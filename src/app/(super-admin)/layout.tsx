@@ -3,7 +3,7 @@ import SuperAdminShell from "./SuperAdminShell";
 
 /**
  * SUPER_ADMIN portal — original AdminSidebar chrome restored.
- * force-dynamic: pages hit Prisma at request time (not build/prerender).
+ * Pages are client/API driven; dynamic rendering keeps auth routing explicit.
  */
 export const dynamic = "force-dynamic";
 

@@ -98,7 +98,7 @@ function mapBootstrapError(err: unknown): string {
  */
 export default function SuperAdminSignupPage() {
   const router = useRouter();
-  const { status, login, admin, homePath } = useAdminAuth();
+  const { status, acceptIssuedSession, admin, homePath } = useAdminAuth();
   const [step, setStep] = useState<Step>("loading");
   const [email, setEmail] = useState("");
   const [setupToken, setSetupToken] = useState("");
@@ -223,15 +223,14 @@ export default function SuperAdminSignupPage() {
   const onPassword = async (data: PasswordValues) => {
     setBusy(true);
     try {
-      await completeBootstrap({
+      const completed = await completeBootstrap({
         setupToken,
         password: data.password,
         name: data.name.trim(),
       });
-      // complete 응답의 RT는 쿠키에 안 실릴 수 있어, 동일 자격으로 로그인하여 세션 쿠키 설정
-      await login(email, data.password, true);
+      const role = acceptIssuedSession(completed);
       toast.success("슈퍼 어드민 계정이 생성되었습니다");
-      router.replace(homePathForRole("SUPER_ADMIN"));
+      router.replace(homePathForRole(role));
     } catch (err) {
       toast.error(mapBootstrapError(err));
       if (
