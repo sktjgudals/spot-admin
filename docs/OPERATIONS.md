@@ -24,6 +24,10 @@
 ## 런타임 경계
 
 - Admin 인증과 모든 업무 API는 `spot-cloudflare-backend`가 제공한다.
+- 운영 로그인은 자격 증명을 전송하기 전에 `api.dopa.ing/health`를 확인한다. custom domain이
+  연결되지 않으면 같은 production Worker의
+  `dopa-backend.ceoofspot.workers.dev`로 전환하고 선택한 origin을 유지해 refresh cookie가
+  같은 호스트로 전달되게 한다.
 - 브라우저 access token은 메모리에 두고 refresh session은 API origin의 HttpOnly cookie로
   관리한다.
 - 가입 성공 응답의 세션을 `AdminAuthProvider`에 적용한 뒤 `authenticated` 상태가 확정되면
@@ -75,7 +79,7 @@ git diff --check
 ```
 
 `npm run verify`는 Vitest, release gate, runtime boundary 검사, ESLint와 staging OpenNext
-빌드를 실행한다. 2026-08-15 기준 Vitest 47개, release test 8개와 production build가
+빌드를 실행한다. 2026-08-15 기준 Vitest 53개, release test 9개와 production build가
 통과했다.
 
 수동 E2E 최소 범위:

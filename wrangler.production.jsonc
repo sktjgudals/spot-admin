@@ -9,20 +9,21 @@
   "routes": [
     {
       "pattern": "admin.dopa.ing",
-      "custom_domain": true
-    }
+      "custom_domain": true,
+    },
   ],
   "assets": {
     "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
   },
   "vars": {
     "ADMIN_ENVIRONMENT": "production",
     "NEXT_PUBLIC_API_URL": "https://api.dopa.ing",
-    "NEXT_PUBLIC_CHAT_WS_URL": "wss://api.dopa.ing/v2/chat"
+    "NEXT_PUBLIC_API_FALLBACK_URL": "https://dopa-backend.ceoofspot.workers.dev",
+    "NEXT_PUBLIC_CHAT_WS_URL": "wss://api.dopa.ing/v2/chat",
   },
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 1
-  }
+    "head_sampling_rate": 1,
+  },
 }
