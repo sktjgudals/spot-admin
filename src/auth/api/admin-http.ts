@@ -1,6 +1,7 @@
 import { getAccessToken } from "@/auth/store/admin-auth.store";
 import { refreshAccessToken } from "@/auth/refresh/refresh-single-flight";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
+import { getAdminApiBaseUrl } from "@/auth/api/admin-api-origin";
 
 export type AdminFetchInit = RequestInit & {
   /** Skip 401 → refresh → retry (login/refresh/logout) */
@@ -14,25 +15,6 @@ const REQUEST_TIMEOUT_MS = 12_000;
 function requestSignal(signal?: AbortSignal | null): AbortSignal {
   const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
-}
-
-function apiBaseUrl(): string {
-  const base =
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.NEXT_PUBLIC_NEST_API_URL ??
-    "";
-  if (!base) {
-    // Dev fallback: local Cloudflare Worker (browser CORS includes credentials).
-    if (process.env.NODE_ENV === "development") {
-      return "http://localhost:8787";
-    }
-    throw new AdminAuthError(
-      "API_URL_MISSING",
-      "NEXT_PUBLIC_API_URL is not configured",
-      { permanent: true },
-    );
-  }
-  return base.replace(/\/$/, "");
 }
 
 function isAuthPath(path: string): boolean {
@@ -51,7 +33,7 @@ export async function adminFetch(
   path: string,
   init: AdminFetchInit = {},
 ): Promise<Response> {
-  const url = path.startsWith("http") ? path : `${apiBaseUrl()}${path}`;
+  const url = path.startsWith("http") ? path : `${getAdminApiBaseUrl()}${path}`;
   const headers = new Headers(init.headers);
 
   if (init.body != null && !headers.has("Content-Type")) {
@@ -74,7 +56,7 @@ export async function adminFetch(
   } catch {
     throw new AdminAuthError(
       "NETWORK_ERROR",
-      "Network error — check connection",
+      "인증 서버와 연결이 끊겼습니다. 잠시 후 다시 시도해 주세요.",
       { permanent: false },
     );
   }
@@ -118,7 +100,7 @@ export async function adminFetchJson<T>(
     };
     const msg = Array.isArray(body.message)
       ? body.message.join(", ")
-      : body.message ?? `Request failed (${res.status})`;
+      : (body.message ?? `Request failed (${res.status})`);
     throw new AdminAuthError(body.code ?? "HTTP_ERROR", msg, {
       status: res.status,
       permanent: res.status === 401 || res.status === 403,

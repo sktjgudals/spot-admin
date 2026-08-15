@@ -1,4 +1,8 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
+import {
+  getAdminApiBaseUrl,
+  selectReachableAdminApiBaseUrl,
+} from "@/auth/api/admin-api-origin";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 import type {
   LoginResponse,
@@ -6,27 +10,13 @@ import type {
   RefreshResponse,
 } from "@/auth/model/admin-auth.types";
 
-function apiBaseUrl(): string {
-  const base =
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.NEXT_PUBLIC_NEST_API_URL ??
-    (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");
-  if (!base) {
-    throw new AdminAuthError(
-      "API_URL_MISSING",
-      "NEXT_PUBLIC_API_URL is not configured",
-      { permanent: true },
-    );
-  }
-  return base.replace(/\/$/, "");
-}
-
 export async function loginWithPassword(input: {
   email: string;
   password: string;
   rememberMe?: boolean;
 }): Promise<LoginResponse> {
-  return adminFetchJson<LoginResponse>("/auth/v2/admin/login", {
+  const origin = await selectReachableAdminApiBaseUrl();
+  return adminFetchJson<LoginResponse>(`${origin}/auth/v2/admin/login`, {
     method: "POST",
     body: JSON.stringify({
       email: input.email,
@@ -45,7 +35,8 @@ export async function loginWithPassword(input: {
 export async function refreshSession(): Promise<RefreshResponse> {
   let res: Response;
   try {
-    res = await fetch(`${apiBaseUrl()}/auth/v2/admin/refresh`, {
+    const origin = await selectReachableAdminApiBaseUrl();
+    res = await fetch(`${origin}/auth/v2/admin/refresh`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -53,9 +44,11 @@ export async function refreshSession(): Promise<RefreshResponse> {
       signal: AbortSignal.timeout(12_000),
     });
   } catch {
-    throw new AdminAuthError("NETWORK_ERROR", "Network error — check connection", {
-      permanent: false,
-    });
+    throw new AdminAuthError(
+      "NETWORK_ERROR",
+      "인증 서버에 연결할 수 없습니다. 네트워크를 확인하고 다시 시도해 주세요.",
+      { permanent: false },
+    );
   }
 
   if (!res.ok) {
@@ -66,7 +59,10 @@ export async function refreshSession(): Promise<RefreshResponse> {
     throw new AdminAuthError(
       body.code ?? "UNAUTHORIZED",
       body.message ?? "Refresh failed",
-      { status: res.status, permanent: res.status === 401 || res.status === 403 },
+      {
+        status: res.status,
+        permanent: res.status === 401 || res.status === 403,
+      },
     );
   }
 
@@ -74,9 +70,12 @@ export async function refreshSession(): Promise<RefreshResponse> {
 }
 
 export async function fetchAdminMe(): Promise<MeResponse> {
-  return adminFetchJson<MeResponse>("/auth/v2/admin/me", {
-    method: "GET",
-  });
+  return adminFetchJson<MeResponse>(
+    `${getAdminApiBaseUrl()}/auth/v2/admin/me`,
+    {
+      method: "GET",
+    },
+  );
 }
 
 export async function logoutSession(): Promise<void> {

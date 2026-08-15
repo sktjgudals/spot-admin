@@ -12,7 +12,7 @@ import {
 } from "@/auth/model/admin-routes";
 import { BusinessStatusBadge } from "../_components/BusinessStatusBadge";
 import { BusinessLifecycleActions } from "../_components/BusinessLifecycleActions";
-import { BusinessAdminPicker } from "../_components/BusinessAdminPicker";
+import { BusinessAdminPicker } from "@/components/admin/BusinessAdminPicker";
 import { Button } from "@/components/ui/button";
 import {
   Card,

@@ -2,10 +2,14 @@
 
 import { useParams } from "next/navigation";
 import { AdminResourceConsole, resourceConfigs } from "@/components/admin/AdminResourceConsole";
+import { BusinessAdminAssignmentConsole } from "@/components/admin/BusinessAdminAssignmentConsole";
 
 export default function SuperAdminSectionPage() {
   const params = useParams<{ section: string }>();
   const section = params.section;
+  if (section === "business-admins") {
+    return <BusinessAdminAssignmentConsole />;
+  }
   if (section === "payments") {
     return <div className="space-y-10"><AdminResourceConsole config={resourceConfigs.payments} /><AdminResourceConsole config={resourceConfigs.refunds} /></div>;
   }
