@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { bffFetch } from "@/lib/fetch-json";
+import { adminFetchJson } from "@/auth/api/admin-http";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
@@ -73,20 +73,14 @@ async function uploadOptimized(
 
   const { blob, contentType } = await optimizeImage(file);
 
-  // BFF requireRole 은 Authorization Bearer 필요 — bare fetch 는 항상 401 Unauthorized
-  const presignRes = await bffFetch(uploadUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contentType, sizeBytes: blob.size }),
-  });
-  if (!presignRes.ok) {
-    const err = await presignRes.json().catch(() => ({}));
-    throw new Error(err.message ?? "업로드 URL 발급에 실패했습니다");
-  }
-  const { uploadUrl: putUrl, publicUrl } = (await presignRes.json()) as {
+  const ticket = await adminFetchJson<{
     uploadUrl: string;
     publicUrl: string;
-  };
+  }>(uploadUrl, {
+    method: "POST",
+    body: JSON.stringify({ contentType, sizeBytes: blob.size }),
+  });
+  const { uploadUrl: putUrl, publicUrl } = ticket;
   if (!putUrl || !publicUrl) {
     throw new Error("업로드 URL 응답이 올바르지 않습니다");
   }

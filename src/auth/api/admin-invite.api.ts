@@ -1,5 +1,5 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
-import { NestAdminApi } from "@/auth/model/admin-routes";
+import { AdminApi } from "@/auth/model/admin-routes";
 
 export type InvitationStatus =
   | "PENDING"
@@ -33,7 +33,7 @@ export async function listInvitations(
   businessId: string,
 ): Promise<AdminInvitation[]> {
   return adminFetchJson<AdminInvitation[]>(
-    NestAdminApi.invitations(businessId),
+    AdminApi.invitations(businessId),
   );
 }
 
@@ -42,7 +42,7 @@ export async function createInvitation(
   email: string,
 ): Promise<InviteMutationResult> {
   return adminFetchJson<InviteMutationResult>(
-    NestAdminApi.invitations(businessId),
+    AdminApi.invitations(businessId),
     {
       method: "POST",
       body: JSON.stringify({
@@ -58,7 +58,7 @@ export async function cancelInvitation(
   invitationId: string,
 ): Promise<AdminInvitation> {
   return adminFetchJson<AdminInvitation>(
-    NestAdminApi.invitationCancel(businessId, invitationId),
+    AdminApi.invitationCancel(businessId, invitationId),
     {
       method: "POST",
       body: JSON.stringify({}),
@@ -71,7 +71,7 @@ export async function resendInvitation(
   invitationId: string,
 ): Promise<InviteMutationResult> {
   return adminFetchJson<InviteMutationResult>(
-    NestAdminApi.invitationResend(businessId, invitationId),
+    AdminApi.invitationResend(businessId, invitationId),
     {
       method: "POST",
       body: JSON.stringify({}),

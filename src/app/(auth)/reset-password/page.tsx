@@ -104,7 +104,7 @@ const STEP_COPY: Record<
 };
 
 /**
- * 비밀번호 초기화 — Nest 3-step (request → verify → complete).
+ * 비밀번호 초기화 — Cloudflare Admin API 3-step (request → verify → complete).
  * UI: Majormap 스타일 클린 화이트 + 로고/제목/필드/풀폭 CTA.
  */
 export default function ResetPasswordPage() {

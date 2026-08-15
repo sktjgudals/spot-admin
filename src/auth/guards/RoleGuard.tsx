@@ -10,7 +10,7 @@ import {
 
 /**
  * Role check only — nest inside AuthGuard.
- * Actual API authorization remains on Nest Guards.
+ * Actual API authorization remains on Cloudflare API guards.
  */
 export function RoleGuard({
   allow,

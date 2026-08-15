@@ -1,63 +1,55 @@
 ---
-description: spot-admin(Next.js 16) 프로젝트 전역 규칙 (스택·구조·DB 규칙·Cloudflare 배포)
+description: spot-admin(Next.js 16) 프로젝트 전역 규칙 (Cloudflare API 전용)
 alwaysApply: true
 ---
 
 # spot-admin (Dopa Admin)
 
-Next.js 16 솔로파티 업체 어드민. 릴리스 백엔드: `../spot-cloudflare-backend`.
+Next.js 16 기반 Dopa 운영자 웹. 백엔드의 단일 소스는 `../spot-cloudflare-backend`다.
 
-## ⚠️ 이 Next.js는 당신이 아는 Next.js가 아니다
+## Next.js 16
 
-Next.js 16 — API·컨벤션·파일 구조가 학습 데이터와 다를 수 있음.
-코드를 쓰기 전에 `node_modules/next/dist/docs/`의 해당 가이드를 먼저 읽을 것. deprecation 경고 준수.
+코드를 쓰기 전에 `node_modules/next/dist/docs/`의 관련 가이드를 확인하고 deprecation 경고를 따른다.
 
 ## 스택
 
-Next.js 16 App Router · Prisma 7 (pg adapter) · NextAuth v5 (Credentials) · shadcn/ui · Tailwind
+Next.js 16 App Router · Cloudflare Workers/OpenNext · React Query · shadcn/ui · Tailwind
 
 ## 구조
 
 ```
 src/
-  app/(auth)/login          # 로그인
-  app/(super-admin)/super-admin/{dashboard,users,businesses,parties,notifications,banners}
-  app/(business)/business/{dashboard,parties,applications,settlements}
-  app/api/super-admin/**    # requireRole("SUPER_ADMIN") 가드 API 라우트
-  lib/{auth,api-auth,prisma,utils}.ts
-  proxy.ts                  # 미들웨어 (역할별 라우팅 가드)
-  components/ui/            # shadcn 컴포넌트
+  app/(auth)/**                 # 로그인·가입·초대·비밀번호 재설정
+  app/(auth-v2)/app/**         # 정식 운영 화면
+  app/(super-admin)/super-admin/dashboard
+  auth/api/**                  # Cloudflare API 클라이언트
+  auth/provider/**             # 관리자 세션 상태
+  components/ui/**             # shadcn 컴포넌트
+  middleware.ts                # 쿠키 존재 여부 기반 진입 가드
 ```
 
-## DB 규칙 (중요)
+## 데이터와 인증 규칙
 
-- **스키마 소스는 `../spot-backend/prisma/schema.prisma`.** 이 저장소의 schema.prisma는 읽기용 미러(서브셋).
-- **`prisma db push` 절대 금지** — 프로덕션 DB 파손 위험. 스키마 변경은 spot-backend 마이그레이션으로만 하고, 여기엔 모델만 미러링 후 `npx prisma generate`.
-- 데이터 조회/수정은 직접 Prisma 사용 (파티·유저·배너 페이지 패턴 참고). 푸시 발송 등 백엔드 로직이 필요한 건 `BACKEND_INTERNAL_URL` + `x-internal-api-key`로 프록시 (notifications API 라우트 참고).
-
-## 인증
-
-- NextAuth v5 Credentials → `AdminAccount` 테이블 (bcryptjs)
-- 프로덕션은 Cloud Run 프록시 뒤라 `AUTH_TRUST_HOST=true` 사용, **AUTH_URL 설정 금지** (호스트 자동 감지)
-- `src/proxy.ts`의 getToken엔 `secureCookie: NODE_ENV === "production"` 필수 (제거 시 프로덕션 로그인 루프)
+- `spot-admin`에는 DB 클라이언트·DB 스키마·DB 자격 증명을 추가하지 않는다.
+- Next.js Route Handler로 관리자 BFF를 만들지 않는다.
+- 모든 조회·변경은 `adminFetchJson`으로 Cloudflare API를 호출한다.
+- 슈퍼어드민 전역 API는 `/admin/v2/*`, 업체 운영 API는 `/businesses/me/*` 등 백엔드의 공개 계약을 사용한다.
+- 인증은 Cloudflare Admin API의 HttpOnly 세션 쿠키와 메모리 액세스 토큰을 사용한다.
+- 권한은 프론트 표시 여부와 무관하게 백엔드에서 반드시 검증한다.
 
 ## 완료 체크
 
 ```bash
-./node_modules/.bin/tsc --noEmit   # 통과 필수
-npm run build                       # 통과 필수
-npm run lint
+npm run verify
 ```
 
-## 배포 (Cloudflare Workers, staging 전용)
+`check:admin-runtime`는 전체 소스와 패키지에서 금지된 DB 런타임과 내부 BFF 경로가 없는지 검사한다.
+
+## 배포
 
 ```bash
-npm run verify
 npm run cf:deploy:staging:plan
 DOPA_ADMIN_STAGING_DEPLOY_ACK=I_ACKNOWLEDGE_STAGING_ADMIN_DEPLOY npm run cf:deploy:staging
 ```
 
-- Worker 이름은 `dopa-admin-staging`만 허용한다.
-- REST와 WebSocket은 모두 `dopa-backend-staging`을 사용한다.
-- production 환경·라우트·배포 명령은 별도 승인 전까지 추가하지 않는다.
-- 기존 Prisma/BFF 화면은 레거시이며 Figma `/app/*` 화면의 Cloudflare 계약을 릴리스 기준으로 삼는다.
+Production은 `wrangler versions upload` 후 10% → 50% → 100% 점진 배포만 허용한다.

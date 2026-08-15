@@ -34,11 +34,12 @@ export function assertExecuteAuthorized(value) {
   }
 }
 
-function run(command, args, root) {
+function run(command, args, root, envOverrides = {}) {
   const result = spawnSync(command, args, {
     cwd: root,
     env: {
       ...process.env,
+      ...envOverrides,
       WRANGLER_LOG_PATH: join(tmpdir(), "dopa-admin-wrangler.log"),
     },
     stdio: "inherit",
@@ -57,7 +58,11 @@ export function executeStagingDeploy({ root, ack }) {
     throw new Error("Cloudflare-only release check failed");
   }
   const binary = join(root, "node_modules", ".bin", "opennextjs-cloudflare");
-  run(binary, ["build"], root);
+  run(binary, ["build"], root, {
+    ADMIN_ENVIRONMENT: "staging",
+    NEXT_PUBLIC_API_URL: STAGING_API_URL,
+    NEXT_PUBLIC_CHAT_WS_URL: STAGING_CHAT_WS_URL,
+  });
   run(binary, ["deploy", "--config", "wrangler.jsonc"], root);
 }
 

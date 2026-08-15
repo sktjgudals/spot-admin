@@ -12,7 +12,7 @@ import {
 import { PartyListPanel } from "../../../_components/PartyListPanel";
 
 /**
- * SUPER_ADMIN — businessId from URL → Nest path.
+ * SUPER_ADMIN — businessId from URL → scoped Cloudflare API path.
  * /app/businesses/:businessId/parties
  */
 export default function SuperAdminBusinessPartiesPage() {

@@ -1,6 +1,6 @@
-# Auth v2 Admin Web (spot-admin)
+# Cloudflare Admin Auth Web (spot-admin)
 
-NextAuth **removed** (PR3). Nest Auth v2 only.
+Admin authentication is served only by `spot-cloudflare-backend`.
 
 ## Structure
 
@@ -21,16 +21,17 @@ src/auth/
 | `/login` | public |
 | `/app/businesses`… | SUPER_ADMIN |
 | `/app/parties`… | BUSINESS_ADMIN |
-| `/super-admin/*`, `/business/*` | **redirect** to `/app/*` |
+| `/super-admin/dashboard` | SUPER_ADMIN |
+
+The removed `/business/*` and non-dashboard `/super-admin/*` pages are not application routes.
 
 ## Env
 
 ```
-NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:8787
 NEXT_PUBLIC_APP_URL=http://localhost:3001
-# No NEXTAUTH_*
 ```
 
 ## Cookies
 
-`spot_admin_rt` · `spot_admin_sid` · `spot_admin_aid` (HttpOnly on Nest origin)
+`spot_admin_rt` · `spot_admin_sid` · `spot_admin_aid` (HttpOnly on the API origin)

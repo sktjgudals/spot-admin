@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -125,7 +125,7 @@ export function PartyForm({
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<FormValues>({
     // zod v4 + coerce typing noise — runtime validation still applied
@@ -166,8 +166,8 @@ export function PartyForm({
     return Number.isFinite(n) ? n : null;
   }
 
-  const watchedPlaceName = watch("placeName");
-  const watchedAddress = watch("address");
+  const watchedPlaceName = useWatch({ control, name: "placeName" });
+  const watchedAddress = useWatch({ control, name: "address" });
 
   async function searchPlaces() {
     const q = placeQuery.trim();
@@ -177,9 +177,9 @@ export function PartyForm({
     }
     setPlaceSearching(true);
     try {
-      // Nest admin JWT — single KakaoLocalService (no Next BFF duplicate)
+      // Use the authenticated Cloudflare API place-search contract.
       const { adminFetchJson } = await import("@/auth/api/admin-http");
-      const { NestAdminApi } = await import("@/auth/model/admin-routes");
+      const { AdminApi } = await import("@/auth/model/admin-routes");
       const data = await adminFetchJson<
         Array<{
           id: string;
@@ -190,7 +190,7 @@ export function PartyForm({
           longitude: number;
         }>
       >(
-        `${NestAdminApi.placesKakaoSearch()}?query=${encodeURIComponent(q)}&size=12`,
+        `${AdminApi.placesKakaoSearch()}?query=${encodeURIComponent(q)}&size=12`,
       );
       setPlaceResults(data);
       if (data.length === 0) toast.message("검색 결과가 없어요");
@@ -456,7 +456,7 @@ export function PartyForm({
               maxFiles={10}
               value={images}
               onChange={setImages}
-              uploadUrl="/api/business/parties/media-upload-url"
+              uploadUrl="/businesses/me/parties/media-upload-url"
             />
           </Field>
           <section className="space-y-3 rounded-lg border bg-muted/20 p-4">

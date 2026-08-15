@@ -6,7 +6,7 @@ import type { QueryClient } from "@tanstack/react-query";
  * Auth v2 logout is handled by AdminAuthProvider — this is a shared helper.
  */
 export async function clearSessionAndRedirect(options: {
-  /** Optional server logout hook (Auth v2 provider usually calls Nest first) */
+  /** Optional server logout hook (the provider usually calls the API first). */
   signOut?: (options?: { redirect?: boolean }) => Promise<unknown>;
   queryClient: QueryClient;
   assign?: (url: string) => void;

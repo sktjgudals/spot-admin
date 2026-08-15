@@ -4,7 +4,7 @@
  * Scope rules:
  * - SUPER_ADMIN: businessId always from URL (or selected business context)
  * - BUSINESS_ADMIN: businessId always from /me (admin.businessId) — never trust URL tenant id
- * - Nest BusinessScopeGuard is source of truth; frontend only navigates correctly
+ * - Cloudflare API tenant guards are the source of truth; frontend only navigates correctly
  */
 
 import type { AdminWebRole } from "@/auth/model/admin-auth.types";
@@ -12,13 +12,13 @@ import type { AdminWebRole } from "@/auth/model/admin-auth.types";
 /** SUPER_ADMIN home — full admin chrome (banners, notifications, …) */
 export const ROUTE_SUPER_ADMIN_HOME = "/super-admin/dashboard";
 
-/** Nest-first businesses list (Auth v2 migration path) */
+/** SUPER_ADMIN businesses list */
 export const ROUTE_BUSINESSES = "/app/businesses";
 
 /** BUSINESS_ADMIN home — full admin chrome (parties, settlements, chat, …) */
 export const ROUTE_BUSINESS_HOME = "/app/parties";
 
-/** Nest-first parties list (Auth v2 migration path — v2 shell internal nav) */
+/** BUSINESS_ADMIN parties list */
 export const ROUTE_MY_PARTIES = "/app/parties";
 
 export function businessDetailPath(businessId: string): string {
@@ -85,8 +85,8 @@ export function resolveBusinessScope(input: {
   return { businessId: input.routeBusinessId };
 }
 
-/** Nest Admin API paths (spot-backend) — single source for clients */
-export const NestAdminApi = {
+/** Cloudflare Admin API paths — single source for clients. */
+export const AdminApi = {
   businesses: () => "/admin/v2/businesses",
   business: (id: string) => `/admin/v2/businesses/${id}`,
   businessDisable: (id: string) => `/admin/v2/businesses/${id}/disable`,
@@ -101,7 +101,7 @@ export const NestAdminApi = {
   parties: (businessId: string) =>
     `/admin/v2/businesses/${businessId}/parties`,
   party: (partyId: string) => `/admin/v2/parties/${partyId}`,
-  /** Kakao place search — Nest SoT (no Next BFF) */
+  /** Kakao place search provided by the Cloudflare API. */
   placesKakaoSearch: () => `/places/kakao/search`,
   partyTransitions: (partyId: string) =>
     `/admin/v2/parties/${partyId}/transitions`,

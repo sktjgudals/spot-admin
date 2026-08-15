@@ -80,7 +80,7 @@ function InvitationsPage() {
     enabled: !!businessId,
   });
 
-  const invitations = invQuery.data ?? [];
+  const invitations = useMemo(() => invQuery.data ?? [], [invQuery.data]);
   const deliveryMap = useMemo(
     () =>
       latestInviteDeliveryByInvitationId(

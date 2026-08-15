@@ -1,7 +1,7 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
 
 /**
- * Nest Auth v2 — admin password reset (3-step).
+ * Cloudflare Admin API — admin password reset (3-step).
  * @see spot-backend AdminPasswordResetController
  *   POST /auth/v2/admin/password-reset/request
  *   POST /auth/v2/admin/password-reset/verify

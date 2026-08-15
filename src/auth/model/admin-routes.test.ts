@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   businessPartiesPath,
   homePathForRole,
-  NestAdminApi,
+  AdminApi,
   resolveBusinessScope,
 } from "@/auth/model/admin-routes";
 
@@ -19,7 +19,7 @@ describe("admin-routes scope contract", () => {
     expect(businessPartiesPath("biz_abc")).toBe(
       "/app/businesses/biz_abc/parties",
     );
-    expect(NestAdminApi.parties("biz_abc")).toBe(
+    expect(AdminApi.parties("biz_abc")).toBe(
       "/admin/v2/businesses/biz_abc/parties",
     );
   });

@@ -29,10 +29,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-/**
- * Auth v2 login (Nest). Does not use NextAuth.
- * Existing /super-admin and /business routes still use NextAuth until cutover.
- */
+/** Cloudflare Admin API login. */
 export default function LoginPage() {
   const router = useRouter();
   const { status, login, homePath, admin } = useAdminAuth();

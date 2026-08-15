@@ -1,5 +1,5 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
-import { NestAdminApi } from "@/auth/model/admin-routes";
+import { AdminApi } from "@/auth/model/admin-routes";
 
 export type BusinessUserReviewTag = {
   id: string;
@@ -64,11 +64,11 @@ export type BusinessUserReviewHistory = {
 };
 
 export function listBusinessUserReviewTags() {
-  return adminFetchJson<BusinessUserReviewTag[]>(NestAdminApi.businessUserReviewTags());
+  return adminFetchJson<BusinessUserReviewTag[]>(AdminApi.businessUserReviewTags());
 }
 
 export function getReviewableMembers(partyId: string) {
-  return adminFetchJson<ReviewableMembersResponse>(NestAdminApi.reviewableMembers(partyId));
+  return adminFetchJson<ReviewableMembersResponse>(AdminApi.reviewableMembers(partyId));
 }
 
 export function createBusinessUserReview(
@@ -77,7 +77,7 @@ export function createBusinessUserReview(
   input: { score: number; tagIds: string[]; memo?: string },
 ) {
   return adminFetchJson<BusinessUserReview>(
-    NestAdminApi.businessUserReview(partyId, targetUserId),
+    AdminApi.businessUserReview(partyId, targetUserId),
     { method: "POST", body: JSON.stringify(input) },
   );
 }
@@ -88,7 +88,7 @@ export function updateBusinessUserReview(
   input: { score?: number; tagIds?: string[]; memo?: string | null },
 ) {
   return adminFetchJson<BusinessUserReview>(
-    NestAdminApi.businessUserReview(partyId, targetUserId),
+    AdminApi.businessUserReview(partyId, targetUserId),
     { method: "PATCH", body: JSON.stringify(input) },
   );
 }
@@ -96,13 +96,13 @@ export function updateBusinessUserReview(
 export function getApplicationBusinessUserReviews(applicationId: string, cursor?: string) {
   const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
   return adminFetchJson<BusinessUserReviewHistory>(
-    `${NestAdminApi.applicationUserReviews(applicationId)}${query}`,
+    `${AdminApi.applicationUserReviews(applicationId)}${query}`,
   );
 }
 
 export function listAllBusinessUserReviewTags() {
   return adminFetchJson<Required<BusinessUserReviewTag>[]>(
-    NestAdminApi.superBusinessUserReviewTags(),
+    AdminApi.superBusinessUserReviewTags(),
   );
 }
 
@@ -113,7 +113,7 @@ export function createBusinessUserReviewTag(input: {
   isActive: boolean;
 }) {
   return adminFetchJson<Required<BusinessUserReviewTag>>(
-    NestAdminApi.superBusinessUserReviewTags(),
+    AdminApi.superBusinessUserReviewTags(),
     { method: "POST", body: JSON.stringify(input) },
   );
 }
@@ -128,7 +128,7 @@ export function updateBusinessUserReviewTag(
   }>,
 ) {
   return adminFetchJson<Required<BusinessUserReviewTag>>(
-    NestAdminApi.superBusinessUserReviewTag(tagId),
+    AdminApi.superBusinessUserReviewTag(tagId),
     { method: "PATCH", body: JSON.stringify(input) },
   );
 }
@@ -144,7 +144,7 @@ export function moderateBusinessUserReview(
   },
 ) {
   return adminFetchJson<BusinessUserReview>(
-    NestAdminApi.superBusinessUserReview(reviewId),
+    AdminApi.superBusinessUserReview(reviewId),
     { method: "PATCH", body: JSON.stringify(input) },
   );
 }

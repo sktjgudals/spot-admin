@@ -10,12 +10,11 @@
 
 | 영역 | 내용 |
 |------|------|
-| Consumer Auth v2 | JWT/session/refresh · Google/Apple (해당 시) |
-| Admin Auth v2 | email login · cookie refresh · `/me` · bootstrap/invite/reset |
-| NextAuth | **제거** (Admin Web) |
-| Business / Invite / Party | Nest `/admin/v2/*` + AuthShell UI |
+| Consumer Auth | JWT/session/refresh · Google/Apple (해당 시) |
+| Admin Auth | email login · cookie refresh · `/me` · bootstrap/invite/reset |
+| Business / Invite / Party | Cloudflare `/admin/v2/*` + Admin UI |
 | Mail | Transactional outbox + worker |
-| Legacy | BFF residual inventory · metrics · UI redirect |
+| Runtime boundary | Admin Web DB/BFF dependency 0 |
 
 ---
 
@@ -32,7 +31,7 @@
 | Password reset session revoke | ☐ PASS (A7) |
 | Outbox recovery | ☐ PASS / ☐ CONDITIONAL |
 | Google / Apple | ☐ PASS / ☐ SKIP |
-| Legacy BFF metrics (post-E2E, 대상 route) | ☐ ~0 (A8) |
+| Runtime boundary release gate | ☐ PASS (A8) |
 
 **증적 폴더:** `docs/e2e-evidence/staging-____-__-__/`
 
@@ -42,8 +41,7 @@
 
 | 항목 | 상태 | 계획 |
 |------|------|------|
-| Legacy BFF (users, banners, …) | RESIDUAL | `LEGACY_BFF_INVENTORY.md` · 2026-08 1차 삭제 후보: businesses/parties/invites BFF |
-| 미이전 Admin 기능 (배너/유저 UI 등) | redirect away | 이후 Nest 이전 |
+| 미구현 Admin 기능 | 메뉴 비노출 | Cloudflare API와 UI를 같은 배치로 제공 |
 | Outbox 실메일 provider | staging 정책에 따름 | production provider 확인 |
 
 ---
@@ -52,12 +50,12 @@
 
 | 대상 | 방법 |
 |------|------|
-| Nest API | 이전 컨테이너 이미지 재배포 |
-| Admin Web | 이전 이미지 재배포 |
+| Cloudflare API | 직전 Worker 버전으로 트래픽 복구 |
+| Admin Web | 직전 Worker 버전으로 트래픽 복구 |
 | DB | 마이그레이션 하위 호환: ____ (가역/비가역 명시) |
 | 트래픽 | ____ (있다면) |
 
-**주의:** Auth v2 쿠키/세션은 롤백 이미지와 호환 여부 확인.
+**주의:** 관리자 쿠키/세션은 롤백 버전과 호환 여부 확인.
 
 ---
 

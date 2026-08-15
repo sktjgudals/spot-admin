@@ -11,7 +11,7 @@ import {
 import {
   businessInvitationsPath,
   businessPartiesPath,
-  NestAdminApi,
+  AdminApi,
 } from "@/auth/model/admin-routes";
 import { BusinessStatusBadge } from "../_components/BusinessStatusBadge";
 import { BusinessLifecycleActions } from "../_components/BusinessLifecycleActions";
@@ -84,7 +84,7 @@ function BusinessDetail() {
         <CardHeader>
           <CardTitle className="text-base">기본 정보</CardTitle>
           <CardDescription>
-            <code className="text-xs">{NestAdminApi.business(data.id)}</code>
+            <code className="text-xs">{AdminApi.business(data.id)}</code>
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm sm:grid-cols-2">

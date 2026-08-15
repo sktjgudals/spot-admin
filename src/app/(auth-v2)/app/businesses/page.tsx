@@ -12,7 +12,7 @@ import {
 } from "@/auth/api/admin-business.api";
 import {
   businessDetailPath,
-  NestAdminApi,
+  AdminApi,
 } from "@/auth/model/admin-routes";
 import { BusinessStatusBadge } from "./_components/BusinessStatusBadge";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/table";
 
 /**
- * PR 2A — SUPER_ADMIN Business list (Nest Auth v2).
+ * SUPER_ADMIN 업체 목록.
  */
 export default function AppBusinessesPage() {
   return (
@@ -52,7 +52,7 @@ function BusinessList() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">업체 관리</h1>
           <p className="text-sm text-muted-foreground">
-            Nest <code className="text-xs">{NestAdminApi.businesses()}</code>
+            API <code className="text-xs">{AdminApi.businesses()}</code>
             {data ? ` · ${rows.length}건` : null}
           </p>
         </div>

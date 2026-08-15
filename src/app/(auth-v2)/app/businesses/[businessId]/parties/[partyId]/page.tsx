@@ -68,7 +68,7 @@ function Edit() {
           CROSS_TENANT_BLOCKED
         </p>
         <p className="text-muted-foreground">
-          URL businessId와 파티 소속 업체가 일치하지 않습니다. Nest Guard도
+          URL businessId와 파티 소속 업체가 일치하지 않습니다. API 권한 검사에서도
           거부하므로 클라이언트가 먼저 차단합니다.
         </p>
       </div>

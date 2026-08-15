@@ -66,7 +66,7 @@ export function normalizeBannerActionType(
 /**
  * create/update 시 linkUrl·action 필드를 일관되게 맞춘다.
  * - actionType/actionValue 우선
- * - WEB/INSTAGRAM/YOUTUBE면 linkUrl에도 동기화 (레거시 소비자 호환)
+ * - WEB/INSTAGRAM/YOUTUBE면 소비자 호환 필드인 linkUrl에도 동기화
  * - action 없이 linkUrl만 오면 linkUrl 유지, actionType 추론은 앱이 담당
  */
 export function resolveBannerActionFields(input: {
@@ -104,7 +104,7 @@ export function resolveBannerActionFields(input: {
     };
   }
 
-  // 레거시: linkUrl만
+  // 이전 데이터 형식: linkUrl만 있는 경우
   if (rawLink) {
     return {
       actionType: null,

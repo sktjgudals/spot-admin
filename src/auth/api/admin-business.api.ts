@@ -1,5 +1,5 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
-import { NestAdminApi } from "@/auth/model/admin-routes";
+import { AdminApi } from "@/auth/model/admin-routes";
 
 export type BusinessKind = "INDIVIDUAL" | "COMPANY";
 export type BusinessStatus =
@@ -58,7 +58,7 @@ export async function listBusinesses(
   params?: ListBusinessesParams,
 ): Promise<AdminBusiness[]> {
   return adminFetchJson<AdminBusiness[]>(
-    `${NestAdminApi.businesses()}${listQuery(params)}`,
+    `${AdminApi.businesses()}${listQuery(params)}`,
   );
 }
 
@@ -67,13 +67,13 @@ export async function getBusiness(
   opts?: { includeDeleted?: boolean },
 ): Promise<AdminBusiness> {
   const q = opts?.includeDeleted ? "?includeDeleted=true" : "";
-  return adminFetchJson<AdminBusiness>(`${NestAdminApi.business(id)}${q}`);
+  return adminFetchJson<AdminBusiness>(`${AdminApi.business(id)}${q}`);
 }
 
 export async function createBusiness(
   input: CreateBusinessInput,
 ): Promise<AdminBusiness> {
-  return adminFetchJson<AdminBusiness>(NestAdminApi.businesses(), {
+  return adminFetchJson<AdminBusiness>(AdminApi.businesses(), {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -83,34 +83,34 @@ export async function updateBusiness(
   id: string,
   input: UpdateBusinessInput,
 ): Promise<AdminBusiness> {
-  return adminFetchJson<AdminBusiness>(NestAdminApi.business(id), {
+  return adminFetchJson<AdminBusiness>(AdminApi.business(id), {
     method: "PATCH",
     body: JSON.stringify(input),
   });
 }
 
 export async function softDeleteBusiness(id: string): Promise<AdminBusiness> {
-  return adminFetchJson<AdminBusiness>(NestAdminApi.business(id), {
+  return adminFetchJson<AdminBusiness>(AdminApi.business(id), {
     method: "DELETE",
   });
 }
 
 export async function disableBusiness(id: string): Promise<AdminBusiness> {
-  return adminFetchJson<AdminBusiness>(NestAdminApi.businessDisable(id), {
+  return adminFetchJson<AdminBusiness>(AdminApi.businessDisable(id), {
     method: "POST",
     body: JSON.stringify({}),
   });
 }
 
 export async function enableBusiness(id: string): Promise<AdminBusiness> {
-  return adminFetchJson<AdminBusiness>(NestAdminApi.businessEnable(id), {
+  return adminFetchJson<AdminBusiness>(AdminApi.businessEnable(id), {
     method: "POST",
     body: JSON.stringify({}),
   });
 }
 
 export async function restoreBusiness(id: string): Promise<AdminBusiness> {
-  return adminFetchJson<AdminBusiness>(NestAdminApi.businessRestore(id), {
+  return adminFetchJson<AdminBusiness>(AdminApi.businessRestore(id), {
     method: "POST",
     body: JSON.stringify({}),
   });

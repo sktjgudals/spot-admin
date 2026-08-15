@@ -1,4 +1,4 @@
-/** Canonical roles for Auth v2 Admin Web (Nest AdminRole subset). */
+/** Canonical roles for Admin Web. */
 export type AdminWebRole = "SUPER_ADMIN" | "BUSINESS_ADMIN";
 
 export type AuthStatus = "booting" | "authenticated" | "unauthenticated" | "degraded";
@@ -67,7 +67,7 @@ export type MeResponse = {
   } | null;
 };
 
-/** Normalize Nest AdminRole (incl. legacy) → Web roles. */
+/** Normalize persisted API role aliases into the two Web roles. */
 export function normalizeAdminWebRole(role: string): AdminWebRole | null {
   if (role === "SUPER_ADMIN") return "SUPER_ADMIN";
   if (

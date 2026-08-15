@@ -7,16 +7,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
   LayoutDashboard,
-  Building2,
-  PartyPopper,
-  FileText,
   LogOut,
   ChevronRight,
-  BarChart3,
   Menu,
-  MessageSquare,
-  Receipt,
-  ClipboardList,
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -32,38 +25,23 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const superAdminNav: NavItem[] = [
+const navItems: NavItem[] = [
   { href: "/super-admin/dashboard", label: "대시보드", icon: LayoutDashboard },
 ];
 
-const businessNav: NavItem[] = [
-  { href: "/business/dashboard", label: "대시보드", icon: LayoutDashboard },
-  { href: "/business/profile", label: "업체 프로필", icon: Building2 },
-  { href: "/app/parties", label: "파티 관리", icon: PartyPopper },
-  { href: "/business/forms", label: "신청 폼 관리", icon: ClipboardList },
-  { href: "/business/applications", label: "신청 관리", icon: FileText },
-  { href: "/business/chat", label: "채팅 문의", icon: MessageSquare },
-  { href: "/business/payments", label: "결제/환불", icon: Receipt },
-  { href: "/business/settlements", label: "정산", icon: BarChart3 },
-];
-
 interface Props {
-  role: "SUPER_ADMIN" | "BUSINESS" | "BUSINESS_ADMIN";
   name: string;
   email: string;
-  businessName?: string;
-  businessLogoUrl?: string | null;
 }
 
 interface InnerProps extends Props {
   onClose?: () => void;
 }
 
-function SidebarInner({ role, name, email, businessName, businessLogoUrl, onClose }: InnerProps) {
+function SidebarInner({ name, email, onClose }: InnerProps) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const { logout } = useAdminAuth();
-  const navItems = role === "SUPER_ADMIN" ? superAdminNav : businessNav;
 
   const handleLogout = () => {
     void (async () => {
@@ -81,18 +59,10 @@ function SidebarInner({ role, name, email, businessName, businessLogoUrl, onClos
       <div className="px-4 py-5 border-b shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
-            {businessLogoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={businessLogoUrl} alt="Logo" className="w-full h-full object-cover" />
-            ) : (
-              <Image src="/dopa-logo.png" alt="Dopa" width={32} height={32} className="object-contain" />
-            )}
+            <Image src="/dopa-logo.png" alt="Dopa" width={32} height={32} className="object-contain" />
           </div>
           <div className="min-w-0">
             <p className="font-semibold text-sm leading-none">Dopa Admin</p>
-            {businessName && (
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">{businessName}</p>
-            )}
           </div>
         </div>
       </div>
@@ -181,19 +151,9 @@ export function MobileHeader(props: Props) {
 
       <div className="ml-3 flex items-center gap-2 min-w-0">
         <div className="w-6 h-6 rounded-md overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
-          {props.businessLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={props.businessLogoUrl} alt="Logo" className="w-full h-full object-cover" />
-          ) : (
-            <Image src="/dopa-logo.png" alt="Dopa" width={24} height={24} className="object-contain" />
-          )}
+          <Image src="/dopa-logo.png" alt="Dopa" width={24} height={24} className="object-contain" />
         </div>
         <span className="font-semibold text-sm shrink-0">Dopa Admin</span>
-        {props.businessName && (
-          <span className="text-xs text-muted-foreground truncate">
-            · {props.businessName}
-          </span>
-        )}
       </div>
     </header>
   );

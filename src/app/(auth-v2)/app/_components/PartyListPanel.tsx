@@ -27,7 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type Props = {
-  /** Effective Nest businessId (already resolved — never raw untrusted URL for BA) */
+  /** Effective API businessId (already resolved — never raw untrusted URL for BA). */
   businessId: string;
   /** Build edit/detail href for a party */
   partyHref: (partyId: string) => string;
@@ -43,7 +43,7 @@ type Props = {
 
 /**
  * Shared party list for SUPER_ADMIN (URL scope) and BUSINESS_ADMIN (me scope).
- * Always calls Nest with the provided businessId only.
+ * Always calls the Cloudflare API with the provided businessId only.
  */
 export function PartyListPanel({
   businessId,

@@ -6,9 +6,7 @@ import { RoleGuard } from "@/auth/guards/RoleGuard";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import AdminSidebar, { MobileHeader } from "@/components/layout/AdminSidebar";
 
-/**
- * Original AdminSidebar chrome + Auth v2 guards (post-NextAuth).
- */
+/** SUPER_ADMIN chrome guarded by the Cloudflare Admin API session. */
 export default function SuperAdminShell({ children }: { children: ReactNode }) {
   return (
     <AuthGuard>
@@ -24,7 +22,6 @@ function SuperAdminChrome({ children }: { children: ReactNode }) {
   if (!admin) return null;
 
   const sidebarProps = {
-    role: "SUPER_ADMIN" as const,
     name: admin.name,
     email: admin.email,
   };

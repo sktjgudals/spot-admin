@@ -1,6 +1,6 @@
 /**
  * Access token lives in module memory only (not localStorage / sessionStorage).
- * Refresh token is HttpOnly cookie set by Nest — never stored here.
+ * Refresh token is an HttpOnly cookie set by the API — never stored here.
  */
 
 let accessToken: string | null = null;

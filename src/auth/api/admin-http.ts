@@ -22,9 +22,9 @@ function apiBaseUrl(): string {
     process.env.NEXT_PUBLIC_NEST_API_URL ??
     "";
   if (!base) {
-    // Dev fallback: Nest default port (browser must hit Nest CORS with credentials)
+    // Dev fallback: local Cloudflare Worker (browser CORS includes credentials).
     if (process.env.NODE_ENV === "development") {
-      return "http://localhost:3000";
+      return "http://localhost:8787";
     }
     throw new AdminAuthError(
       "API_URL_MISSING",
@@ -44,7 +44,7 @@ function isAuthPath(path: string): boolean {
 }
 
 /**
- * Fetch against Nest Admin Auth / Admin v2 APIs.
+ * Fetch against Cloudflare Admin Auth / Admin v2 APIs.
  * Always credentials:include for HttpOnly refresh cookies.
  */
 export async function adminFetch(

@@ -6,7 +6,7 @@ import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { homePathForRole } from "@/auth/model/admin-routes";
 
 /**
- * Root — Auth v2 session restore / role home. No NextAuth.
+ * Root — restore the Cloudflare Admin API session and open the role home.
  */
 export default function HomePage() {
   const { status, admin, homePath, bootError, retryBoot } = useAdminAuth();

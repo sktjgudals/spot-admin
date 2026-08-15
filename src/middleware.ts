@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
  * Next.js 16 Proxy is Node-only, while OpenNext currently requires Edge
  * middleware for request interception.
  *
- * Auth v2 cookies: spot_admin_rt | spot_admin_sid | spot_admin_aid
+ * Admin session cookies: spot_admin_rt | spot_admin_sid | spot_admin_aid
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -34,14 +34,13 @@ export function middleware(req: NextRequest) {
   if (
     pathname === "/app" ||
     pathname.startsWith("/app/") ||
-    pathname.startsWith("/super-admin") ||
-    pathname.startsWith("/business")
+    pathname.startsWith("/super-admin")
   ) {
     if (!hasSession) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
-    // Recovery gate: only expose a super-admin route after its /admin/v2 API
-    // and client UI ship together. Legacy pages still contain direct DB access.
+    // Only dashboard is live under the super-admin shell. Product operations
+    // use the canonical /app routes backed by the Cloudflare Admin API.
     if (
       pathname.startsWith("/super-admin/") &&
       pathname !== "/super-admin/dashboard"

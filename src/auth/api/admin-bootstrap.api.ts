@@ -2,7 +2,7 @@ import { adminFetchJson } from "@/auth/api/admin-http";
 import type { LoginResponse } from "@/auth/model/admin-auth.types";
 
 /**
- * Nest Auth v2 — first SUPER_ADMIN bootstrap.
+ * Cloudflare Admin API — first SUPER_ADMIN bootstrap.
  * @see spot-backend AdminBootstrapController
  *   GET  /auth/v2/admin/bootstrap/status
  *   POST /auth/v2/admin/bootstrap/request
@@ -19,7 +19,7 @@ export type BootstrapStatus = {
 export type BootstrapRequestResult = {
   email: string;
   expiresAt: string;
-  /** Only when Nest AUTH_BOOTSTRAP_DEV_CODE_ENABLED + development */
+  /** Only when the API development-code switch is enabled. */
   devCode?: string;
 };
 

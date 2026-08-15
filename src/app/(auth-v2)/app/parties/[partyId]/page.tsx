@@ -59,7 +59,7 @@ function Edit() {
       <div className="space-y-2 text-sm">
         <p className="text-destructive font-medium">CROSS_TENANT_BLOCKED</p>
         <p className="text-muted-foreground">
-          다른 업체의 파티입니다. Nest BusinessScopeGuard도 거부합니다.
+          다른 업체의 파티입니다. API의 업체 범위 검사에서도 거부됩니다.
         </p>
       </div>
     );

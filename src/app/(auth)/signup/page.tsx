@@ -71,7 +71,7 @@ function mapBootstrapError(err: unknown): string {
   const code = err.message || err.code;
   switch (code) {
     case "BOOTSTRAP_ALREADY_COMPLETED":
-      // 레거시 서버 응답 — 추가 가입 허용 배포 전이면 안내
+      // 추가 가입이 닫힌 서버 응답이면 안내
       return "서버 업데이트가 필요합니다. 잠시 후 다시 시도하거나 관리자에게 문의하세요.";
     case "INTERNAL_EMAIL_DOMAIN_REQUIRED":
       return "@dopa.ing 이메일만 사용할 수 있습니다.";
@@ -93,7 +93,7 @@ function mapBootstrapError(err: unknown): string {
 }
 
 /**
- * SUPER_ADMIN 회원가입 (Nest bootstrap 3-step).
+ * SUPER_ADMIN 회원가입 (Cloudflare Admin API bootstrap 3-step).
  * @dopa.ing 직원은 여러 명 가입 가능. 업체 계정은 초대 링크(/invite/…)로만 가입.
  */
 export default function SuperAdminSignupPage() {

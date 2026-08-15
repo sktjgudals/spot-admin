@@ -2,12 +2,7 @@
 
 **목적:** Production 승인용 **증적** 확보. 코드 커밋 수가 아니라 이 문서의 체크 + 캡처가 게이트다.
 
-**전제:** Staging에 Nest Auth v2 + Worker + Admin Web(NextAuth 제거본) 배포 완료.
-
-**관련 문서**
-- `docs/OPS_NEXT_STEPS.md`
-- `docs/LEGACY_BFF_INVENTORY.md`
-- Nest: `docs/AUTH_V2_ADMIN_ROADMAP.md`
+**전제:** Staging에 Cloudflare API Worker + Admin Web 배포 완료.
 
 ---
 
@@ -32,7 +27,7 @@
 | A5 | BUSINESS_ADMIN + cross-tenant 차단 | §4 |
 | A6 | Outbox PENDING → SENT (또는 dev console 경로 명시) | §6 |
 | A7 | Password reset 후 기존 세션 무효화 | §5 |
-| A8 | Legacy BFF metrics ≈ 0 (대상 route) | §7 |
+| A8 | Admin runtime boundary release gate PASS | §7 |
 
 ---
 
@@ -40,8 +35,8 @@
 
 | # | 확인 | 방법 | PASS | 증적 |
 |---|------|------|------|------|
-| 1.1 | API live | `GET {NEST}/health/live` → 2xx | ☐ | 응답 코드 메모 |
-| 1.2 | API ready | `GET {NEST}/health/ready` → 2xx | ☐ | |
+| 1.1 | API live | `GET {API}/health` → 2xx | ☐ | 응답 코드 메모 |
+| 1.2 | Admin API auth guard | 인증 없이 `GET {API}/admin/v2/dashboard/summary` → 401 | ☐ | |
 | 1.3 | DB | ready 또는 운영 대시보드 | ☐ | |
 | 1.4 | Redis | ready / 세션 생성 성공으로 간접 확인 | ☐ | |
 | 1.5 | Worker | Outbox poll 로그 또는 메일 SENT | ☐ | |
@@ -51,7 +46,7 @@
 | 변수 | 설정 여부 |
 |------|-----------|
 | Admin `NEXT_PUBLIC_API_URL` | ☐ |
-| Nest CORS Admin origin exact + credentials | ☐ |
+| API CORS Admin origin exact + credentials | ☐ |
 | `ADMIN_INVITE_TOKEN_RESPONSE_ENABLED` staging=false | ☐ |
 | Outbox crypto key / worker enabled | ☐ |
 
@@ -65,8 +60,8 @@
 |---|----------|------|------|------|
 | 2.1 | 시크릿 창 → Admin staging `/login` | 로그인 폼 (booting 후 깜빡임 최소) | ☐ | |
 | 2.2 | SUPER_ADMIN 로그인 | `/app/businesses` 등 role home | ☐ | |
-| 2.3 | Application → Cookies (Nest **API 호스트**) | `spot_admin_rt`, `spot_admin_sid`, `spot_admin_aid` 존재 · **HttpOnly** | ☐ | **A1** (값은 가림) |
-| 2.4 | 같은 창 Cookies (Admin 호스트) | NextAuth / authjs 쿠키 **없음** | ☐ | A1과 구분 캡처 가능 |
+| 2.3 | Application → Cookies (**API 호스트**) | `spot_admin_rt`, `spot_admin_sid`, `spot_admin_aid` 존재 · **HttpOnly** | ☐ | **A1** (값은 가림) |
+| 2.4 | 같은 창 Cookies (Admin 호스트) | 인증 쿠키 없음 | ☐ | A1과 구분 캡처 가능 |
 | 2.5 | Application → Local Storage / Session Storage | access/refresh 토큰 키 **0** | ☐ | **A2** |
 | 2.6 | Network → `POST .../auth/v2/admin/login` | Request credentials include · Response JSON에 `accessToken` · **`refreshToken` 필드 없음** (`refreshDelivery: cookie`) | ☐ | |
 | 2.7 | 하드 리로드 (F5) | booting → authenticated 유지 (깜빡임 후 home) | ☐ | |
@@ -82,12 +77,12 @@
 | # | 시나리오 | 기대 | PASS | 비고 |
 |---|----------|------|------|------|
 | 3.1 | `GET /auth/v2/admin/me` | role SUPER_ADMIN, businessId null | ☐ | Network |
-| 3.2 | 업체 목록 `/app/businesses` | Nest `GET /admin/v2/businesses` 200 | ☐ | |
+| 3.2 | 업체 목록 `/app/businesses` | `GET /admin/v2/businesses` 200 | ☐ | |
 | 3.3 | 업체 생성 | 생성 후 상세로 이동 | ☐ | 테스트 업체명 기록 |
 | 3.4 | 초대 생성 | PENDING 행 · (outbox 적재) | ☐ | email 마스킹 |
 | 3.5 | 초대 resend | resendCount↑ · tokenVersion↑ · 메일 status 갱신 | ☐ | |
 | 3.6 | 초대 cancel (별도 PENDING 또는 resend 후 새 것) | REVOKED | ☐ | |
-| 3.7 | 파티 생성 (URL scope) | `/app/businesses/{id}/parties` · Nest path에 동일 businessId | ☐ | |
+| 3.7 | 파티 생성 (URL scope) | `/app/businesses/{id}/parties` · API path에 동일 businessId | ☐ | |
 | 3.8 | 파티 수정 | PATCH 200 | ☐ | |
 | 3.9 | 파티 soft-close | isActive false / CLOSED | ☐ | |
 | 3.10 | Business disable | status DISABLED · 해당 업체 BA 세션 폐기(§4) | ☐ | |
@@ -107,7 +102,7 @@
 | # | 시나리오 | 기대 | PASS | 증적 |
 |---|----------|------|------|------|
 | 4.1 | Invite accept (또는 기존 계정 login) | `/app/parties` · me.businessId 존재 | ☐ | |
-| 4.2 | Own party list/create/update | Nest `.../businesses/{me.businessId}/parties` 만 사용 | ☐ | Network path 확인 |
+| 4.2 | Own party list/create/update | Cloudflare `.../businesses/{me.businessId}/parties` 만 사용 | ☐ | Network path 확인 |
 | 4.3 | Soft-close own party | 성공 | ☐ | |
 | 4.4 | UI: `/app/businesses` 직접 접근 | RoleGuard 차단 / SUPER 전용 | ☐ | |
 | 4.5 | UI: 타 업체 `/app/businesses/{otherId}/parties` | SUPER only 또는 redirect · BA 데이터 노출 0 | ☐ | |
@@ -148,19 +143,17 @@ Worker 미기동 staging이면 6.1을 `PENDING only + worker 미기동`으로 �
 
 ---
 
-## 7. Legacy BFF metrics
+## 7. Admin runtime boundary
 
 ```bash
-# 값 마스킹. token 필요 시 env만 사용
-curl -sS "${ADMIN_STAGING_URL}/api/metrics/legacy-bff" | head -50
-# 또는
-curl -sS "${ADMIN_STAGING_URL}/api/metrics/legacy-bff?format=json"
+npm run check:admin-runtime
+rg -n "PrismaClient|DATABASE_URL|/api/super-admin|/api/business" .open-next/worker.js
 ```
 
 | # | 확인 | 기대 | PASS | 증적 |
 |---|------|------|------|------|
-| 7.1 | Admin E2E **직후** scrape | `super_admin_businesses*`, `*_parties*`, invite BFF route **0** 또는 E2E가 BFF를 안 탄 경우 증가 0 | ☐ | **A8** |
-| 7.2 | 의도적으로 구 BFF 호출 시 | 해당 **정규화 route** 카운트 증가 (PII 라벨 없음) | ☐ | optional |
+| 7.1 | 소스 release gate | exit 0 | ☐ | **A8** |
+| 7.2 | Worker 번들 검색 | 결과 0건 | ☐ | **A8** |
 
 **7.x 섹션 판정:** ☐ PASS / ☐ FAIL  
 
@@ -191,7 +184,7 @@ curl -sS "${ADMIN_STAGING_URL}/api/metrics/legacy-bff?format=json"
 | §4 BUSINESS_ADMIN / isolation | ☐ P / ☐ F | | |
 | §5 Password reset sessions | ☐ P / ☐ F | | |
 | §6 Outbox | ☐ P / ☐ F / ☐ C | | |
-| §7 Legacy BFF metrics | ☐ P / ☐ F | | |
+| §7 Runtime boundary | ☐ P / ☐ F | | |
 | §8 Consumer | ☐ P / ☐ F / ☐ S | | |
 
 **Overall staging:** ☐ **PASS** / ☐ **FAIL**  
@@ -205,7 +198,7 @@ curl -sS "${ADMIN_STAGING_URL}/api/metrics/legacy-bff?format=json"
 1. 본 체크리스트 결과 표 + 증적 A1–A8 링크  
 2. **1페이지 릴리즈 노트** (`docs/RELEASE_NOTES_TEMPLATE.md` 사용)  
 3. Production 승인 요청  
-4. (prod 14일 metrics 0 후) 2026-08 BFF 삭제 PR  
+4. 배포 후 API 5xx와 인증 실패율 관찰
 
 ---
 
@@ -213,7 +206,7 @@ curl -sS "${ADMIN_STAGING_URL}/api/metrics/legacy-bff?format=json"
 
 ```bash
 # login (cookie jar)
-curl -sS -c /tmp/sa.cj -X POST "$NEST/auth/v2/admin/login" \
+curl -sS -c /tmp/sa.cj -X POST "$API/auth/v2/admin/login" \
   -H 'content-type: application/json' \
   -d '{"email":"…","password":"…","useCookie":true}' 
 

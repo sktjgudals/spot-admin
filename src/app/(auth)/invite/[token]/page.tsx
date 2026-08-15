@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 /**
- * Invite accept — Nest Auth v2 (no NextAuth / no local Prisma invite dual-write).
+ * Accept a Cloudflare Admin API business invitation.
  * POST /auth/v2/admin/invitations/accept
  */
 export default function InviteAcceptPage({

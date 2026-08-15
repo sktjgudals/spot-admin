@@ -1,5 +1,5 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
-import { NestAdminApi } from "@/auth/model/admin-routes";
+import { AdminApi } from "@/auth/model/admin-routes";
 
 export type RefundPolicyTier = {
   hoursBeforeStart: number;
@@ -42,19 +42,19 @@ export function listRefundPolicyRequests(
 ) {
   const query = status === "ALL" ? "" : `?status=${status}`;
   return adminFetchJson<RefundPolicyChangeRequest[]>(
-    `${NestAdminApi.refundPolicyRequests()}${query}`,
+    `${AdminApi.refundPolicyRequests()}${query}`,
   );
 }
 
 export function getRefundPolicyRequest(id: string) {
   return adminFetchJson<RefundPolicyRequestDetail>(
-    NestAdminApi.refundPolicyRequest(id),
+    AdminApi.refundPolicyRequest(id),
   );
 }
 
 export function approveRefundPolicyRequest(id: string, reason?: string) {
   return adminFetchJson<RefundPolicyChangeRequest>(
-    NestAdminApi.refundPolicyApprove(id),
+    AdminApi.refundPolicyApprove(id),
     {
       method: "POST",
       body: JSON.stringify({ reason: reason?.trim() || undefined }),
@@ -64,7 +64,7 @@ export function approveRefundPolicyRequest(id: string, reason?: string) {
 
 export function rejectRefundPolicyRequest(id: string, reason: string) {
   return adminFetchJson<RefundPolicyChangeRequest>(
-    NestAdminApi.refundPolicyReject(id),
+    AdminApi.refundPolicyReject(id),
     {
       method: "POST",
       body: JSON.stringify({ reason: reason.trim() }),

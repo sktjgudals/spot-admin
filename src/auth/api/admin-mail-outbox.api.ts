@@ -1,5 +1,5 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
-import { NestAdminApi } from "@/auth/model/admin-routes";
+import { AdminApi } from "@/auth/model/admin-routes";
 
 export type AuthMailOutboxStatus =
   | "PENDING"
@@ -41,7 +41,7 @@ export async function listMailOutbox(params?: {
   if (params?.type) q.set("type", params.type);
   const s = q.toString();
   return adminFetchJson<AuthMailOutboxRow[]>(
-    `${NestAdminApi.mailOutbox()}${s ? `?${s}` : ""}`,
+    `${AdminApi.mailOutbox()}${s ? `?${s}` : ""}`,
   );
 }
 
@@ -66,7 +66,7 @@ export function latestInviteDeliveryByInvitationId(
 export async function reprocessMailOutbox(
   id: string,
 ): Promise<{ id: string; status: string }> {
-  return adminFetchJson(NestAdminApi.mailOutboxReprocess(id), {
+  return adminFetchJson(AdminApi.mailOutboxReprocess(id), {
     method: "POST",
     body: JSON.stringify({}),
   });

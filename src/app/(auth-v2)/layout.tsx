@@ -7,10 +7,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { BusinessMobileChrome } from "@/components/business-mobile/BusinessMobileChrome";
 
-/**
- * Auth v2 shell layout — Nest cookies + memory access token.
- * Does not use NextAuth. NextAuth layouts remain until full cutover.
- */
+/** Cloudflare Admin API shell — HttpOnly session cookies + memory access token. */
 export default function AuthV2AppLayout({ children }: { children: ReactNode }) {
   return (
     <AuthGuard>
