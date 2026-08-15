@@ -26,7 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { BusinessAdminPicker } from "../_components/BusinessAdminPicker";
+import { BusinessAdminPicker } from "@/components/admin/BusinessAdminPicker";
 
 const schema = z.object({
   name: z.string().min(1, "업체명을 입력하세요").max(200),

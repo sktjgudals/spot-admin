@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loginWithPassword, refreshSession } from "./admin-auth.api";
-import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 
 const PRIMARY = "https://api.example.test";
 const FALLBACK = "https://worker.example.test";
@@ -84,7 +83,7 @@ describe("admin auth API origin failover", () => {
         email: "admin@example.test",
         password: "wrong",
       }),
-    ).rejects.toMatchObject<Partial<AdminAuthError>>({
+    ).rejects.toMatchObject({
       code: "UNAUTHORIZED",
       status: 401,
     });
@@ -138,7 +137,7 @@ describe("admin auth API origin failover", () => {
         email: "admin@example.test",
         password: "password",
       }),
-    ).rejects.toMatchObject<Partial<AdminAuthError>>({
+    ).rejects.toMatchObject({
       code: "NETWORK_ERROR",
       permanent: false,
     });

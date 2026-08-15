@@ -18,18 +18,22 @@ import { Input } from "@/components/ui/input";
 
 type Props = {
   businessId?: string;
+  businessName?: string;
   selectedUserId?: string | null;
   onSelect?: (candidate: BusinessAdminCandidate) => void;
   onAssigned?: (assignment: BusinessAdminAssignment) => void;
   disabled?: boolean;
+  confirmAssignment?: boolean;
 };
 
 export function BusinessAdminPicker({
   businessId,
+  businessName,
   selectedUserId,
   onSelect,
   onAssigned,
   disabled = false,
+  confirmAssignment = false,
 }: Props) {
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
@@ -67,6 +71,22 @@ export function BusinessAdminPicker({
       return;
     }
     setSubmittedQuery(normalized);
+  };
+
+  const assignCandidate = (candidate: BusinessAdminCandidate) => {
+    if (!businessId) {
+      onSelect?.(candidate);
+      return;
+    }
+    if (
+      confirmAssignment &&
+      !window.confirm(
+        `${candidate.nickname}님을 ${businessName ?? "선택한 업체"} 관리자로 배정할까요?`,
+      )
+    ) {
+      return;
+    }
+    assignment.mutate(candidate.id);
   };
 
   return (
@@ -156,10 +176,7 @@ export function BusinessAdminPicker({
                     assignedElsewhere ||
                     assignment.isPending
                   }
-                  onClick={() => {
-                    if (businessId) assignment.mutate(candidate.id);
-                    else onSelect?.(candidate);
-                  }}
+                  onClick={() => assignCandidate(candidate)}
                 >
                   <UserRoundCheck className="size-4" aria-hidden="true" />
                   {pending
