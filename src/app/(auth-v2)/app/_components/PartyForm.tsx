@@ -15,6 +15,7 @@ import {
   type AdmissionMode,
 } from "@/auth/api/admin-party.api";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
+import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,6 +84,8 @@ export function PartyForm({
   cancelHref,
 }: Props) {
   const router = useRouter();
+  const { admin } = useAdminAuth();
+  const scope = admin?.role === "SUPER_ADMIN" ? "super" : "business";
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<string[]>(() => {
     if (party?.images?.length) return [...party.images];
@@ -273,7 +276,7 @@ export function PartyForm({
           coverImage: images[0],
           inclusions: normalizedInclusions,
           faqs: normalizedFaqs,
-        });
+        }, scope);
         toast.success("파티가 생성되었습니다");
         router.replace(successHref(created.id));
       } else if (party) {
@@ -303,7 +306,7 @@ export function PartyForm({
           coverImage: images[0],
           inclusions: normalizedInclusions,
           faqs: normalizedFaqs,
-        });
+        }, scope);
         toast.success("저장되었습니다");
         router.replace(successHref(updated.id));
       }

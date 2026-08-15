@@ -11,6 +11,7 @@ import {
   type PartyOperationalStatus,
 } from "@/auth/api/admin-party.api";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
+import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,11 +38,13 @@ export function PartyStatusBadge({ status }: { status: PartyOperationalStatus })
 
 export function PartyOperationsPanel({ party }: { party: AdminParty }) {
   const qc = useQueryClient();
+  const { admin } = useAdminAuth();
+  const scope = admin?.role === "SUPER_ADMIN" ? "super" : "business";
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState<PartyOperationalStatus | null>(null);
   const history = useQuery({
     queryKey: [...partyQueryKeys.detail(party.id), "status-history"],
-    queryFn: () => getPartyStatusHistory(party.id),
+    queryFn: () => getPartyStatusHistory(party.id, scope),
   });
 
   const run = async (toStatus: PartyOperationalStatus) => {
@@ -57,7 +60,7 @@ export function PartyOperationsPanel({ party }: { party: AdminParty }) {
         expectedVersion: party.operationalVersion,
         idempotencyKey: `admin-web:${party.id}:${party.operationalVersion}:${toStatus}:${crypto.randomUUID()}`,
         reason: reason.trim() || undefined,
-      });
+      }, scope);
       qc.setQueryData(partyQueryKeys.detail(party.id), updated);
       await Promise.all([
         qc.invalidateQueries({ queryKey: partyQueryKeys.all }),

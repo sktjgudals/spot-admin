@@ -57,9 +57,12 @@ function listQuery(params?: ListBusinessesParams): string {
 export async function listBusinesses(
   params?: ListBusinessesParams,
 ): Promise<AdminBusiness[]> {
-  return adminFetchJson<AdminBusiness[]>(
+  const response = await adminFetchJson<
+    AdminBusiness[] | { items: AdminBusiness[] }
+  >(
     `${AdminApi.businesses()}${listQuery(params)}`,
   );
+  return Array.isArray(response) ? response : response.items;
 }
 
 export async function getBusiness(
@@ -67,7 +70,10 @@ export async function getBusiness(
   opts?: { includeDeleted?: boolean },
 ): Promise<AdminBusiness> {
   const q = opts?.includeDeleted ? "?includeDeleted=true" : "";
-  return adminFetchJson<AdminBusiness>(`${AdminApi.business(id)}${q}`);
+  const response = await adminFetchJson<
+    AdminBusiness | { resource: AdminBusiness }
+  >(`${AdminApi.business(id)}${q}`);
+  return "resource" in response ? response.resource : response;
 }
 
 export async function createBusiness(

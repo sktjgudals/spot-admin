@@ -6,10 +6,22 @@ import { usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
+  BellRing,
+  Building2,
+  ClipboardCheck,
+  CreditCard,
+  ImageIcon,
   LayoutDashboard,
   LogOut,
   ChevronRight,
   Menu,
+  MessageSquareText,
+  Settings,
+  Star,
+  Tags,
+  TicketPercent,
+  UserCog,
+  Undo2,
 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
@@ -27,6 +39,18 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/super-admin/dashboard", label: "대시보드", icon: LayoutDashboard },
+  { href: "/super-admin/users", label: "사용자", icon: UserCog },
+  { href: "/app/businesses", label: "업체 · 파티 · 초대", icon: Building2 },
+  { href: "/super-admin/business-role-requests", label: "업체 권한 신청", icon: ClipboardCheck },
+  { href: "/super-admin/refund-policy-requests", label: "환불 정책", icon: Undo2 },
+  { href: "/super-admin/coupons", label: "쿠폰", icon: TicketPercent },
+  { href: "/super-admin/inquiries", label: "문의", icon: MessageSquareText },
+  { href: "/super-admin/payments", label: "결제 · 환불", icon: CreditCard },
+  { href: "/super-admin/notifications", label: "알림", icon: BellRing },
+  { href: "/super-admin/banners", label: "배너", icon: ImageIcon },
+  { href: "/super-admin/categories", label: "파티 카테고리", icon: Tags },
+  { href: "/super-admin/review-tags", label: "리뷰 태그", icon: Star },
+  { href: "/super-admin/config", label: "런타임 설정", icon: Settings },
 ];
 
 interface Props {

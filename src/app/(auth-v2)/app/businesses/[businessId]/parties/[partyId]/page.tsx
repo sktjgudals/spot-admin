@@ -34,7 +34,7 @@ function Edit() {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: partyQueryKeys.detail(partyId),
-    queryFn: () => getParty(partyId),
+    queryFn: () => getParty(partyId, "super"),
     enabled: !!partyId,
   });
 

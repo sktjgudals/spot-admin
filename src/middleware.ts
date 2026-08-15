@@ -39,14 +39,6 @@ export function middleware(req: NextRequest) {
     if (!hasSession) {
       return NextResponse.redirect(new URL("/login", req.url));
     }
-    // Only dashboard is live under the super-admin shell. Product operations
-    // use the canonical /app routes backed by the Cloudflare Admin API.
-    if (
-      pathname.startsWith("/super-admin/") &&
-      pathname !== "/super-admin/dashboard"
-    ) {
-      return NextResponse.redirect(new URL("/super-admin/dashboard", req.url));
-    }
     return NextResponse.next();
   }
 

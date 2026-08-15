@@ -6,6 +6,7 @@ import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { BusinessMobileChrome } from "@/components/business-mobile/BusinessMobileChrome";
+import AdminSidebar, { MobileHeader } from "@/components/layout/AdminSidebar";
 
 /** Cloudflare Admin API shell — HttpOnly session cookies + memory access token. */
 export default function AuthV2AppLayout({ children }: { children: ReactNode }) {
@@ -21,6 +22,21 @@ function AuthV2Chrome({ children }: { children: ReactNode }) {
 
   if (admin?.role === "BUSINESS_ADMIN") {
     return <BusinessMobileChrome>{children}</BusinessMobileChrome>;
+  }
+
+  if (admin?.role === "SUPER_ADMIN") {
+    const sidebarProps = { name: admin.name, email: admin.email };
+    return (
+      <div className="flex flex-col md:flex-row md:h-screen">
+        <AdminSidebar {...sidebarProps} />
+        <div className="flex min-w-0 flex-1 flex-col md:overflow-hidden">
+          <MobileHeader {...sidebarProps} />
+          <main className="flex-1 bg-slate-50 p-4 sm:p-5 md:overflow-y-auto lg:p-6 dark:bg-slate-950">
+            {children}
+          </main>
+        </div>
+      </div>
+    );
   }
 
   return (

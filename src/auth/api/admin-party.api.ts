@@ -127,8 +127,16 @@ export type PartyStatusTransition = {
   createdAt: string;
 };
 
-export async function listParties(businessId: string): Promise<AdminParty[]> {
-  const rows = await adminFetchJson<Partial<AdminParty>[]>("/businesses/me/parties");
+export type PartyAdminScope = "business" | "super";
+
+export async function listParties(
+  businessId: string,
+  scope: PartyAdminScope = "business",
+): Promise<AdminParty[]> {
+  const path = scope === "super"
+    ? `/admin/v2/businesses/${encodeURIComponent(businessId)}/parties`
+    : "/businesses/me/parties";
+  const rows = await adminFetchJson<Partial<AdminParty>[]>(path);
   return rows.map((row) => normalizeParty(row, businessId));
 }
 
@@ -139,9 +147,14 @@ export async function listPartyCategories(): Promise<PartyCategory[]> {
   return result.categories;
 }
 
-export async function getParty(partyId: string): Promise<AdminParty> {
+export async function getParty(
+  partyId: string,
+  scope: PartyAdminScope = "business",
+): Promise<AdminParty> {
   const row = await adminFetchJson<Partial<AdminParty>>(
-    `/businesses/me/parties/${encodeURIComponent(partyId)}`,
+    scope === "super"
+      ? `/admin/v2/parties/${encodeURIComponent(partyId)}`
+      : `/businesses/me/parties/${encodeURIComponent(partyId)}`,
   );
   return normalizeParty(row, typeof row.businessId === "string" ? row.businessId : "");
 }
@@ -149,8 +162,12 @@ export async function getParty(partyId: string): Promise<AdminParty> {
 export async function createParty(
   businessId: string,
   input: CreatePartyInput,
+  scope: PartyAdminScope = "business",
 ): Promise<AdminParty> {
-  const row = await adminFetchJson<Partial<AdminParty>>("/businesses/me/parties", {
+  const path = scope === "super"
+    ? `/admin/v2/businesses/${encodeURIComponent(businessId)}/parties`
+    : "/businesses/me/parties";
+  const row = await adminFetchJson<Partial<AdminParty>>(path, {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -160,9 +177,12 @@ export async function createParty(
 export async function updateParty(
   partyId: string,
   input: UpdatePartyInput,
+  scope: PartyAdminScope = "business",
 ): Promise<AdminParty> {
   const row = await adminFetchJson<Partial<AdminParty>>(
-    `/businesses/me/parties/${encodeURIComponent(partyId)}`,
+    scope === "super"
+      ? `/admin/v2/parties/${encodeURIComponent(partyId)}`
+      : `/businesses/me/parties/${encodeURIComponent(partyId)}`,
     {
     method: "PATCH",
     body: JSON.stringify(input),
@@ -179,19 +199,23 @@ export async function transitionParty(
     idempotencyKey: string;
     reason?: string;
   },
+  scope: PartyAdminScope = "business",
 ): Promise<AdminParty> {
-  await adminFetchJson<unknown>(`/parties/${encodeURIComponent(partyId)}/transitions`, {
+  const prefix = scope === "super" ? "/admin/v2" : "";
+  await adminFetchJson<unknown>(`${prefix}/parties/${encodeURIComponent(partyId)}/transitions`, {
     method: "POST",
     body: JSON.stringify(input),
   });
-  return getParty(partyId);
+  return getParty(partyId, scope);
 }
 
 export async function getPartyStatusHistory(
   partyId: string,
+  scope: PartyAdminScope = "business",
 ): Promise<PartyStatusTransition[]> {
+  const prefix = scope === "super" ? "/admin/v2" : "";
   return adminFetchJson<PartyStatusTransition[]>(
-    `/parties/${encodeURIComponent(partyId)}/status-history`,
+    `${prefix}/parties/${encodeURIComponent(partyId)}/status-history`,
   );
 }
 

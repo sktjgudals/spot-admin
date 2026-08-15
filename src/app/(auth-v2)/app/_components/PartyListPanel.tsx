@@ -55,9 +55,11 @@ export function PartyListPanel({
   description,
   variant = "desktop",
 }: Props) {
+  const { admin } = useAdminAuth();
+  const scope = admin?.role === "SUPER_ADMIN" ? "super" : "business";
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: partyQueryKeys.list(businessId),
-    queryFn: () => listParties(businessId),
+    queryKey: [...partyQueryKeys.list(businessId), scope],
+    queryFn: () => listParties(businessId, scope),
     enabled: !!businessId,
   });
 
