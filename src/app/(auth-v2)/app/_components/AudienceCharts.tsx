@@ -68,7 +68,7 @@ export function AudienceCharts({ title, breakdown, emptyLabel }: Props) {
                 />
               </div>
               <span className="text-right text-[12px] tabular-nums text-[#3d3d3d]">
-                {AGE_LABEL[band]} {count}
+                {count}
               </span>
             </li>
           );

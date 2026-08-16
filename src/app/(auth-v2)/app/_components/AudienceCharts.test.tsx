@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AudienceCharts } from "./AudienceCharts";
 import type { AudienceBreakdown } from "@/auth/api/business-insights.api";
@@ -38,7 +38,10 @@ describe("AudienceCharts", () => {
     expect(screen.getByText("7명")).toBeInTheDocument();
     expect(screen.getByText("남성 4")).toBeInTheDocument();
     expect(screen.getByText("여성 2")).toBeInTheDocument();
-    expect(screen.getByText("20대 3")).toBeInTheDocument();
+    const twenties = screen.getByText("20대").closest("li");
+    expect(twenties).toBeTruthy();
+    expect(within(twenties as HTMLElement).getByText("3")).toBeInTheDocument();
+    expect(screen.queryByText("20대 3")).not.toBeInTheDocument();
     expect(screen.queryByText("즐겨찾기가 없어요")).not.toBeInTheDocument();
   });
 });
