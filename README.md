@@ -74,4 +74,15 @@ npm run cf:deploy:production
 - 업체별 파티 템플릿 저장·불러오기 및 `businessId` 소유권 검증
 - 카드 단위 로딩·빈 결과·403·재시도 가능한 서버 오류 처리
 
+## 시드 데이터
+
+업체 7곳과 파티 50개를 커버 이미지까지 등록하는 스크립트가 있습니다. 기본은 dry-run입니다.
+
+```bash
+node scripts/generate-seed-images.mjs
+node scripts/seed-parties.mjs --env staging
+```
+
+데이터 구성, 가격 근거, production 등록 절차와 되돌리는 방법은 [시드 데이터 문서](docs/SEED-PARTIES.md)를 참고하세요.
+
 라우트, 인증, 배포, 롤백과 E2E 기준은 [운영 정본](docs/OPERATIONS.md)을 참고하세요.

@@ -47,3 +47,9 @@ cloudflare-env.d.ts
 
 # graphify knowledge graph (local)
 graphify-out/
+
+# 시드 러너의 로컬 원장 (등록한 리소스 id 기록 — 재실행 중복 방지용)
+scripts/seed-data/.seed-state.*.json
+
+# 시드 커버 이미지 (생성물 — generate-seed-images.mjs로 재생성)
+scripts/seed-data/images/
