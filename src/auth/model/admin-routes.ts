@@ -139,4 +139,6 @@ export const AdminApi = {
     `/admin/v2/refunds/${encodeURIComponent(id)}/retry`,
   paymentManualRefund: (id: string) =>
     `/admin/v2/payments/${encodeURIComponent(id)}/manual-refund`,
+  paymentConfirm: (id: string) =>
+    `/admin/v2/payments/${encodeURIComponent(id)}/confirm`,
 } as const;
