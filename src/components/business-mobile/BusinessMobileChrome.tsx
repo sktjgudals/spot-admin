@@ -3,14 +3,15 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, House, ListChecks, MessageSquare, UserRound } from "lucide-react";
+import { Bell, ChartPie, House, ListChecks, MessageSquare, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/app/parties", label: "홈", icon: House },
+  { href: "/app/insights", label: "인사이트", icon: ChartPie },
   { href: "/app/chat", label: "채팅", icon: MessageSquare },
-  { href: "/app/reviews", label: "리뷰 관리", icon: ListChecks },
-  { href: "/app/my", label: "마이페이지", icon: UserRound },
+  { href: "/app/reviews", label: "리뷰", icon: ListChecks },
+  { href: "/app/my", label: "마이", icon: UserRound },
 ] as const;
 
 export function BusinessMobileChrome({ children }: { children: ReactNode }) {
@@ -56,7 +57,8 @@ export function BusinessBottomNav() {
         const active =
           item.href === "/app/parties"
             ? pathname === item.href
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            : pathname === item.href ||
+              (pathname?.startsWith(`${item.href}/`) ?? false);
         return (
           <Link
             key={item.href}

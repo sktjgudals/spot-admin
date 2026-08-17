@@ -42,6 +42,7 @@ const navItems: NavItem[] = [
   { href: "/super-admin/users", label: "사용자", icon: UserCog },
   { href: "/app/businesses", label: "업체 · 파티 · 초대", icon: Building2 },
   { href: "/super-admin/business-admins", label: "업체 관리자 배정", icon: ClipboardCheck },
+  { href: "/super-admin/business-role-requests", label: "업체 권한 신청", icon: ClipboardCheck },
   { href: "/super-admin/refund-policy-requests", label: "환불 정책", icon: Undo2 },
   { href: "/super-admin/coupons", label: "쿠폰", icon: TicketPercent },
   { href: "/super-admin/inquiries", label: "문의", icon: MessageSquareText },

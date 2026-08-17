@@ -1,6 +1,6 @@
 # DOPA Admin 운영 정본
 
-마지막 갱신: 2026-08-15
+마지막 갱신: 2026-08-17
 
 이 문서는 `spot-admin`의 현재 기능·라우트·인증·배포·검증 기준을 한곳에 기록한다.
 과거 구현 메모나 릴리스별 체크리스트보다 현재 코드, 테스트와 이 문서를 우선한다.
@@ -11,15 +11,17 @@
 | ------------------------- | ---------------------------------------------------- |
 | Production Worker         | `dopa-admin`                                         |
 | Production URL            | `https://admin.dopa.ing`                             |
-| Production Worker version | `0ac6c295-6ebe-48c9-bad8-30d82080e8be`               |
+| Production Worker version | `ec097b51-0127-4ec5-8b92-15e7a1c17a07`               |
+| Git                       | `main`                                               |
 | API                       | `https://api.dopa.ing`                               |
 | WebSocket                 | `wss://api.dopa.ing/v2/chat`                         |
 | Staging Worker            | `dopa-admin-staging`                                 |
 | Staging API               | `https://dopa-backend-staging.ceoofspot.workers.dev` |
 
-2026-08-15 운영 배포 뒤 `/`, `/login`, `/icon.png`, `/dopa-logo.png`는 HTTP 200,
-비로그인 `/super-admin/dashboard`는 `/login`으로 307 응답했다. 주요 화면 smoke 중 Worker
-오류 로그는 발생하지 않았다.
+2026-08-17 `6fe6668` 배포(Worker `ec097b51`) 뒤 `/login`은 HTTP 200,
+비로그인 `/super-admin/dashboard`는 `/login`으로 307이다. API는 production
+`262cb45`다. 업체 인사이트 빈 상태와 0명 연령대 숨김이 이 버전에 있다.
+실계정으로 그래프를 연 확인은 아직 없다.
 
 ## 런타임 경계
 
@@ -47,6 +49,7 @@
 | 업체 목록·상세·초대·업체별 파티 | `SUPER_ADMIN`    | `/app/businesses/*`                    |
 | 전역 관리 콘솔                  | `SUPER_ADMIN`    | `/super-admin/:section`                |
 | 업체 운영 홈·내 업체            | `BUSINESS_ADMIN` | `/app`, `/app/my`                      |
+| 업체 인사이트                   | `BUSINESS_ADMIN` | `/app/insights`                        |
 | 업체 파티·신청·체크인           | `BUSINESS_ADMIN` | `/app/parties/*`                       |
 | 업체 채팅·리뷰                  | `BUSINESS_ADMIN` | `/app/chat/*`, `/app/reviews`          |
 
@@ -64,6 +67,9 @@
 
 대시보드는 `GET /admin/v2/dashboard/summary`를 사용한다. 조회 실패는 전체 Next.js 오류
 화면으로 전파하지 않고 카드 또는 화면 단위 오류와 재시도를 표시한다.
+
+업체 인사이트는 `GET /businesses/me/insights`다. 방문·위시는 고유 사용자를 세고,
+연령 막대는 0명 구간을 숨기며, 둘 다 비면 `아직 관심 기록이 없어요`를 보여 준다.
 
 업체 어드민은 업체 생성 또는 상세 화면에서 기존 사용자 이름·이메일을 2자 이상 검색해
 할당한다. 후보 조회는 `GET /admin/v2/business-operator-candidates`, 할당은
