@@ -48,14 +48,23 @@ export function AudienceCharts({ title, breakdown, emptyLabel }: Props) {
           total={genderTotal}
         />
         <ul className="space-y-1 text-[13px] text-[#3d3d3d]">
-          <li>남성 {breakdown.gender.male}</li>
-          <li>여성 {breakdown.gender.female}</li>
-          <li>미입력 {breakdown.gender.unknown}</li>
+          <li className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-[#5b8def]" />
+            남성 {breakdown.gender.male}
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-[#f07aa8]" />
+            여성 {breakdown.gender.female}
+          </li>
+          <li className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-[#c8c8c8]" />
+            미입력 {breakdown.gender.unknown}
+          </li>
         </ul>
       </div>
 
       <ul className="mt-5 space-y-2">
-        {AGE_ORDER.map((band) => {
+        {AGE_ORDER.filter((band) => breakdown.ageBands[band] > 0).map((band) => {
           const count = breakdown.ageBands[band];
           const width = Math.round((count / maxAge) * 100);
           return (

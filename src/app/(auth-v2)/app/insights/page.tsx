@@ -92,6 +92,16 @@ function InsightsBody() {
             <div className="h-40 animate-pulse rounded-2xl bg-white" />
             <div className="h-40 animate-pulse rounded-2xl bg-white" />
           </div>
+        ) : insights.data.visits.totalUsers === 0 &&
+          insights.data.wishlists.totalUsers === 0 ? (
+          <section className="rounded-2xl border border-[#ededed] bg-white px-4 py-8 text-center">
+            <p className="text-[15px] font-semibold text-[#1f1f1f]">
+              아직 관심 기록이 없어요
+            </p>
+            <p className="mt-2 text-[13px] leading-6 text-[#8a8a8a]">
+              상세를 보고 나가거나 즐겨찾기하면 연령·성별이 여기에 모여요.
+            </p>
+          </section>
         ) : (
           <div className="space-y-3">
             <AudienceCharts

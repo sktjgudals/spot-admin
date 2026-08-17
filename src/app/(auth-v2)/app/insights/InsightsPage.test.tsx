@@ -76,4 +76,25 @@ describe("BusinessInsightsPage", () => {
     expect(screen.getByText("남성 3")).toBeInTheDocument();
     expect(screen.getByText("아직 즐겨찾기가 없어요")).toBeInTheDocument();
   });
+
+  it("collapses to one empty card when every count is zero", async () => {
+    vi.mocked(getBusinessInsights).mockResolvedValue({
+      businessId: "biz_a",
+      partyId: null,
+      generatedAt: 1,
+      visits: {
+        totalUsers: 0,
+        gender: { male: 0, female: 0, unknown: 0 },
+        ageBands: { "10s": 0, "20s": 0, "30s": 0, "40s": 0, "50s+": 0, unknown: 0 },
+      },
+      wishlists: {
+        totalUsers: 0,
+        gender: { male: 0, female: 0, unknown: 0 },
+        ageBands: { "10s": 0, "20s": 0, "30s": 0, "40s": 0, "50s+": 0, unknown: 0 },
+      },
+    });
+    renderPage();
+    expect(await screen.findByText("아직 관심 기록이 없어요")).toBeInTheDocument();
+    expect(screen.queryByText("아직 방문 기록이 없어요")).not.toBeInTheDocument();
+  });
 });
