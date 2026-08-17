@@ -13,7 +13,8 @@
   "vars": {
     "ADMIN_ENVIRONMENT": "staging",
     "NEXT_PUBLIC_API_URL": "https://dopa-backend-staging.ceoofspot.workers.dev",
-    "NEXT_PUBLIC_CHAT_WS_URL": "wss://dopa-backend-staging.ceoofspot.workers.dev/v2/chat"
+    "NEXT_PUBLIC_CHAT_WS_URL": "wss://dopa-backend-staging.ceoofspot.workers.dev/v2/chat",
+    "NEXT_PUBLIC_GOOGLE_CLIENT_ID": "109162230288-9644lmdagmid6oc5bqttoq2q9asnigji.apps.googleusercontent.com"
   },
   "observability": {
     "enabled": true,

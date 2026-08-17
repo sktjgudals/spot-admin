@@ -23,6 +23,13 @@
 `262cb45`다. 업체 인사이트 빈 상태와 0명 연령대 숨김이 이 버전에 있다.
 실계정으로 그래프를 연 확인은 아직 없다.
 
+업체 담당자 웹 로그인: 앱과 같은 Google 웹 클라이언트
+(`109162230288-9644lmdagmid6oc5bqttoq2q9asnigji`)로 `POST /auth/v2/admin/oidc-login`.
+신규 유저는 만들지 않고, 배정된 ADMIN만 세션을 준다. Apple 버튼은
+`NEXT_PUBLIC_APPLE_CLIENT_ID`(같은 앱의 Services ID)가 있을 때만 보인다.
+초대 비밀번호와 `@dopa.ing` 슈퍼 어드민 폼은 그대로다. Google Cloud 웹
+클라이언트에 `https://admin.dopa.ing` JavaScript origin이 있어야 GIS가 산다.
+
 ## 런타임 경계
 
 - Admin 인증과 모든 업무 API는 `spot-cloudflare-backend`가 제공한다.

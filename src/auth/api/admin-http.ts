@@ -20,6 +20,7 @@ function requestSignal(signal?: AbortSignal | null): AbortSignal {
 function isAuthPath(path: string): boolean {
   return (
     path.includes("/auth/v2/admin/login") ||
+    path.includes("/auth/v2/admin/oidc-login") ||
     path.includes("/auth/v2/admin/refresh") ||
     path.includes("/auth/v2/admin/logout")
   );

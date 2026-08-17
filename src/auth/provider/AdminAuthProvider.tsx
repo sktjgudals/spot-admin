@@ -12,6 +12,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   fetchAdminMe,
+  loginWithOidc,
   loginWithPassword,
   logoutSession,
 } from "@/auth/api/admin-auth.api";
@@ -38,8 +39,16 @@ import {
   isNetworkError,
 } from "@/auth/model/admin-auth.errors";
 
+type AdminOidcLoginInput = {
+  provider: "GOOGLE" | "APPLE";
+  idToken: string;
+  nonce?: string;
+  rememberMe?: boolean;
+};
+
 type AdminAuthContextValue = AdminAuthState & {
   login: (email: string, password: string, rememberMe?: boolean) => Promise<AdminWebRole>;
+  loginWithProvider: (input: AdminOidcLoginInput) => Promise<AdminWebRole>;
   acceptIssuedSession: (session: IssuedAdminSession) => AdminWebRole;
   logout: () => Promise<void>;
   retryBoot: () => Promise<void>;
@@ -121,9 +130,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timeout);
   }, [boot]);
 
-  const login = useCallback(
-    async (email: string, password: string, rememberMe = false) => {
-      const res = await loginWithPassword({ email, password, rememberMe });
+  const adoptLoginResponse = useCallback(
+    async (res: Awaited<ReturnType<typeof loginWithPassword>>) => {
       setAccessToken(res.accessToken);
       const me = await fetchAdminMe();
       const profile = toAdminProfile(me) ?? toAdminProfile(res.admin);
@@ -140,6 +148,20 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       return profile.role;
     },
     [applyAuthenticated, queryClient],
+  );
+
+  const login = useCallback(
+    async (email: string, password: string, rememberMe = false) => {
+      return adoptLoginResponse(await loginWithPassword({ email, password, rememberMe }));
+    },
+    [adoptLoginResponse],
+  );
+
+  const loginWithProvider = useCallback(
+    async (input: AdminOidcLoginInput) => {
+      return adoptLoginResponse(await loginWithOidc(input));
+    },
+    [adoptLoginResponse],
   );
 
   const acceptIssuedSession = useCallback(
@@ -183,12 +205,13 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     return {
       ...state,
       login,
+      loginWithProvider,
       acceptIssuedSession,
       logout,
       retryBoot: boot,
       homePath,
     };
-  }, [state, login, acceptIssuedSession, logout, boot]);
+  }, [state, login, loginWithProvider, acceptIssuedSession, logout, boot]);
 
   return (
     <AdminAuthContext.Provider value={value}>

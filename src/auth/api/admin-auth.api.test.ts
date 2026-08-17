@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loginWithPassword, refreshSession } from "./admin-auth.api";
+import { loginWithOidc, loginWithPassword, refreshSession } from "./admin-auth.api";
 
 const PRIMARY = "https://api.example.test";
 const FALLBACK = "https://worker.example.test";
@@ -65,6 +65,45 @@ describe("admin auth API origin failover", () => {
       expect.objectContaining({ method: "POST", credentials: "include" }),
     );
     expect(window.localStorage.getItem("dopa-admin-api-origin")).toBe(FALLBACK);
+  });
+
+  it("sends the Google id token to oidc-login on the selected origin", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", PRIMARY);
+    vi.stubEnv("NEXT_PUBLIC_API_FALLBACK_URL", FALLBACK);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ ok: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          accessToken: "access",
+          sessionId: "session",
+          admin,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await loginWithOidc({
+      provider: "GOOGLE",
+      idToken: "google-id-token",
+      rememberMe: true,
+    });
+
+    expect(result.accessToken).toBe("access");
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${PRIMARY}/auth/v2/admin/oidc-login`,
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+      }),
+    );
+    const body = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
+    expect(body).toMatchObject({
+      provider: "GOOGLE",
+      idToken: "google-id-token",
+      rememberMe: true,
+      platform: "web",
+    });
   });
 
   it("keeps an HTTP authentication failure on the selected origin", async () => {

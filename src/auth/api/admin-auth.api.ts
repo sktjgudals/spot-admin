@@ -29,6 +29,27 @@ export async function loginWithPassword(input: {
   });
 }
 
+export async function loginWithOidc(input: {
+  provider: "GOOGLE" | "APPLE";
+  idToken: string;
+  nonce?: string;
+  rememberMe?: boolean;
+}): Promise<LoginResponse> {
+  const origin = await selectReachableAdminApiBaseUrl();
+  return adminFetchJson<LoginResponse>(`${origin}/auth/v2/admin/oidc-login`, {
+    method: "POST",
+    body: JSON.stringify({
+      provider: input.provider,
+      idToken: input.idToken,
+      ...(input.nonce === undefined ? {} : { nonce: input.nonce }),
+      rememberMe: input.rememberMe ?? false,
+      useCookie: true,
+      platform: "web",
+    }),
+    skipAuthRefresh: true,
+  });
+}
+
 /**
  * Cookie-based refresh — raw fetch (no interceptor) to avoid circular refresh.
  */
