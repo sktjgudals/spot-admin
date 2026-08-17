@@ -11,17 +11,17 @@
 | ------------------------- | ---------------------------------------------------- |
 | Production Worker         | `dopa-admin`                                         |
 | Production URL            | `https://admin.dopa.ing`                             |
-| Production Worker version | `ec097b51-0127-4ec5-8b92-15e7a1c17a07`               |
-| Git                       | `main`                                               |
+| Production Worker version | `d97400f6-a3d6-4769-8194-56b0783e3a5c`               |
+| Git                       | `main` `309efcb`                                     |
 | API                       | `https://api.dopa.ing`                               |
 | WebSocket                 | `wss://api.dopa.ing/v2/chat`                         |
 | Staging Worker            | `dopa-admin-staging`                                 |
 | Staging API               | `https://dopa-backend-staging.ceoofspot.workers.dev` |
 
-2026-08-17 `6fe6668` 배포(Worker `ec097b51`) 뒤 `/login`은 HTTP 200,
-비로그인 `/super-admin/dashboard`는 `/login`으로 307이다. API는 production
-`262cb45`다. 업체 인사이트 빈 상태와 0명 연령대 숨김이 이 버전에 있다.
-실계정으로 그래프를 연 확인은 아직 없다.
+2026-08-17 라이브는 git `309efcb`, Worker `d97400f6`(100%, wrangler deployments로
+확인)이다. `/login`은 HTTP 200이다. API는 production `17da490`다. 업체 인사이트
+빈 상태와 0명 연령대 숨김, 앱과 같은 Google 웹 클라이언트로 배정된 담당자 로그인이
+이 버전에 있다. 실계정으로 그래프를 연 확인은 아직 없다.
 
 업체 담당자 웹 로그인: 앱과 같은 Google 웹 클라이언트
 (`109162230288-9644lmdagmid6oc5bqttoq2q9asnigji`)로 `POST /auth/v2/admin/oidc-login`.
