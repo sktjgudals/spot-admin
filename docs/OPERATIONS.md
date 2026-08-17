@@ -30,6 +30,9 @@
 초대 비밀번호와 `@dopa.ing` 슈퍼 어드민 폼은 그대로다. Google Cloud 웹
 클라이언트에 `https://admin.dopa.ing` JavaScript origin이 있어야 GIS가 산다.
 
+콘솔 origin·Apple Services ID·production 배포 체크리스트는
+[ADMIN_OIDC_HANDOFF.md](ADMIN_OIDC_HANDOFF.md)다. 다른 에이전트에 이 파일만 넘기면 된다.
+
 ## 런타임 경계
 
 - Admin 인증과 모든 업무 API는 `spot-cloudflare-backend`가 제공한다.
