@@ -11,17 +11,18 @@
 | ------------------------- | ---------------------------------------------------- |
 | Production Worker         | `dopa-admin`                                         |
 | Production URL            | `https://admin.dopa.ing`                             |
-| Production Worker version | `d97400f6-a3d6-4769-8194-56b0783e3a5c`               |
-| Git                       | `main` `309efcb`                                     |
+| Production Worker version | `4048e1a1-6994-42c4-a872-1b81ccb652e8`               |
+| Git                       | `main` `bb9a707`                                     |
 | API                       | `https://api.dopa.ing`                               |
 | WebSocket                 | `wss://api.dopa.ing/v2/chat`                         |
 | Staging Worker            | `dopa-admin-staging`                                 |
 | Staging API               | `https://dopa-backend-staging.ceoofspot.workers.dev` |
 
-2026-08-17 라이브는 git `309efcb`, Worker `d97400f6`(100%, wrangler deployments로
-확인)이다. `/login`은 HTTP 200이다. API는 production `17da490`다. 업체 인사이트
-빈 상태와 0명 연령대 숨김, 앱과 같은 Google 웹 클라이언트로 배정된 담당자 로그인이
-이 버전에 있다. 실계정으로 그래프를 연 확인은 아직 없다.
+2026-08-17 라이브는 git `bb9a707`, Worker `4048e1a1`(100%, wrangler deploy로
+확인)이다. `/login`은 HTTP 200이다. API는 production `c5d454d`다. 결제 목록에
+토스 재조회 확정과 잔액 기본 수동 환불이 있다. 업체 인사이트 빈 상태와 0명
+연령대 숨김, 앱과 같은 Google 웹 클라이언트로 배정된 담당자 로그인이 이
+버전에 있다. 실계정으로 그래프를 연 확인은 아직 없다.
 
 업체 담당자 웹 로그인: 앱과 같은 Google 웹 클라이언트
 (`109162230288-9644lmdagmid6oc5bqttoq2q9asnigji`)로 `POST /auth/v2/admin/oidc-login`.
