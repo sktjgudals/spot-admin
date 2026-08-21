@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAdminMutation } from "@/auth/query/use-admin-mutation";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
 import {
   cancelInvitation,
@@ -73,14 +74,20 @@ function InvitationsPage() {
     queryFn: () => listInvitations(businessId),
     enabled: !!businessId,
   });
+  const invitations = useMemo(() => invQuery.data ?? [], [invQuery.data]);
 
   const outboxQuery = useQuery({
-    queryKey: mailOutboxQueryKeys.list({ type: "INVITATION" }),
-    queryFn: () => listMailOutbox({ type: "INVITATION" }),
-    enabled: !!businessId,
+    queryKey: mailOutboxQueryKeys.list({
+      type: "INVITATION",
+      take: Math.min(100, Math.max(invitations.length, 1)),
+    }),
+    queryFn: () =>
+      listMailOutbox({
+        type: "INVITATION",
+        take: Math.min(100, Math.max(invitations.length, 1)),
+      }),
+    enabled: !!businessId && invitations.length > 0,
   });
-
-  const invitations = useMemo(() => invQuery.data ?? [], [invQuery.data]);
   const deliveryMap = useMemo(
     () =>
       latestInviteDeliveryByInvitationId(
@@ -94,7 +101,7 @@ function InvitationsPage() {
     await Promise.all([
       qc.invalidateQueries({ queryKey: inviteQueryKeys.list(businessId) }),
       qc.invalidateQueries({
-        queryKey: mailOutboxQueryKeys.list({ type: "INVITATION" }),
+        queryKey: mailOutboxQueryKeys.all,
       }),
     ]);
   };
@@ -198,30 +205,27 @@ function CreateInviteCard({
   onCreated: () => Promise<void>;
 }) {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const [lastDevToken, setLastDevToken] = useState<string | null>(null);
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setLoading(true);
-    setLastDevToken(null);
-    try {
-      const res = await createInvitation(businessId, email.trim());
-      toast.success(`초대 생성: ${res.invitation.email}`);
+  const create = useAdminMutation({
+    mutationFn: (inviteEmail: string) => createInvitation(businessId, inviteEmail),
+    successMessage: (res) => `초대 생성: ${res.invitation.email}`,
+    errorMessage: "초대 생성 실패",
+    onSuccess: async (res) => {
       if (res.inviteToken) {
         setLastDevToken(res.inviteToken);
         toast.message("dev inviteToken 응답 (운영에서는 비활성)");
       }
       setEmail("");
       await onCreated();
-    } catch (err) {
-      toast.error(
-        err instanceof AdminAuthError ? err.message : "초대 생성 실패",
-      );
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const inviteEmail = email.trim();
+    if (!inviteEmail) return;
+    setLastDevToken(null);
+    create.mutate(inviteEmail);
   };
 
   return (
@@ -248,8 +252,8 @@ function CreateInviteCard({
               required
             />
           </div>
-          <Button type="submit" disabled={loading}>
-            {loading ? "생성 중…" : "초대 생성"}
+          <Button type="submit" disabled={create.isPending}>
+            {create.isPending ? "생성 중…" : "초대 생성"}
           </Button>
         </form>
         {lastDevToken && (

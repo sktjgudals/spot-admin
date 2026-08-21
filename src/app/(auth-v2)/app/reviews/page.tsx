@@ -19,8 +19,8 @@ function Reviews() {
   const { admin } = useAdminAuth();
   const businessId = admin?.businessId ?? "";
   const { data, isLoading, error } = useQuery({
-    queryKey: partyQueryKeys.list(businessId),
-    queryFn: () => listParties(businessId),
+    queryKey: partyQueryKeys.list(businessId, "business"),
+    queryFn: () => listParties(businessId, "business"),
     enabled: businessId.length > 0,
   });
   const completed = (data ?? []).filter((party) => party.canBusinessReview || party.operationalStatus === "COMPLETED");

@@ -4,10 +4,8 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
-import {
-  getBusinessInsights,
-  insightsQueryKey,
-} from "@/auth/api/business-insights.api";
+import { getBusinessInsights } from "@/auth/api/business-insights.api";
+import { adminQueryKeys } from "@/auth/model/admin-query-keys";
 import { listParties, partyQueryKeys } from "@/auth/api/admin-party.api";
 import {
   BusinessBottomNav,
@@ -28,12 +26,12 @@ function InsightsBody() {
   const businessId = admin?.businessId ?? "";
   const [partyId, setPartyId] = useState("");
   const insights = useQuery({
-    queryKey: insightsQueryKey(partyId || undefined),
+    queryKey: adminQueryKeys.insights(partyId || undefined),
     queryFn: () => getBusinessInsights(partyId || undefined),
     enabled: businessId.length > 0,
   });
   const parties = useQuery({
-    queryKey: [...partyQueryKeys.list(businessId), "business"],
+    queryKey: partyQueryKeys.list(businessId, "business"),
     queryFn: () => listParties(businessId, "business"),
     enabled: businessId.length > 0,
   });

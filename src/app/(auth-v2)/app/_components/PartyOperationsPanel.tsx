@@ -43,7 +43,7 @@ export function PartyOperationsPanel({ party }: { party: AdminParty }) {
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState<PartyOperationalStatus | null>(null);
   const history = useQuery({
-    queryKey: [...partyQueryKeys.detail(party.id), "status-history"],
+    queryKey: partyQueryKeys.statusHistory(party.id),
     queryFn: () => getPartyStatusHistory(party.id, scope),
   });
 

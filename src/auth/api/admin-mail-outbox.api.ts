@@ -1,5 +1,6 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
 import { AdminApi } from "@/auth/model/admin-routes";
+import { adminQueryKeys } from "@/auth/model/admin-query-keys";
 
 export type AuthMailOutboxStatus =
   | "PENDING"
@@ -35,10 +36,12 @@ export type AuthMailOutboxRow = {
 export async function listMailOutbox(params?: {
   status?: AuthMailOutboxStatus;
   type?: AuthMailType;
+  take?: number;
 }): Promise<AuthMailOutboxRow[]> {
   const q = new URLSearchParams();
   if (params?.status) q.set("status", params.status);
   if (params?.type) q.set("type", params.type);
+  if (params?.take) q.set("take", String(params.take));
   const s = q.toString();
   return adminFetchJson<AuthMailOutboxRow[]>(
     `${AdminApi.mailOutbox()}${s ? `?${s}` : ""}`,
@@ -72,8 +75,4 @@ export async function reprocessMailOutbox(
   });
 }
 
-export const mailOutboxQueryKeys = {
-  all: ["admin", "mail-outbox"] as const,
-  list: (params?: { status?: AuthMailOutboxStatus; type?: AuthMailType }) =>
-    [...mailOutboxQueryKeys.all, "list", params ?? {}] as const,
-};
+export const mailOutboxQueryKeys = adminQueryKeys.mailOutbox;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAdminMutation } from "@/auth/query/use-admin-mutation";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -14,7 +15,6 @@ import {
   type AdminParty,
   type AdmissionMode,
 } from "@/auth/api/admin-party.api";
-import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,12 @@ function toLocalInputValue(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function optionalInt(v: unknown): number | null {
+  if (v === "" || v === undefined || v === null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 type Props = {
   mode: "create" | "edit";
   businessId: string;
@@ -87,7 +93,6 @@ export function PartyForm({
   const router = useRouter();
   const { admin } = useAdminAuth();
   const scope = admin?.role === "SUPER_ADMIN" ? "super" : "business";
-  const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<string[]>(() => {
     if (party?.images?.length) return [...party.images];
     if (party?.coverImage) return [party.coverImage];
@@ -124,6 +129,55 @@ export function PartyForm({
         }
       : null,
   );
+
+  const save = useAdminMutation({
+    mutationFn: async (data: FormValues) => {
+      const dateIso = new Date(data.date).toISOString();
+      const endsAtIso = new Date(data.endsAt).toISOString();
+      const applicationDeadlineIso = new Date(data.applicationDeadline).toISOString();
+      const payload = {
+        title: data.title.trim(),
+        description: data.description.trim(),
+        date: dateIso,
+        endsAt: endsAtIso,
+        applicationDeadline: applicationDeadlineIso,
+        location: data.location.trim(),
+        maxCapacity: data.maxCapacity,
+        priceMale: data.priceMale ?? 0,
+        priceFemale: data.priceFemale ?? 0,
+        admissionMode: data.admissionMode,
+        placeName: data.placeName?.trim() || undefined,
+        address: data.address?.trim() || undefined,
+        placeLatitude: placeCoords?.latitude,
+        placeLongitude: placeCoords?.longitude,
+        placeKakaoId: placeCoords?.kakaoId || undefined,
+        interestLimit: data.interestLimit,
+        genderRatio: data.genderRatio?.trim() || undefined,
+        maxMale: optionalInt(data.maxMale),
+        maxFemale: optionalInt(data.maxFemale),
+        minBirthYear: optionalInt(data.minBirthYear),
+        maxBirthYear: optionalInt(data.maxBirthYear),
+        images,
+        coverImage: images[0],
+        inclusions: inclusions
+          .map((label) => label.trim())
+          .filter(Boolean)
+          .map((label) => ({ label })),
+        faqs: faqs.map(({ question, answer }) => ({
+          question: question.trim(),
+          answer: answer.trim(),
+        })),
+      };
+      if (mode === "create") return createParty(businessId, payload, scope);
+      if (!party) throw new Error("파티를 찾을 수 없습니다");
+      return updateParty(party.id, payload, scope);
+    },
+    successMessage: mode === "create" ? "파티가 생성되었습니다" : "저장되었습니다",
+    errorMessage: "저장에 실패했습니다",
+    onSuccess: (saved) => {
+      router.replace(successHref(saved.id));
+    },
+  });
 
   const {
     register,
@@ -163,12 +217,6 @@ export function PartyForm({
           interestLimit: 3,
         },
   });
-
-  function optionalInt(v: unknown): number | null | undefined {
-    if (v === "" || v === undefined || v === null) return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  }
 
   const watchedPlaceName = useWatch({ control, name: "placeName" });
   const watchedAddress = useWatch({ control, name: "address" });
@@ -227,97 +275,16 @@ export function PartyForm({
     toast.success("장소가 선택되었습니다");
   }
 
-  const onSubmit = async (data: FormValues) => {
-    const normalizedInclusions = inclusions
-      .map((label) => label.trim())
-      .filter(Boolean)
-      .map((label) => ({ label }));
-    const normalizedFaqs = faqs.map(({ question, answer }) => ({
-      question: question.trim(),
-      answer: answer.trim(),
-    }));
-    if (
-      normalizedFaqs.some(
-        ({ question, answer }) => question.length === 0 || answer.length === 0,
-      )
-    ) {
+  const onSubmit = (data: FormValues) => {
+    const hasIncompleteFaq = faqs.some(
+      ({ question, answer }) => question.trim().length === 0 || answer.trim().length === 0,
+    );
+    if (hasIncompleteFaq) {
       toast.error("FAQ의 질문과 답변을 모두 입력해 주세요");
       return;
     }
 
-    setLoading(true);
-    try {
-      const dateIso = new Date(data.date).toISOString();
-      const endsAtIso = new Date(data.endsAt).toISOString();
-      const applicationDeadlineIso = new Date(data.applicationDeadline).toISOString();
-      if (mode === "create") {
-        const created = await createParty(businessId, {
-          title: data.title.trim(),
-          description: data.description.trim(),
-          date: dateIso,
-          endsAt: endsAtIso,
-          applicationDeadline: applicationDeadlineIso,
-          location: data.location.trim(),
-          maxCapacity: data.maxCapacity,
-          priceMale: data.priceMale ?? 0,
-          priceFemale: data.priceFemale ?? 0,
-          admissionMode: data.admissionMode,
-          placeName: data.placeName?.trim() || undefined,
-          address: data.address?.trim() || undefined,
-          placeLatitude: placeCoords?.latitude,
-          placeLongitude: placeCoords?.longitude,
-          placeKakaoId: placeCoords?.kakaoId || undefined,
-          interestLimit: data.interestLimit,
-          genderRatio: data.genderRatio?.trim() || undefined,
-          maxMale: optionalInt(data.maxMale),
-          maxFemale: optionalInt(data.maxFemale),
-          minBirthYear: optionalInt(data.minBirthYear),
-          maxBirthYear: optionalInt(data.maxBirthYear),
-          images,
-          coverImage: images[0],
-          inclusions: normalizedInclusions,
-          faqs: normalizedFaqs,
-        }, scope);
-        toast.success("파티가 생성되었습니다");
-        router.replace(successHref(created.id));
-      } else if (party) {
-        const updated = await updateParty(party.id, {
-          title: data.title.trim(),
-          description: data.description.trim(),
-          date: dateIso,
-          endsAt: endsAtIso,
-          applicationDeadline: applicationDeadlineIso,
-          location: data.location.trim(),
-          maxCapacity: data.maxCapacity,
-          priceMale: data.priceMale ?? 0,
-          priceFemale: data.priceFemale ?? 0,
-          admissionMode: data.admissionMode,
-          placeName: data.placeName?.trim() || undefined,
-          address: data.address?.trim() || undefined,
-          placeLatitude: placeCoords?.latitude,
-          placeLongitude: placeCoords?.longitude,
-          placeKakaoId: placeCoords?.kakaoId || undefined,
-          interestLimit: data.interestLimit,
-          genderRatio: data.genderRatio?.trim() || undefined,
-          maxMale: optionalInt(data.maxMale),
-          maxFemale: optionalInt(data.maxFemale),
-          minBirthYear: optionalInt(data.minBirthYear),
-          maxBirthYear: optionalInt(data.maxBirthYear),
-          images,
-          coverImage: images[0],
-          inclusions: normalizedInclusions,
-          faqs: normalizedFaqs,
-        }, scope);
-        toast.success("저장되었습니다");
-        router.replace(successHref(updated.id));
-      }
-    } catch (err) {
-      toast.error(
-        err instanceof AdminAuthError ? err.message : "저장에 실패했습니다",
-      );
-    } finally {
-      setLoading(false);
-    }
+    save.mutate(data);
   };
 
   return (
@@ -604,8 +571,8 @@ export function PartyForm({
             )}
           </section>
           <div className="flex gap-2 pt-2">
-            <Button type="submit" disabled={loading}>
-              {loading ? "저장 중…" : "저장"}
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending ? "저장 중…" : "저장"}
             </Button>
             <Button
               type="button"

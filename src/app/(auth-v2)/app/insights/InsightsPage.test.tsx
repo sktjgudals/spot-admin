@@ -22,11 +22,12 @@ vi.mock("@/auth/guards/RoleGuard", () => ({
 
 vi.mock("@/auth/api/admin-party.api", () => ({
   listParties: vi.fn().mockResolvedValue([]),
-  partyQueryKeys: { list: (id: string) => ["parties", id] },
+  partyQueryKeys: {
+    list: (id: string, scope = "business") => ["admin", "parties", "list", id, scope],
+  },
 }));
 
 vi.mock("@/auth/api/business-insights.api", () => ({
-  insightsQueryKey: (partyId?: string) => ["businessInsights", partyId ?? "all"],
   getBusinessInsights: vi.fn(),
 }));
 

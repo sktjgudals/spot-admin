@@ -29,7 +29,6 @@ export function BusinessAdminAssignmentConsole() {
   const businesses = useQuery({
     queryKey: businessQueryKeys.list({ status: "ACTIVE" }),
     queryFn: () => listBusinesses({ status: "ACTIVE" }),
-    retry: 2,
   });
   const selectedBusiness = useMemo(
     () => businesses.data?.find((business) => business.id === businessId),

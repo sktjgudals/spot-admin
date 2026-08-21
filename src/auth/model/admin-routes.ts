@@ -87,37 +87,52 @@ export function resolveBusinessScope(input: {
   return { businessId: input.routeBusinessId };
 }
 
+type PartyAdminScope = "business" | "super";
+
 /** Cloudflare Admin API paths — single source for clients. */
 export const AdminApi = {
+  me: () => "/auth/v2/admin/me",
+  dashboard: () => "/admin/v2/dashboard/summary",
   businesses: () => "/admin/v2/businesses",
-  business: (id: string) => `/admin/v2/businesses/${id}`,
-  businessDisable: (id: string) => `/admin/v2/businesses/${id}/disable`,
-  businessEnable: (id: string) => `/admin/v2/businesses/${id}/enable`,
-  businessRestore: (id: string) => `/admin/v2/businesses/${id}/restore`,
+  business: (id: string) => `/admin/v2/businesses/${encodeURIComponent(id)}`,
+  businessDisable: (id: string) => `/admin/v2/businesses/${encodeURIComponent(id)}/disable`,
+  businessEnable: (id: string) => `/admin/v2/businesses/${encodeURIComponent(id)}/enable`,
+  businessRestore: (id: string) => `/admin/v2/businesses/${encodeURIComponent(id)}/restore`,
   businessOperatorCandidates: () => "/admin/v2/business-operator-candidates",
   businessOperators: (businessId: string) =>
     `/admin/v2/businesses/${encodeURIComponent(businessId)}/operators`,
   invitations: (businessId: string) =>
-    `/admin/v2/businesses/${businessId}/invitations`,
+    `/admin/v2/businesses/${encodeURIComponent(businessId)}/invitations`,
   invitationCancel: (businessId: string, invitationId: string) =>
-    `/admin/v2/businesses/${businessId}/invitations/${invitationId}/cancel`,
+    `/admin/v2/businesses/${encodeURIComponent(businessId)}/invitations/${encodeURIComponent(invitationId)}/cancel`,
   invitationResend: (businessId: string, invitationId: string) =>
-    `/admin/v2/businesses/${businessId}/invitations/${invitationId}/resend`,
-  parties: (businessId: string) => `/admin/v2/businesses/${businessId}/parties`,
-  party: (partyId: string) => `/admin/v2/parties/${partyId}`,
+    `/admin/v2/businesses/${encodeURIComponent(businessId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
+  myParties: () => "/businesses/me/parties",
+  myParty: (partyId: string) => `/businesses/me/parties/${encodeURIComponent(partyId)}`,
+  parties: (businessId: string) =>
+    `/admin/v2/businesses/${encodeURIComponent(businessId)}/parties`,
+  party: (partyId: string) => `/admin/v2/parties/${encodeURIComponent(partyId)}`,
   /** Kakao place search provided by the Cloudflare API. */
   placesKakaoSearch: () => `/places/kakao/search`,
-  partyTransitions: (partyId: string) =>
-    `/admin/v2/parties/${partyId}/transitions`,
-  partyStatusHistory: (partyId: string) =>
-    `/admin/v2/parties/${partyId}/status-history`,
+  partyTransitions: (partyId: string, scope: PartyAdminScope = "business") =>
+    scope === "super"
+      ? `/admin/v2/parties/${encodeURIComponent(partyId)}/transitions`
+      : `/parties/${encodeURIComponent(partyId)}/transitions`,
+  partyStatusHistory: (partyId: string, scope: PartyAdminScope = "business") =>
+    scope === "super"
+      ? `/admin/v2/parties/${encodeURIComponent(partyId)}/status-history`
+      : `/parties/${encodeURIComponent(partyId)}/status-history`,
+  insights: (partyId?: string) =>
+    partyId && partyId.length > 0
+      ? `/businesses/me/insights?partyId=${encodeURIComponent(partyId)}`
+      : "/businesses/me/insights",
   businessUserReviewTags: () => "/admin/v2/businesses/me/user-review-tags",
   reviewableMembers: (partyId: string) =>
-    `/admin/v2/parties/${partyId}/reviewable-members`,
+    `/admin/v2/parties/${encodeURIComponent(partyId)}/reviewable-members`,
   businessUserReview: (partyId: string, userId: string) =>
-    `/admin/v2/parties/${partyId}/user-reviews/${encodeURIComponent(userId)}`,
+    `/admin/v2/parties/${encodeURIComponent(partyId)}/user-reviews/${encodeURIComponent(userId)}`,
   applicationUserReviews: (applicationId: string) =>
-    `/admin/v2/applications/${applicationId}/user-reviews`,
+    `/admin/v2/applications/${encodeURIComponent(applicationId)}/user-reviews`,
   superBusinessUserReviewTags: () =>
     "/admin/v2/super/business-user-review-tags",
   superBusinessUserReviewTag: (tagId: string) =>
@@ -125,9 +140,10 @@ export const AdminApi = {
   superBusinessUserReview: (reviewId: string) =>
     `/admin/v2/super/business-user-reviews/${encodeURIComponent(reviewId)}`,
   mailOutbox: () => "/admin/v2/auth-mail/outbox",
-  mailOutboxItem: (id: string) => `/admin/v2/auth-mail/outbox/${id}`,
+  mailOutboxItem: (id: string) =>
+    `/admin/v2/auth-mail/outbox/${encodeURIComponent(id)}`,
   mailOutboxReprocess: (id: string) =>
-    `/admin/v2/auth-mail/outbox/${id}/reprocess`,
+    `/admin/v2/auth-mail/outbox/${encodeURIComponent(id)}/reprocess`,
   refundPolicyRequests: () => "/admin/v2/refund-policy-change-requests",
   refundPolicyRequest: (id: string) =>
     `/admin/v2/refund-policy-change-requests/${encodeURIComponent(id)}`,
