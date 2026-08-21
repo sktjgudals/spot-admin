@@ -7,11 +7,13 @@ import { CheckCircle2, ChevronRight, UserRound } from "lucide-react";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
 import {
   businessOperatorQueryKeys,
+  checkInByQr,
   checkInManually,
   getCheckInStatus,
   getOperatorPartyDetail,
   type CheckInParticipant,
 } from "@/auth/api/business-operator.api";
+import { CheckInQrScanner } from "@/components/business-mobile/CheckInQrScanner";
 import { MobilePartyHeader } from "@/components/business-mobile/MobilePartyHeader";
 
 export default function PartyCheckInPage() {
@@ -26,6 +28,7 @@ function CheckIn() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<CheckInParticipant | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
   const party = useQuery({
     queryKey: businessOperatorQueryKeys.party(partyId),
     queryFn: () => getOperatorPartyDetail(partyId),
@@ -36,6 +39,7 @@ function CheckIn() {
     queryFn: () => getCheckInStatus(partyId),
     enabled: partyId.length > 0,
   });
+  const participants = status.data?.participants ?? [];
   const mutation = useMutation({
     mutationFn: ({ userId }: { userId: string }) => checkInManually(partyId, userId),
     onSuccess: () => {
@@ -46,7 +50,20 @@ function CheckIn() {
       window.setTimeout(() => setNotice(null), 3500);
     },
   });
-  const participants = status.data?.participants ?? [];
+  const qrMutation = useMutation({
+    mutationFn: (token: string) => checkInByQr(partyId, token),
+    onSuccess: (result) => {
+      const nickname = participants.find((person) => person.userId === result.userId)?.nickname;
+      setQrOpen(false);
+      setNotice(
+        result.replay
+          ? `${nickname ? `[${nickname}]님은` : "이 참가자는"} 이미 입장 처리되었습니다.`
+          : `${nickname ? `[${nickname}]님` : "참가자"} 파티 입장처리가 완료되었습니다.`,
+      );
+      void queryClient.invalidateQueries({ queryKey: businessOperatorQueryKeys.checkIn(partyId) });
+      window.setTimeout(() => setNotice(null), 3500);
+    },
+  });
 
   return (
     <div className="font-pretendard min-h-dvh bg-white pb-24">
@@ -104,8 +121,18 @@ function CheckIn() {
         </div>
       )}
       <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-[430px] bg-white px-4 pb-[max(15px,env(safe-area-inset-bottom))] pt-2">
-        <button type="button" className="h-12 w-full rounded-xl bg-[#9c6cf2] text-[14px] text-white">QR 체크인</button>
+        <button type="button" onClick={() => setQrOpen(true)} className="h-12 w-full rounded-xl bg-[#9c6cf2] text-[14px] text-white">QR 체크인</button>
       </div>
+      <CheckInQrScanner
+        open={qrOpen}
+        pending={qrMutation.isPending}
+        error={qrMutation.error instanceof Error ? qrMutation.error.message : null}
+        onClose={() => {
+          setQrOpen(false);
+          qrMutation.reset();
+        }}
+        onToken={(token) => qrMutation.mutate(token)}
+      />
 
       {selected && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35" role="dialog" aria-modal="true">

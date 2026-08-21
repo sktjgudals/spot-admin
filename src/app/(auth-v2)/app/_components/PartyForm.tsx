@@ -30,6 +30,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { optionalIntField } from "@/lib/optional-int";
 
 const schema = z.object({
   title: z.string().min(1, "제목 필수").max(200),
@@ -46,10 +47,10 @@ const schema = z.object({
   address: z.string().optional(),
   interestLimit: z.coerce.number().int().min(1).max(20).optional(),
   genderRatio: z.string().optional(),
-  maxMale: z.coerce.number().int().min(0).optional().or(z.literal("")),
-  maxFemale: z.coerce.number().int().min(0).optional().or(z.literal("")),
-  minBirthYear: z.coerce.number().int().min(1950).max(2015).optional().or(z.literal("")),
-  maxBirthYear: z.coerce.number().int().min(1950).max(2015).optional().or(z.literal("")),
+  maxMale: optionalIntField(0),
+  maxFemale: optionalIntField(0),
+  minBirthYear: optionalIntField(1950, 2015),
+  maxBirthYear: optionalIntField(1950, 2015),
 }).refine((value) => new Date(value.endsAt) > new Date(value.date), {
   message: "종료 일시는 시작 일시보다 늦어야 합니다",
   path: ["endsAt"],

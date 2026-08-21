@@ -18,7 +18,6 @@ export default function ErrorPage({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: error.message || "어드민 오류",
-        detail: error.stack,
         digest: error.digest,
         path: typeof window !== "undefined" ? window.location.pathname : undefined,
       }),

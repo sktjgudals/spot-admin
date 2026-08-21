@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 
+const PAGE_SIZE = 50;
+
 type Field = {
   key: string;
   label: string;
@@ -40,13 +42,22 @@ type Field = {
   defaultValue?: string | number | boolean;
 };
 
+type ActionFields = {
+  reason?: string;
+  amount?: number;
+};
+
 type Action = {
   label: string;
   path: (row: AdminResource) => string;
   method?: "POST" | "PATCH" | "PUT" | "DELETE";
   destructive?: boolean;
   hidden?: (row: AdminResource) => boolean;
-  body?: (row: AdminResource) => Record<string, unknown> | null;
+  confirm?: {
+    reason?: { label: string; required?: boolean; defaultValue?: string };
+    amount?: { label: string; defaultValue: (row: AdminResource) => number };
+  };
+  body?: (row: AdminResource, fields: ActionFields) => Record<string, unknown> | null | undefined;
 };
 
 export type ResourceConfig = {
@@ -58,6 +69,13 @@ export type ResourceConfig = {
   create?: { label: string; path: string | ((values: Record<string, unknown>) => string); fields: readonly Field[] };
   edit?: { path: (row: AdminResource) => string; fields: readonly Field[] };
   actions?: readonly Action[];
+};
+
+type PendingAction = {
+  action: Action;
+  row: AdminResource;
+  reason: string;
+  amount: string;
 };
 
 function display(value: unknown, key: string): React.ReactNode {
@@ -76,6 +94,28 @@ function display(value: unknown, key: string): React.ReactNode {
     return <Badge variant="outline">{String(value)}</Badge>;
   }
   return String(value);
+}
+
+function displayText(value: unknown, key: string): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "예" : "아니오";
+  if (typeof value === "number") {
+    if (/At$/.test(key) && value > 1_000_000_000_000) return new Date(value).toLocaleString("ko-KR");
+    return value.toLocaleString("ko-KR");
+  }
+  if (typeof value === "string" && (/At$/.test(key) || key === "date")) {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) return new Date(parsed).toLocaleString("ko-KR");
+  }
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function rowSummary(config: ResourceConfig, row: AdminResource): string {
+  return config.columns
+    .slice(0, 4)
+    .map((column) => `${column.label} ${displayText(row[column.key], column.key)}`)
+    .join(" · ");
 }
 
 function initialValues(fields: readonly Field[], row?: AdminResource): Record<string, unknown> {
@@ -104,12 +144,22 @@ export function AdminResourceConsole({ config }: { config: ResourceConfig }) {
   const [editor, setEditor] = useState<{ mode: "create" | "edit"; row?: AdminResource } | null>(null);
   const fields = editor?.mode === "create" ? config.create?.fields : config.edit?.fields;
   const [values, setValues] = useState<Record<string, unknown>>({});
+  const [pending, setPending] = useState<PendingAction | null>(null);
   const queryKey = useMemo(() => ["admin-v2", config.resource, query], [config.resource, query]);
-  const list = useQuery({
+  const list = useInfiniteQuery({
     queryKey,
-    queryFn: () => listAdminResources(config.resource, { q: query, limit: 100 }),
+    queryFn: ({ pageParam }) =>
+      listAdminResources(config.resource, {
+        q: query,
+        limit: PAGE_SIZE,
+        ...(pageParam ? { cursor: pageParam } : {}),
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     retry: 2,
   });
+  const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const asOf = list.data?.pages.at(-1)?.asOf;
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["admin-v2", config.resource] });
   };
@@ -119,6 +169,7 @@ export function AdminResourceConsole({ config }: { config: ResourceConfig }) {
     onSuccess: () => {
       toast.success("처리되었습니다.");
       setEditor(null);
+      setPending(null);
       refresh();
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "처리하지 못했습니다."),
@@ -141,12 +192,48 @@ export function AdminResourceConsole({ config }: { config: ResourceConfig }) {
     mutation.mutate({ path, method: editor.mode === "create" ? (config.resource === "config" ? "PUT" : "POST") : (config.resource === "config" ? "PUT" : "PATCH"), body });
   };
 
-  const runAction = (action: Action, row: AdminResource) => {
-    if (!window.confirm(`${action.label} 작업을 진행할까요?`)) return;
-    const body = action.body?.(row);
-    if (body === null) return;
-    mutation.mutate({ path: action.path(row), method: action.method ?? "POST", ...(body === undefined ? {} : { body }) });
+  const openAction = (action: Action, row: AdminResource) => {
+    setPending({
+      action,
+      row,
+      reason: action.confirm?.reason?.defaultValue ?? "",
+      amount: action.confirm?.amount ? String(action.confirm.amount.defaultValue(row)) : "",
+    });
   };
+
+  const submitAction = () => {
+    if (!pending) return;
+    const fieldsForBody: ActionFields = {};
+    if (pending.action.confirm?.reason) {
+      const reason = pending.reason.trim();
+      if (pending.action.confirm.reason.required && !reason) {
+        toast.error(`${pending.action.confirm.reason.label}을 입력해 주세요.`);
+        return;
+      }
+      fieldsForBody.reason = reason;
+    }
+    if (pending.action.confirm?.amount) {
+      const amount = Number(pending.amount);
+      if (!Number.isInteger(amount) || amount <= 0) {
+        toast.error("환불 금액은 1원 이상 정수여야 합니다.");
+        return;
+      }
+      fieldsForBody.amount = amount;
+    }
+    const body = pending.action.body?.(pending.row, fieldsForBody);
+    if (body === null) return;
+    mutation.mutate({
+      path: pending.action.path(pending.row),
+      method: pending.action.method ?? "POST",
+      ...(body === undefined ? {} : { body }),
+    });
+  };
+
+  const confirmDisabled = Boolean(
+    mutation.isPending ||
+      (pending?.action.confirm?.reason?.required && pending.reason.trim().length === 0) ||
+      (pending?.action.confirm?.amount && (!Number.isInteger(Number(pending.amount)) || Number(pending.amount) <= 0)),
+  );
 
   return (
     <section className="space-y-4">
@@ -154,7 +241,11 @@ export function AdminResourceConsole({ config }: { config: ResourceConfig }) {
         <div>
           <h1 className="text-xl font-bold sm:text-2xl">{config.title}</h1>
           <p className="text-sm text-muted-foreground">{config.description}</p>
-          {list.data ? <p className="mt-1 text-xs text-muted-foreground">{list.data.items.length}건 · 기준 {new Date(list.data.asOf).toLocaleString("ko-KR")}</p> : null}
+          {list.data && asOf ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {`${items.length}건${list.hasNextPage ? "+" : ""} · 기준 ${new Date(asOf).toLocaleString("ko-KR")}`}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); setQuery(search.trim()); }}>
@@ -173,23 +264,37 @@ export function AdminResourceConsole({ config }: { config: ResourceConfig }) {
           <Button className="mt-3" variant="outline" onClick={() => void list.refetch()}>다시 시도</Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border bg-background">
-          <Table className="min-w-[800px]">
-            <TableHeader><TableRow>{config.columns.map((column) => <TableHead key={column.key}>{column.label}</TableHead>)}{config.edit || config.actions ? <TableHead className="text-right">작업</TableHead> : null}</TableRow></TableHeader>
-            <TableBody>
-              {list.isPending ? Array.from({ length: 5 }, (_, index) => <TableRow key={index}><TableCell colSpan={config.columns.length + 1}><div className="h-6 animate-pulse rounded bg-muted" /></TableCell></TableRow>) : null}
-              {!list.isPending && list.data?.items.length === 0 ? <TableRow><TableCell colSpan={config.columns.length + 1} className="py-12 text-center text-muted-foreground">결과가 없습니다.</TableCell></TableRow> : null}
-              {list.data?.items.map((row) => (
-                <TableRow key={row.id}>
-                  {config.columns.map((column) => <TableCell key={column.key} className="max-w-72 truncate">{display(row[column.key], column.key)}</TableCell>)}
-                  {config.edit || config.actions ? <TableCell><div className="flex justify-end gap-1">
-                    {config.edit ? <Button size="sm" variant="ghost" onClick={() => openEditor("edit", row)}><Pencil className="h-4 w-4" /> 수정</Button> : null}
-                    {config.actions?.filter((action) => !action.hidden?.(row)).map((action) => <Button key={action.label} size="sm" variant={action.destructive ? "destructive" : "outline"} disabled={mutation.isPending} onClick={() => runAction(action, row)}>{action.destructive ? <Trash2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}{action.label}</Button>)}
-                  </div></TableCell> : null}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="space-y-3">
+          <div className="overflow-hidden rounded-lg border bg-background">
+            <Table className="min-w-[800px]">
+              <TableHeader><TableRow>{config.columns.map((column) => <TableHead key={column.key}>{column.label}</TableHead>)}{config.edit || config.actions ? <TableHead className="text-right">작업</TableHead> : null}</TableRow></TableHeader>
+              <TableBody>
+                {list.isPending ? Array.from({ length: 5 }, (_, index) => <TableRow key={index}><TableCell colSpan={config.columns.length + 1}><div className="h-6 animate-pulse rounded bg-muted" /></TableCell></TableRow>) : null}
+                {!list.isPending && items.length === 0 ? <TableRow><TableCell colSpan={config.columns.length + 1} className="py-12 text-center text-muted-foreground">결과가 없습니다.</TableCell></TableRow> : null}
+                {items.map((row) => (
+                  <TableRow key={row.id}>
+                    {config.columns.map((column) => <TableCell key={column.key} className="max-w-72 truncate">{display(row[column.key], column.key)}</TableCell>)}
+                    {config.edit || config.actions ? <TableCell><div className="flex justify-end gap-1">
+                      {config.edit ? <Button size="sm" variant="ghost" onClick={() => openEditor("edit", row)}><Pencil className="h-4 w-4" /> 수정</Button> : null}
+                      {config.actions?.filter((action) => !action.hidden?.(row)).map((action) => <Button key={action.label} size="sm" variant={action.destructive ? "destructive" : "outline"} disabled={mutation.isPending} onClick={() => openAction(action, row)}>{action.destructive ? <Trash2 className="h-4 w-4" /> : <Check className="h-4 w-4" />}{action.label}</Button>)}
+                    </div></TableCell> : null}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          {list.hasNextPage ? (
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={list.isFetchingNextPage}
+                onClick={() => void list.fetchNextPage()}
+              >
+                {list.isFetchingNextPage ? "불러오는 중…" : "더 보기"}
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -200,6 +305,52 @@ export function AdminResourceConsole({ config }: { config: ResourceConfig }) {
             {fields?.map((field) => <div key={field.key} className="grid gap-1.5"><Label htmlFor={`${config.key}-${field.key}`}>{field.label}{field.required ? " *" : ""}</Label>{field.type === "textarea" ? <Textarea id={`${config.key}-${field.key}`} value={String(values[field.key] ?? "")} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} /> : field.options ? <select id={`${config.key}-${field.key}`} className="h-9 rounded-md border bg-background px-3 text-sm" value={String(values[field.key] ?? "")} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))}>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select> : field.type === "boolean" ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={Boolean(values[field.key])} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.checked }))} /> 활성화</label> : <Input id={`${config.key}-${field.key}`} type={field.type === "number" ? "number" : field.type === "datetime" ? "datetime-local" : "text"} required={field.required} value={String(values[field.key] ?? "")} onChange={(event) => setValues((current) => ({ ...current, [field.key]: event.target.value }))} />}</div>)}
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setEditor(null)}>취소</Button><Button disabled={mutation.isPending} onClick={submitEditor}>{mutation.isPending ? "저장 중…" : "저장"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) setPending(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{pending?.action.label}</DialogTitle>
+            <DialogDescription>
+              {pending ? rowSummary(config, pending.row) : "이 작업을 진행할까요?"}
+            </DialogDescription>
+          </DialogHeader>
+          {pending?.action.confirm?.amount ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor="action-amount">{pending.action.confirm.amount.label}</Label>
+              <Input
+                id="action-amount"
+                type="number"
+                min={1}
+                step={1}
+                value={pending.amount}
+                onChange={(event) => setPending((current) => current ? { ...current, amount: event.target.value } : current)}
+              />
+            </div>
+          ) : null}
+          {pending?.action.confirm?.reason ? (
+            <div className="grid gap-1.5">
+              <Label htmlFor="action-reason">{pending.action.confirm.reason.label}</Label>
+              <Textarea
+                id="action-reason"
+                value={pending.reason}
+                onChange={(event) => setPending((current) => current ? { ...current, reason: event.target.value } : current)}
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">이 작업은 즉시 운영 데이터에 반영됩니다.</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPending(null)}>취소</Button>
+            <Button
+              variant={pending?.action.destructive ? "destructive" : "default"}
+              disabled={confirmDisabled}
+              onClick={submitAction}
+            >
+              {mutation.isPending ? "처리 중…" : pending?.action.confirm?.amount ? "환불 실행" : pending?.action.label}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </section>
@@ -219,11 +370,11 @@ const statusAction = (label: string, suffix: string, hidden: (row: AdminResource
 
 export const resourceConfigs: Record<string, ResourceConfig> = {
   users: { key: "users", title: "사용자 관리", description: "계정 역할과 이용 상태를 관리합니다.", resource: "users", columns: [{ key: "nickname", label: "이름" }, { key: "email", label: "이메일" }, { key: "role", label: "역할" }, { key: "status", label: "상태" }, { key: "createdAt", label: "가입일" }], edit: { path: (row) => `/admin/v2/users/${row.id}`, fields: [text("nickname", "이름", true), { key: "role", label: "역할", options: ["USER", "ADMIN", "SUPER_ADMIN"] }, { key: "status", label: "상태", options: ["ACTIVE", "SUSPENDED"] }] }, actions: [statusAction("정지", "ban", (row) => row.status === "SUSPENDED"), statusAction("정지 해제", "unban", (row) => row.status !== "SUSPENDED")] },
-  "business-role-requests": { key: "business-role-requests", title: "업체 권한 신청", description: "앱에서 접수된 업체 관리자 권한 신청을 검토합니다.", resource: "business-role-requests", columns: [{ key: "nickname", label: "신청자" }, { key: "email", label: "이메일" }, { key: "businessName", label: "업체명" }, { key: "reason", label: "신청 사유" }, { key: "status", label: "상태" }, { key: "createdAt", label: "신청일" }], actions: [{ label: "승인", path: (row) => `/admin/v2/business-role-requests/${row.id}/approve`, hidden: (row) => row.status !== "PENDING", body: () => ({}) }, { label: "거절", path: (row) => `/admin/v2/business-role-requests/${row.id}/reject`, hidden: (row) => row.status !== "PENDING", destructive: true, body: () => { const reason = window.prompt("거절 사유를 입력하세요."); return reason ? { reason } : null; } }] },
-  "refund-policy-requests": { key: "refund-policy-requests", title: "환불 정책 변경", description: "업체의 환불 정책 변경 요청을 검토합니다.", resource: "refund-policy-change-requests", columns: [{ key: "businessName", label: "업체" }, { key: "proposedTiers", label: "정책" }, { key: "reason", label: "사유" }, { key: "status", label: "상태" }, { key: "createdAt", label: "요청일" }], actions: [{ label: "승인", path: (row) => `/admin/v2/refund-policy-change-requests/${row.id}/approve`, hidden: (row) => row.status !== "PENDING", body: () => ({}) }, { label: "거절", path: (row) => `/admin/v2/refund-policy-change-requests/${row.id}/reject`, hidden: (row) => row.status !== "PENDING", destructive: true, body: () => { const reason = window.prompt("거절 사유를 입력하세요."); return reason ? { reason } : null; } }] },
+  "business-role-requests": { key: "business-role-requests", title: "업체 권한 신청", description: "앱에서 접수된 업체 관리자 권한 신청을 검토합니다.", resource: "business-role-requests", columns: [{ key: "nickname", label: "신청자" }, { key: "email", label: "이메일" }, { key: "businessName", label: "업체명" }, { key: "reason", label: "신청 사유" }, { key: "status", label: "상태" }, { key: "createdAt", label: "신청일" }], actions: [{ label: "승인", path: (row) => `/admin/v2/business-role-requests/${row.id}/approve`, hidden: (row) => row.status !== "PENDING", body: () => ({}) }, { label: "거절", path: (row) => `/admin/v2/business-role-requests/${row.id}/reject`, hidden: (row) => row.status !== "PENDING", destructive: true, confirm: { reason: { label: "거절 사유", required: true } }, body: (_row, fields) => (fields.reason?.trim() ? { reason: fields.reason.trim() } : null) }] },
+  "refund-policy-requests": { key: "refund-policy-requests", title: "환불 정책 변경", description: "업체의 환불 정책 변경 요청을 검토합니다.", resource: "refund-policy-change-requests", columns: [{ key: "businessName", label: "업체" }, { key: "proposedTiers", label: "정책" }, { key: "reason", label: "사유" }, { key: "status", label: "상태" }, { key: "createdAt", label: "요청일" }], actions: [{ label: "승인", path: (row) => `/admin/v2/refund-policy-change-requests/${row.id}/approve`, hidden: (row) => row.status !== "PENDING", body: () => ({}) }, { label: "거절", path: (row) => `/admin/v2/refund-policy-change-requests/${row.id}/reject`, hidden: (row) => row.status !== "PENDING", destructive: true, confirm: { reason: { label: "거절 사유", required: true } }, body: (_row, fields) => (fields.reason?.trim() ? { reason: fields.reason.trim() } : null) }] },
   coupons: { key: "coupons", title: "쿠폰 관리", description: "플랫폼 공통 쿠폰을 발행하고 금액을 관리합니다.", resource: "coupons", columns: [{ key: "title", label: "이름" }, { key: "campaignId", label: "캠페인" }, { key: "discountAmount", label: "할인액" }, { key: "validDays", label: "유효일" }, { key: "kind", label: "종류" }, { key: "isActive", label: "활성" }], create: { label: "쿠폰 추가", path: "/admin/v2/coupons", fields: [text("campaignId", "캠페인 ID", true), text("title", "쿠폰명", true), { key: "description", label: "설명", type: "textarea" }, number("discountAmount", "할인액"), number("minimumOrderAmount", "최소 주문액"), number("maximumDiscountAmount", "최대 할인액"), number("validDays", "유효일", 30), { key: "kind", label: "종류", options: ["CLAIMABLE", "SYSTEM"], defaultValue: "CLAIMABLE" }] }, edit: { path: (row) => `/admin/v2/coupons/${row.id}`, fields: [number("discountAmount", "할인액"), number("minimumOrderAmount", "최소 주문액"), number("maximumDiscountAmount", "최대 할인액")] }, actions: [{ label: "비활성화", path: (row) => `/admin/v2/coupons/${row.id}`, method: "DELETE", destructive: true, hidden: (row) => row.isActive === false }] },
   inquiries: { key: "inquiries", title: "문의 관리", description: "웹사이트로 접수된 문의를 확인하고 처리합니다.", resource: "inquiries", columns: [{ key: "name", label: "이름" }, { key: "contact", label: "연락처" }, { key: "message", label: "문의 내용" }, { key: "status", label: "상태" }, { key: "createdAt", label: "접수일" }], actions: [{ label: "처리 완료", path: (row) => `/admin/v2/inquiries/${row.id}/resolve`, hidden: (row) => row.status === "RESOLVED" }] },
-  payments: { key: "payments", title: "결제 관리", description: "전체 결제 내역을 검색하고, 미확정 건은 토스에서 재조회해 확정하거나 완료 건을 환불합니다.", resource: "payments", columns: [{ key: "orderId", label: "주문번호" }, { key: "partyTitle", label: "파티" }, { key: "businessName", label: "업체" }, { key: "userId", label: "유저" }, { key: "method", label: "수단" }, { key: "amount", label: "금액" }, { key: "refundedAmount", label: "환불누적" }, { key: "status", label: "상태" }, { key: "createdAt", label: "결제일" }], actions: [{ label: "토스 재조회 확정", path: (row) => `/admin/v2/payments/${row.id}/confirm`, hidden: (row) => !["READY", "IN_PROGRESS"].includes(String(row.status)), body: () => ({}) }, { label: "수동 환불", path: (row) => `/admin/v2/payments/${row.id}/manual-refund`, destructive: true, hidden: (row) => !["DONE", "PARTIAL_CANCELLED"].includes(String(row.status)), body: (row) => { const remaining = remainingRefundable(row); const raw = window.prompt("환불 금액(원)", String(remaining)); if (!raw) return null; const amount = Number(raw); if (!Number.isInteger(amount) || amount <= 0) { window.alert("환불 금액은 1원 이상 정수여야 합니다."); return null; } const reason = window.prompt("환불 사유", "관리자 수동 환불"); return reason ? { amount, reason } : null; } }] },
+  payments: { key: "payments", title: "결제 관리", description: "전체 결제 내역을 검색하고, 미확정 건은 토스에서 재조회해 확정하거나 완료 건을 환불합니다.", resource: "payments", columns: [{ key: "orderId", label: "주문번호" }, { key: "partyTitle", label: "파티" }, { key: "businessName", label: "업체" }, { key: "userId", label: "유저" }, { key: "method", label: "수단" }, { key: "amount", label: "금액" }, { key: "refundedAmount", label: "환불누적" }, { key: "status", label: "상태" }, { key: "createdAt", label: "결제일" }], actions: [{ label: "토스 재조회 확정", path: (row) => `/admin/v2/payments/${row.id}/confirm`, hidden: (row) => !["READY", "IN_PROGRESS"].includes(String(row.status)), body: () => ({}) }, { label: "수동 환불", path: (row) => `/admin/v2/payments/${row.id}/manual-refund`, destructive: true, hidden: (row) => !["DONE", "PARTIAL_CANCELLED"].includes(String(row.status)), confirm: { amount: { label: "환불 금액(원)", defaultValue: remainingRefundable }, reason: { label: "환불 사유", required: true, defaultValue: "관리자 수동 환불" } }, body: (_row, fields) => { const amount = Number(fields.amount); const reason = fields.reason?.trim(); if (!Number.isInteger(amount) || amount <= 0 || !reason) return null; return { amount, reason }; } }] },
   refunds: { key: "refunds", title: "환불 재처리", description: "실패하거나 추가 조치가 필요한 환불을 재시도합니다.", resource: "refunds", columns: [{ key: "orderId", label: "주문번호" }, { key: "partyTitle", label: "파티" }, { key: "amount", label: "환불액" }, { key: "status", label: "상태" }, { key: "lastErrorCode", label: "오류" }, { key: "requestedAt", label: "요청일" }], actions: [{ label: "재시도", path: (row) => `/admin/v2/refunds/${row.id}/retry`, hidden: (row) => !["FAILED", "ACTION_REQUIRED", "REQUESTED"].includes(String(row.status)), body: () => ({}) }] },
   notifications: { key: "notifications", title: "알림 캠페인", description: "전체·사용자·파티·업체 대상 알림을 예약하거나 즉시 발송합니다.", resource: "notification-campaigns", columns: [{ key: "title", label: "제목" }, { key: "audience", label: "대상" }, { key: "status", label: "상태" }, { key: "targetCount", label: "대상 수" }, { key: "deliveredCount", label: "성공" }, { key: "createdAt", label: "생성일" }], create: { label: "캠페인 만들기", path: "/admin/v2/notifications/campaigns", fields: [text("title", "제목", true), { key: "body", label: "내용", type: "textarea", required: true }, { key: "audience", label: "대상", options: ["ALL", "USER", "PARTY", "BUSINESS"], defaultValue: "ALL" }, text("audienceId", "대상 ID"), text("clickAction", "클릭 액션"), { key: "scheduledAt", label: "예약 시각", type: "datetime" }, { key: "sendNow", label: "즉시 발송", type: "boolean" }] }, actions: [{ label: "지금 발송", path: (row) => `/admin/v2/notifications/campaigns/${row.id}/send`, hidden: (row) => !["DRAFT", "QUEUED", "FAILED"].includes(String(row.status)) }, { label: "취소", path: (row) => `/admin/v2/notifications/campaigns/${row.id}/cancel`, destructive: true, hidden: (row) => !["DRAFT", "QUEUED", "FAILED"].includes(String(row.status)) }] },
   banners: { key: "banners", title: "배너 관리", description: "앱 메인 배너의 이미지, 노출 순서와 액션을 관리합니다.", resource: "banners", columns: [{ key: "title", label: "제목" }, { key: "imageUrl", label: "이미지" }, { key: "actionType", label: "액션" }, { key: "sortOrder", label: "순서" }, { key: "isActive", label: "활성" }], create: { label: "배너 추가", path: "/admin/v2/banners", fields: [text("title", "제목", true), text("imageUrl", "이미지 URL", true), { key: "actionType", label: "액션", options: ["NONE", "DEEPLINK", "WEB", "INSTAGRAM", "YOUTUBE", "PHONE", "EMAIL", "CUSTOM"], defaultValue: "NONE" }, text("actionValue", "액션 값"), text("linkUrl", "링크 URL"), number("sortOrder", "순서"), { key: "isActive", label: "활성", type: "boolean", defaultValue: true }] }, edit: { path: (row) => `/admin/v2/banners/${row.id}`, fields: [text("title", "제목", true), text("imageUrl", "이미지 URL", true), { key: "actionType", label: "액션", options: ["NONE", "DEEPLINK", "WEB", "CUSTOM"] }, text("actionValue", "액션 값"), text("linkUrl", "링크 URL"), number("sortOrder", "순서"), { key: "isActive", label: "활성", type: "boolean" }] }, actions: [{ label: "삭제", path: (row) => `/admin/v2/banners/${row.id}`, method: "DELETE", destructive: true }] },

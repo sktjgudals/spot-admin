@@ -81,6 +81,26 @@ export function checkInManually(partyId: string, userId: string) {
   );
 }
 
+export type QrCheckInResult = {
+  replay?: boolean;
+  userId?: string;
+  type?: string;
+  checkedIn?: boolean;
+};
+
+export function checkInByQr(partyId: string, token: string) {
+  return adminFetchJson<QrCheckInResult>(
+    `/parties/${encodeURIComponent(partyId)}/check-in/qr`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        token,
+        idempotencyKey: `admin-web-qr:${uuidV7()}`,
+      }),
+    },
+  );
+}
+
 export const businessOperatorQueryKeys = {
   party: (partyId: string) => ["business-operator", "party", partyId] as const,
   checkIn: (partyId: string) => ["business-operator", "check-in", partyId] as const,

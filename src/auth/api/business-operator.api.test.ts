@@ -10,6 +10,7 @@ vi.mock("@/lib/uuid-v7", () => ({
 
 import { adminFetchJson } from "@/auth/api/admin-http";
 import {
+  checkInByQr,
   checkInManually,
   getCheckInStatus,
   getOperatorPartyDetail,
@@ -69,6 +70,23 @@ describe("business-operator.api", () => {
         body: JSON.stringify({
           userId: "user-1",
           idempotencyKey: "admin-web:01910000-0000-7000-8000-000000000001",
+        }),
+      },
+    );
+  });
+
+  it("posts a scanned QR token to the operator check-in path", async () => {
+    vi.mocked(adminFetchJson).mockResolvedValue({ checkedIn: true, replay: false });
+
+    await checkInByQr("party-1", "qr-token-1");
+
+    expect(adminFetchJson).toHaveBeenCalledWith(
+      "/parties/party-1/check-in/qr",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          token: "qr-token-1",
+          idempotencyKey: "admin-web-qr:01910000-0000-7000-8000-000000000001",
         }),
       },
     );
