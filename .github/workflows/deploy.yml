@@ -2,6 +2,8 @@ name: Admin Cloudflare staging
 
 on:
   pull_request: {}
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       deploy_staging:
