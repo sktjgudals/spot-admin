@@ -98,7 +98,7 @@ test('카테고리는 categorySchema를 통과하고 앱 폴백 목록과 일치
   // 앱 필터가 시드 파티를 하나도 못 찾는다.
   assert.deepEqual(
     CATEGORIES.map((category) => category.name),
-    ['솔로파티', '로테이션 소개팅', '혼술바', '게스트하우스 파티'],
+    ['소셜 모임', '네트워킹 모임', '취미 모임', '여행 모임'],
   );
   for (const category of CATEGORIES) {
     assert.ok(category.name.length >= 1 && category.name.length <= 100);
@@ -144,10 +144,20 @@ test('파티는 partyFields와 superRefine을 통과한다', () => {
         party.interestLimit <= 100,
       label,
     );
-    assert.ok(party.genderRatio.length <= 100, label);
-    assert.ok(party.minBirthYear >= 1900 && party.minBirthYear <= 2100, label);
-    assert.ok(party.maxBirthYear >= 1900 && party.maxBirthYear <= 2100, label);
-    assert.ok(party.minBirthYear <= party.maxBirthYear, `출생연도 범위 역전: ${label}`);
+    assert.ok(party.genderRatio === undefined || party.genderRatio.length <= 100, label);
+    assert.ok(
+      party.minBirthYear === undefined ||
+        (party.minBirthYear >= 1900 && party.minBirthYear <= 2100),
+      label,
+    );
+    assert.ok(
+      party.maxBirthYear === undefined ||
+        (party.maxBirthYear >= 1900 && party.maxBirthYear <= 2100),
+      label,
+    );
+    if (party.minBirthYear !== undefined && party.maxBirthYear !== undefined) {
+      assert.ok(party.minBirthYear <= party.maxBirthYear, `출생연도 범위 역전: ${label}`);
+    }
 
     assert.ok(built.inclusions.length <= 50, label);
     for (const item of built.inclusions) {
@@ -165,15 +175,11 @@ test('파티는 partyFields와 superRefine을 통과한다', () => {
   }
 });
 
-test('정원과 남녀 정원이 서로 맞는다', () => {
+test('성별 정원을 사용하지 않고 전체 정원만 사용한다', () => {
   for (const party of PARTIES) {
-    assert.ok(Number.isInteger(party.maxMale) && party.maxMale >= 0, party.title);
-    assert.ok(Number.isInteger(party.maxFemale) && party.maxFemale >= 0, party.title);
-    assert.equal(
-      party.maxMale + party.maxFemale,
-      party.maxCapacity,
-      `남녀 정원 합이 전체 정원과 다름: ${party.title}`,
-    );
+    assert.equal(party.maxMale, undefined, party.title);
+    assert.equal(party.maxFemale, undefined, party.title);
+    assert.equal(party.genderRatio, undefined, party.title);
   }
 });
 

@@ -1,7 +1,7 @@
 /**
  * DOPA 시드 데이터 — 업체 7곳 / 파티 50개.
  *
- * 국내 솔로파티·로테이션 소개팅 시장을 조사해 가격대·진행 방식·규모·장소를
+ * 국내 오프라인 커뮤니티 모임의 가격대·진행 방식·규모·장소를
  * 현실적인 수치로 맞췄고, 업체명·연락처·사업자번호는 실존 업체를 사칭하지
  * 않도록 전부 가상값이다. (조사 근거는 docs/SEED-PARTIES.md 참고)
  *
@@ -43,7 +43,7 @@ export const VENUES = {
   },
   sinnonhyeon: {
     location: '서울 강남',
-    placeName: '신논현 와인바 밀',
+    placeName: '신논현 커뮤니티 라운지',
     address: '서울 강남구 강남대로 476',
     latitude: 37.5045,
     longitude: 127.025,
@@ -127,7 +127,7 @@ export const VENUES = {
   },
   gwangjuSangmu: {
     location: '광주 서구',
-    placeName: '상무지구 미팅바',
+    placeName: '상무지구 커뮤니티 라운지',
     address: '광주 서구 상무중앙로 58',
     latitude: 35.152,
     longitude: 126.85,
@@ -160,14 +160,14 @@ export const VENUES = {
  * (`home_page.dart`, `party_filter_applier.dart`의 폴백 목록과 이름이 같아야 한다)
  *
  * "승인파티"는 카테고리가 아니라 `admissionMode: 'APPROVAL'`로 표현한다.
- * 승인 여부는 파티 유형과 직교하는 축이라(솔로파티도 로테이션도 승인제일 수
+ * 승인 여부는 파티 유형과 직교하는 축이라(어떤 카테고리도 승인제일 수
  * 있다) 카테고리로 만들면 필터가 서로를 배제해 버린다.
  */
 export const CATEGORIES = [
-  { name: '솔로파티', status: 'FIXED', sortOrder: 10 },
-  { name: '로테이션 소개팅', status: 'FIXED', sortOrder: 20 },
-  { name: '혼술바', status: 'FIXED', sortOrder: 30 },
-  { name: '게스트하우스 파티', status: 'FIXED', sortOrder: 40 },
+  { name: '소셜 모임', status: 'FIXED', sortOrder: 10 },
+  { name: '네트워킹 모임', status: 'FIXED', sortOrder: 20 },
+  { name: '취미 모임', status: 'FIXED', sortOrder: 30 },
+  { name: '여행 모임', status: 'FIXED', sortOrder: 40 },
 ];
 
 /**
@@ -182,7 +182,7 @@ export function partyImageSlug(party) {
   return `${party.business}-${String(ordinal).padStart(2, '0')}`;
 }
 
-export const BUSINESSES = [
+const LEGACY_BUSINESSES = [
   {
     key: 'solo-salon',
     name: '솔로살롱',
@@ -535,7 +535,7 @@ export const BUSINESSES = [
  * 된다. 회차마다 같은 안내문을 50번 복사해 두면 문구 하나 고칠 때 50곳을
  * 고쳐야 하므로 공통부는 업체에 둔다.
  */
-export const PARTIES = [
+const LEGACY_PARTIES = [
   // ── 솔로살롱 · 솔로파티 · 승인제 (8) ───────────────────────────────────
   {
     business: 'solo-salon',
@@ -1769,3 +1769,99 @@ export const PARTIES = [
     ],
   },
 ];
+
+const GENERAL_CATEGORY_BY_LEGACY = {
+  솔로파티: '소셜 모임',
+  '로테이션 소개팅': '네트워킹 모임',
+  혼술바: '취미 모임',
+  '게스트하우스 파티': '여행 모임',
+};
+
+const GENERAL_CATEGORY_LABEL = {
+  '소셜 모임': '소셜 모임',
+  '네트워킹 모임': '네트워킹 모임',
+  '취미 모임': '취미 교류 모임',
+  '여행 모임': '여행 커뮤니티 모임',
+};
+
+const GENERAL_BUSINESS_COPY = {
+  'solo-salon': ['커뮤니티살롱', '지역별 소규모 커뮤니티 모임'],
+  'single-stage': ['소셜스테이지', '부담 없이 참여하는 일상 소셜 모임'],
+  'rotate-seoul': ['네트워크서울', '주제별 대화와 네트워킹 모임'],
+  'ten-minute': ['토크서울', '직군과 관심사를 나누는 커뮤니티'],
+  'prime-social': ['프라임커뮤니티', '소규모 다이닝과 문화 체험 모임'],
+  'one-drink-night': ['동네테이블', '동네 이웃과 함께하는 오픈테이블'],
+  'gh-night': ['트래블메이트', '지역 여행과 액티비티 커뮤니티'],
+};
+
+const GENERAL_FLOW = [
+  '진행 순서',
+  '1. 출석 확인 및 안내 (15분)',
+  '2. 아이스브레이킹 활동 (20분)',
+  '3. 주제별 그룹 활동 및 대화',
+  '4. 자유 네트워킹 및 마무리',
+].join('\n');
+
+const GENERAL_NOTICE = [
+  '유의사항',
+  '· 모든 참가자를 존중해 주세요.',
+  '· 개인 연락처 교환을 강요하거나 부적절한 콘텐츠를 공유할 수 없습니다.',
+  '· 취소·환불은 업체 환불 정책을 따릅니다.',
+].join('\n');
+
+const GENERAL_FAQS = [
+  {
+    question: '혼자 참여해도 괜찮나요?',
+    answer: '네. 진행자가 활동과 대화를 안내하므로 혼자서도 편하게 참여할 수 있습니다.',
+  },
+  {
+    question: '참여 안내는 언제 받을 수 있나요?',
+    answer: '신청 상태와 상세 안내는 앱 알림과 파티 상세에서 확인할 수 있습니다.',
+  },
+  {
+    question: '준비물이 있나요?',
+    answer: '파티 상세의 안내사항을 확인하고 필요한 개인 물품만 준비해 주세요.',
+  },
+];
+
+const locationPrefix = (title) => {
+  const closing = title.indexOf(']');
+  return closing >= 0 ? `${title.slice(0, closing + 1)} ` : '';
+};
+
+export const BUSINESSES = LEGACY_BUSINESSES.map((business) => {
+  const [name, tagline] = GENERAL_BUSINESS_COPY[business.key] ?? [
+    business.name,
+    '지역 구성원이 함께하는 오프라인 모임',
+  ];
+  return {
+    ...business,
+    name,
+    tagline,
+    description: `${name}은 관심사와 지역을 중심으로 참가자가 교류하는 일반 오프라인 모임을 운영합니다.`,
+    flow: GENERAL_FLOW,
+    notice: GENERAL_NOTICE,
+    inclusions: ['모임 운영 및 진행', '공용 활동 자료', '기본 다과', '현장 안내'],
+    faqs: GENERAL_FAQS,
+  };
+});
+
+export const PARTIES = LEGACY_PARTIES.map((party, index) => {
+  const category = GENERAL_CATEGORY_BY_LEGACY[party.category] ?? party.category;
+  const label = GENERAL_CATEGORY_LABEL[category] ?? '오프라인 모임';
+  return {
+    ...party,
+    category,
+    title: `${locationPrefix(party.title)}${label} · ${String(index + 1).padStart(2, '0')}`,
+    intro: '지역과 관심사를 중심으로 참가자가 함께 활동하고 대화하는 일반 오프라인 모임입니다.',
+    maxMale: undefined,
+    maxFemale: undefined,
+    minMale: undefined,
+    minFemale: undefined,
+    genderRatio: undefined,
+    priceFemale: party.priceMale,
+    minBirthYear: undefined,
+    maxBirthYear: undefined,
+    inclusions: ['모임 운영 및 진행', '공용 활동 자료', '기본 다과', '현장 안내'],
+  };
+});

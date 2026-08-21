@@ -515,7 +515,7 @@ function printPlan(nowMs, { limit }, log) {
   }
 
   const total = targets.reduce(
-    (sum, party) => sum + party.priceMale * party.maxMale + party.priceFemale * party.maxFemale,
+    (sum, party) => sum + party.priceMale * party.maxCapacity,
     0,
   );
   log(`\n정원 전량 판매 시 거래액: ${total.toLocaleString()}원`);
