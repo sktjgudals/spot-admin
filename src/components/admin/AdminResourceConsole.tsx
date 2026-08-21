@@ -9,7 +9,13 @@ import {
   mutateAdminResource,
   type AdminResource,
 } from "@/auth/api/admin-resources.api";
-import { AdminApi } from "@/auth/model/admin-routes";
+import {
+  resourceConfigs,
+  type Action,
+  type ActionFields,
+  type Field,
+  type ResourceConfig,
+} from "@/components/admin/resource-configs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,43 +40,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 const PAGE_SIZE = 50;
 
-type Field = {
-  key: string;
-  label: string;
-  type?: "text" | "number" | "textarea" | "boolean" | "datetime";
-  required?: boolean;
-  options?: readonly string[];
-  defaultValue?: string | number | boolean;
-};
-
-type ActionFields = {
-  reason?: string;
-  amount?: number;
-};
-
-type Action = {
-  label: string;
-  path: (row: AdminResource) => string;
-  method?: "POST" | "PATCH" | "PUT" | "DELETE";
-  destructive?: boolean;
-  hidden?: (row: AdminResource) => boolean;
-  confirm?: {
-    reason?: { label: string; required?: boolean; defaultValue?: string };
-    amount?: { label: string; defaultValue: (row: AdminResource) => number };
-  };
-  body?: (row: AdminResource, fields: ActionFields) => Record<string, unknown> | null | undefined;
-};
-
-export type ResourceConfig = {
-  key: string;
-  title: string;
-  description: string;
-  resource: string;
-  columns: readonly { key: string; label: string }[];
-  create?: { label: string; path: string | ((values: Record<string, unknown>) => string); fields: readonly Field[] };
-  edit?: { path: (row: AdminResource) => string; fields: readonly Field[] };
-  actions?: readonly Action[];
-};
+export type { ResourceConfig };
+export { resourceConfigs };
 
 type PendingAction = {
   action: Action;
@@ -356,30 +327,3 @@ export function AdminResourceConsole({ config }: { config: ResourceConfig }) {
     </section>
   );
 }
-
-function remainingRefundable(row: AdminResource): number {
-  const amount = Number(row.amount ?? 0);
-  const refunded = Number(row.refundedAmount ?? 0);
-  if (!Number.isFinite(amount) || !Number.isFinite(refunded)) return 0;
-  return Math.max(0, Math.trunc(amount) - Math.trunc(refunded));
-}
-
-const text = (key: string, label: string, required = false): Field => ({ key, label, required });
-const number = (key: string, label: string, defaultValue = 0): Field => ({ key, label, type: "number", defaultValue });
-const statusAction = (label: string, suffix: string, hidden: (row: AdminResource) => boolean): Action => ({ label, path: (row) => `/admin/v2/users/${row.id}/${suffix}`, hidden, destructive: suffix === "ban" });
-
-export const resourceConfigs: Record<string, ResourceConfig> = {
-  users: { key: "users", title: "사용자 관리", description: "계정 역할과 이용 상태를 관리합니다.", resource: "users", columns: [{ key: "nickname", label: "이름" }, { key: "email", label: "이메일" }, { key: "role", label: "역할" }, { key: "status", label: "상태" }, { key: "createdAt", label: "가입일" }], edit: { path: (row) => `/admin/v2/users/${row.id}`, fields: [text("nickname", "이름", true), { key: "role", label: "역할", options: ["USER", "ADMIN", "SUPER_ADMIN"] }, { key: "status", label: "상태", options: ["ACTIVE", "SUSPENDED"] }] }, actions: [statusAction("정지", "ban", (row) => row.status === "SUSPENDED"), statusAction("정지 해제", "unban", (row) => row.status !== "SUSPENDED")] },
-  "business-role-requests": { key: "business-role-requests", title: "업체 권한 신청", description: "앱에서 접수된 업체 관리자 권한 신청을 검토합니다.", resource: "business-role-requests", columns: [{ key: "nickname", label: "신청자" }, { key: "email", label: "이메일" }, { key: "businessName", label: "업체명" }, { key: "reason", label: "신청 사유" }, { key: "status", label: "상태" }, { key: "createdAt", label: "신청일" }], actions: [{ label: "승인", path: (row) => `/admin/v2/business-role-requests/${row.id}/approve`, hidden: (row) => row.status !== "PENDING", body: () => ({}) }, { label: "거절", path: (row) => `/admin/v2/business-role-requests/${row.id}/reject`, hidden: (row) => row.status !== "PENDING", destructive: true, confirm: { reason: { label: "거절 사유", required: true } }, body: (_row, fields) => (fields.reason?.trim() ? { reason: fields.reason.trim() } : null) }] },
-  "refund-policy-requests": { key: "refund-policy-requests", title: "환불 정책 변경", description: "업체의 환불 정책 변경 요청을 검토합니다.", resource: "refund-policy-change-requests", columns: [{ key: "businessName", label: "업체" }, { key: "proposedTiers", label: "정책" }, { key: "reason", label: "사유" }, { key: "status", label: "상태" }, { key: "createdAt", label: "요청일" }], actions: [{ label: "승인", path: (row) => AdminApi.refundPolicyApprove(String(row.id)), hidden: (row) => row.status !== "PENDING", body: () => ({}) }, { label: "거절", path: (row) => AdminApi.refundPolicyReject(String(row.id)), hidden: (row) => row.status !== "PENDING", destructive: true, confirm: { reason: { label: "거절 사유", required: true } }, body: (_row, fields) => (fields.reason?.trim() ? { reason: fields.reason.trim() } : null) }] },
-  coupons: { key: "coupons", title: "쿠폰 관리", description: "플랫폼 공통 쿠폰을 발행하고 금액을 관리합니다.", resource: "coupons", columns: [{ key: "title", label: "이름" }, { key: "campaignId", label: "캠페인" }, { key: "discountAmount", label: "할인액" }, { key: "validDays", label: "유효일" }, { key: "kind", label: "종류" }, { key: "isActive", label: "활성" }], create: { label: "쿠폰 추가", path: "/admin/v2/coupons", fields: [text("campaignId", "캠페인 ID", true), text("title", "쿠폰명", true), { key: "description", label: "설명", type: "textarea" }, number("discountAmount", "할인액"), number("minimumOrderAmount", "최소 주문액"), number("maximumDiscountAmount", "최대 할인액"), number("validDays", "유효일", 30), { key: "kind", label: "종류", options: ["CLAIMABLE", "SYSTEM"], defaultValue: "CLAIMABLE" }] }, edit: { path: (row) => `/admin/v2/coupons/${row.id}`, fields: [number("discountAmount", "할인액"), number("minimumOrderAmount", "최소 주문액"), number("maximumDiscountAmount", "최대 할인액")] }, actions: [{ label: "비활성화", path: (row) => `/admin/v2/coupons/${row.id}`, method: "DELETE", destructive: true, hidden: (row) => row.isActive === false }] },
-  inquiries: { key: "inquiries", title: "문의 관리", description: "웹사이트로 접수된 문의를 확인하고 처리합니다.", resource: "inquiries", columns: [{ key: "name", label: "이름" }, { key: "contact", label: "연락처" }, { key: "message", label: "문의 내용" }, { key: "status", label: "상태" }, { key: "createdAt", label: "접수일" }], actions: [{ label: "처리 완료", path: (row) => `/admin/v2/inquiries/${row.id}/resolve`, hidden: (row) => row.status === "RESOLVED" }] },
-  payments: { key: "payments", title: "결제 관리", description: "전체 결제 내역을 검색하고, 미확정 건은 토스에서 재조회해 확정하거나 완료 건을 환불합니다.", resource: "payments", columns: [{ key: "orderId", label: "주문번호" }, { key: "partyTitle", label: "파티" }, { key: "businessName", label: "업체" }, { key: "userId", label: "유저" }, { key: "method", label: "수단" }, { key: "amount", label: "금액" }, { key: "refundedAmount", label: "환불누적" }, { key: "status", label: "상태" }, { key: "createdAt", label: "결제일" }], actions: [{ label: "토스 재조회 확정", path: (row) => AdminApi.paymentConfirm(String(row.id)), hidden: (row) => !["READY", "IN_PROGRESS"].includes(String(row.status)), body: () => ({}) }, { label: "수동 환불", path: (row) => AdminApi.paymentManualRefund(String(row.id)), destructive: true, hidden: (row) => !["DONE", "PARTIAL_CANCELLED"].includes(String(row.status)), confirm: { amount: { label: "환불 금액(원)", defaultValue: remainingRefundable }, reason: { label: "환불 사유", required: true, defaultValue: "관리자 수동 환불" } }, body: (_row, fields) => { const amount = Number(fields.amount); const reason = fields.reason?.trim(); if (!Number.isInteger(amount) || amount <= 0 || !reason) return null; return { amount, reason }; } }] },
-  refunds: { key: "refunds", title: "환불 재처리", description: "실패하거나 추가 조치가 필요한 환불을 재시도합니다.", resource: "refunds", columns: [{ key: "orderId", label: "주문번호" }, { key: "partyTitle", label: "파티" }, { key: "amount", label: "환불액" }, { key: "status", label: "상태" }, { key: "lastErrorCode", label: "오류" }, { key: "requestedAt", label: "요청일" }], actions: [{ label: "재시도", path: (row) => AdminApi.refundRetry(String(row.id)), hidden: (row) => !["FAILED", "ACTION_REQUIRED", "REQUESTED"].includes(String(row.status)), body: () => ({}) }] },
-  notifications: { key: "notifications", title: "알림 캠페인", description: "전체·사용자·파티·업체 대상 알림을 예약하거나 즉시 발송합니다.", resource: "notification-campaigns", columns: [{ key: "title", label: "제목" }, { key: "audience", label: "대상" }, { key: "status", label: "상태" }, { key: "targetCount", label: "대상 수" }, { key: "deliveredCount", label: "성공" }, { key: "createdAt", label: "생성일" }], create: { label: "캠페인 만들기", path: "/admin/v2/notifications/campaigns", fields: [text("title", "제목", true), { key: "body", label: "내용", type: "textarea", required: true }, { key: "audience", label: "대상", options: ["ALL", "USER", "PARTY", "BUSINESS"], defaultValue: "ALL" }, text("audienceId", "대상 ID"), text("clickAction", "클릭 액션"), { key: "scheduledAt", label: "예약 시각", type: "datetime" }, { key: "sendNow", label: "즉시 발송", type: "boolean" }] }, actions: [{ label: "지금 발송", path: (row) => `/admin/v2/notifications/campaigns/${row.id}/send`, hidden: (row) => !["DRAFT", "QUEUED", "FAILED"].includes(String(row.status)) }, { label: "취소", path: (row) => `/admin/v2/notifications/campaigns/${row.id}/cancel`, destructive: true, hidden: (row) => !["DRAFT", "QUEUED", "FAILED"].includes(String(row.status)) }] },
-  banners: { key: "banners", title: "배너 관리", description: "앱 메인 배너의 이미지, 노출 순서와 액션을 관리합니다.", resource: "banners", columns: [{ key: "title", label: "제목" }, { key: "imageUrl", label: "이미지" }, { key: "actionType", label: "액션" }, { key: "sortOrder", label: "순서" }, { key: "isActive", label: "활성" }], create: { label: "배너 추가", path: "/admin/v2/banners", fields: [text("title", "제목", true), text("imageUrl", "이미지 URL", true), { key: "actionType", label: "액션", options: ["NONE", "DEEPLINK", "WEB", "INSTAGRAM", "YOUTUBE", "PHONE", "EMAIL", "CUSTOM"], defaultValue: "NONE" }, text("actionValue", "액션 값"), text("linkUrl", "링크 URL"), number("sortOrder", "순서"), { key: "isActive", label: "활성", type: "boolean", defaultValue: true }] }, edit: { path: (row) => `/admin/v2/banners/${row.id}`, fields: [text("title", "제목", true), text("imageUrl", "이미지 URL", true), { key: "actionType", label: "액션", options: ["NONE", "DEEPLINK", "WEB", "CUSTOM"] }, text("actionValue", "액션 값"), text("linkUrl", "링크 URL"), number("sortOrder", "순서"), { key: "isActive", label: "활성", type: "boolean" }] }, actions: [{ label: "삭제", path: (row) => `/admin/v2/banners/${row.id}`, method: "DELETE", destructive: true }] },
-  categories: { key: "categories", title: "파티 카테고리", description: "파티 분류와 앱 노출 순서를 관리합니다.", resource: "party-categories", columns: [{ key: "name", label: "이름" }, { key: "status", label: "상태" }, { key: "sortOrder", label: "순서" }, { key: "iconUrl", label: "아이콘" }], create: { label: "카테고리 추가", path: "/admin/v2/party-categories", fields: [text("name", "이름", true), { key: "status", label: "상태", options: ["ACTIVE", "FIXED", "HIDDEN"], defaultValue: "ACTIVE" }, number("sortOrder", "순서"), text("iconUrl", "아이콘 URL")] }, edit: { path: (row) => `/admin/v2/party-categories/${row.id}`, fields: [text("name", "이름", true), { key: "status", label: "상태", options: ["ACTIVE", "FIXED", "HIDDEN"] }, number("sortOrder", "순서"), text("iconUrl", "아이콘 URL")] }, actions: [{ label: "숨김", path: (row) => `/admin/v2/party-categories/${row.id}`, method: "DELETE", destructive: true, hidden: (row) => row.status === "HIDDEN" }] },
-  "review-tag-categories": { key: "review-tag-categories", title: "리뷰 태그 그룹", description: "리뷰 태그 그룹을 관리합니다.", resource: "review-tag-categories", columns: [{ key: "name", label: "이름" }, { key: "sortOrder", label: "순서" }], create: { label: "그룹 추가", path: "/admin/v2/review-tag-categories", fields: [text("name", "이름", true), number("sortOrder", "순서")] }, edit: { path: (row) => `/admin/v2/review-tag-categories/${row.id}`, fields: [text("name", "이름", true), number("sortOrder", "순서")] }, actions: [{ label: "삭제", path: (row) => `/admin/v2/review-tag-categories/${row.id}`, method: "DELETE", destructive: true }] },
-  "review-tags": { key: "review-tags", title: "리뷰 태그", description: "사용자 리뷰에 표시되는 태그를 관리합니다.", resource: "review-tags", columns: [{ key: "category", label: "그룹" }, { key: "label", label: "태그" }, { key: "sortOrder", label: "순서" }, { key: "isActive", label: "활성" }], create: { label: "태그 추가", path: "/admin/v2/review-tags", fields: [text("categoryId", "그룹 ID", true), text("label", "태그", true), number("sortOrder", "순서"), { key: "isActive", label: "활성", type: "boolean", defaultValue: true }] }, edit: { path: (row) => `/admin/v2/review-tags/${row.id}`, fields: [text("categoryId", "그룹 ID", true), text("label", "태그", true), number("sortOrder", "순서"), { key: "isActive", label: "활성", type: "boolean" }] }, actions: [{ label: "비활성화", path: (row) => `/admin/v2/review-tags/${row.id}`, method: "DELETE", destructive: true, hidden: (row) => row.isActive === false }] },
-  config: { key: "config", title: "런타임 설정", description: "운영 설정을 변경합니다. 모든 변경은 감사 로그에 기록됩니다.", resource: "config", columns: [{ key: "key", label: "키" }, { key: "value", label: "값" }, { key: "description", label: "설명" }, { key: "updatedBy", label: "수정자" }, { key: "updatedAt", label: "수정일" }], create: { label: "설정 추가", path: (values) => `/admin/v2/config/${encodeURIComponent(String(values.key))}`, fields: [text("key", "키", true), text("value", "값", true), { key: "description", label: "설명", type: "textarea" }] }, edit: { path: (row) => `/admin/v2/config/${encodeURIComponent(String(row.key))}`, fields: [text("value", "값", true), { key: "description", label: "설명", type: "textarea" }] } },
-};

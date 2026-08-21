@@ -13,7 +13,9 @@ import {
   businessPartyDetailPath,
   resolveBusinessScope,
 } from "@/auth/model/admin-routes";
-import { PartyForm } from "../../../../_components/PartyForm";
+import { BusinessMobilePartyForm } from "@/components/business-mobile/BusinessMobilePartyForm";
+import { PartyOperationsPanel } from "../../../../_components/PartyOperationsPanel";
+import { BusinessUserReviewsPanel } from "../../../../_components/BusinessUserReviewsPanel";
 
 /**
  * SUPER_ADMIN edit — reject if party.businessId !== URL businessId (cross-tenant).
@@ -76,12 +78,16 @@ function Edit() {
   }
 
   return (
-    <PartyForm
-      mode="edit"
-      businessId={scope.businessId}
-      party={data}
-      successHref={(id) => businessPartyDetailPath(scope.businessId, id)}
-      cancelHref={businessPartiesPath(scope.businessId)}
-    />
+    <div className="space-y-4">
+      <BusinessMobilePartyForm
+        mode="edit"
+        businessId={scope.businessId}
+        party={data}
+        successHref={(id) => businessPartyDetailPath(scope.businessId, id)}
+        cancelHref={businessPartiesPath(scope.businessId)}
+      />
+      <PartyOperationsPanel party={data} />
+      {data.canBusinessReview && <BusinessUserReviewsPanel partyId={data.id} />}
+    </div>
   );
 }

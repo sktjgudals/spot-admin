@@ -29,5 +29,12 @@ function Form() {
     );
   }
 
-  return <BusinessMobilePartyForm businessId={scope.businessId} />;
+  return (
+    <BusinessMobilePartyForm
+      mode="create"
+      businessId={scope.businessId}
+      successHref={(id) => `/app/parties/${encodeURIComponent(id)}`}
+      cancelHref="/app/parties"
+    />
+  );
 }

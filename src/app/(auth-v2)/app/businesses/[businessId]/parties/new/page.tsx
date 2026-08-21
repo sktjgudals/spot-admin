@@ -8,7 +8,7 @@ import {
   businessPartyDetailPath,
   resolveBusinessScope,
 } from "@/auth/model/admin-routes";
-import { PartyForm } from "../../../../_components/PartyForm";
+import { BusinessMobilePartyForm } from "@/components/business-mobile/BusinessMobilePartyForm";
 
 export default function NewPartySuperAdminPage() {
   return (
@@ -34,7 +34,7 @@ function Form() {
   }
 
   return (
-    <PartyForm
+    <BusinessMobilePartyForm
       mode="create"
       businessId={scope.businessId}
       successHref={(id) => businessPartyDetailPath(scope.businessId, id)}

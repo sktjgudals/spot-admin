@@ -9,7 +9,9 @@ import {
   myPartyDetailPath,
   resolveBusinessScope,
 } from "@/auth/model/admin-routes";
-import { PartyForm } from "../../_components/PartyForm";
+import { BusinessMobilePartyForm } from "@/components/business-mobile/BusinessMobilePartyForm";
+import { PartyOperationsPanel } from "../../_components/PartyOperationsPanel";
+import { BusinessUserReviewsPanel } from "../../_components/BusinessUserReviewsPanel";
 
 /**
  * BUSINESS_ADMIN edit — block if party.businessId !== me.businessId.
@@ -66,12 +68,16 @@ function Edit() {
   }
 
   return (
-    <PartyForm
-      mode="edit"
-      businessId={scope.businessId}
-      party={data}
-      successHref={(id) => myPartyDetailPath(id)}
-      cancelHref="/app/parties"
-    />
+    <div className="space-y-4">
+      <BusinessMobilePartyForm
+        mode="edit"
+        businessId={scope.businessId}
+        party={data}
+        successHref={(id) => myPartyDetailPath(id)}
+        cancelHref="/app/parties"
+      />
+      <PartyOperationsPanel party={data} />
+      {data.canBusinessReview && <BusinessUserReviewsPanel partyId={data.id} />}
+    </div>
   );
 }
