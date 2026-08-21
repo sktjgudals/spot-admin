@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Star } from "lucide-react";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { BUSINESS_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { listParties, partyQueryKeys } from "@/auth/api/admin-party.api";
 import { BusinessBottomNav } from "@/components/business-mobile/BusinessMobileChrome";
 
 export default function BusinessReviewsPage() {
   return (
-    <RoleGuard allow={["BUSINESS_ADMIN"]}>
+    <RoleGuard allow={BUSINESS_ADMIN_ONLY}>
       <Reviews />
     </RoleGuard>
   );
@@ -19,8 +20,8 @@ function Reviews() {
   const { admin } = useAdminAuth();
   const businessId = admin?.businessId ?? "";
   const { data, isLoading, error } = useQuery({
-    queryKey: partyQueryKeys.list(businessId),
-    queryFn: () => listParties(businessId),
+    queryKey: partyQueryKeys.list(businessId, "business"),
+    queryFn: () => listParties(businessId, "business"),
     enabled: businessId.length > 0,
   });
   const completed = (data ?? []).filter((party) => party.canBusinessReview || party.operationalStatus === "COMPLETED");

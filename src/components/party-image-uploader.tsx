@@ -125,12 +125,19 @@ export function PartyImageUploader(props: Props) {
 
       setUploading(true);
       try {
+        const results = await Promise.allSettled(
+          toUpload.map((file) => uploadOptimized(file, props.uploadUrl)),
+        );
         const uploaded: string[] = [];
-        for (const file of toUpload) {
-          try {
-            uploaded.push(await uploadOptimized(file, props.uploadUrl));
-          } catch (e) {
-            toast.error(e instanceof Error ? e.message : "업로드에 실패했습니다");
+        for (const result of results) {
+          if (result.status === "fulfilled") {
+            uploaded.push(result.value);
+          } else {
+            toast.error(
+              result.reason instanceof Error
+                ? result.reason.message
+                : "업로드에 실패했습니다",
+            );
           }
         }
         if (uploaded.length === 0) return;

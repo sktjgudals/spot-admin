@@ -1,12 +1,12 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { adminFetchJson } from "@/auth/api/admin-http";
-import { setAccessToken } from "@/auth/store/admin-auth.store";
+import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
-import { homePathForRole, normalizeAdminWebRole } from "@/auth/model/admin-auth.types";
+import { homePathForRole } from "@/auth/model/admin-auth.types";
 import {
   Card,
   CardContent,
@@ -29,13 +29,25 @@ export default function InviteAcceptPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = use(params);
+  return <InviteAcceptForm token={token} />;
+}
+
+export function InviteAcceptForm({ token }: { token: string }) {
   const router = useRouter();
+  const { status, acceptIssuedSession, admin, homePath } = useAdminAuth();
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (status === "authenticated" && admin) {
+      router.replace(homePath ?? homePathForRole(admin.role));
+    }
+  }, [status, admin, homePath, router]);
+
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (status === "booting") return;
     if (password.length < 10) {
       toast.error("비밀번호는 10자 이상이어야 합니다");
       return;
@@ -43,7 +55,6 @@ export default function InviteAcceptPage({
     setLoading(true);
     try {
       const res = await adminFetchJson<{
-        status?: string;
         accessToken?: string | null;
         admin?: {
           id: string;
@@ -51,8 +62,8 @@ export default function InviteAcceptPage({
           name: string;
           role: string;
           businessId: string | null;
+          status?: string;
         };
-        code?: string;
       }>("/auth/v2/admin/invitations/accept", {
         method: "POST",
         body: JSON.stringify({
@@ -63,15 +74,19 @@ export default function InviteAcceptPage({
         skipAuthRefresh: true,
       });
 
-      if (res.accessToken) {
-        setAccessToken(res.accessToken);
+      if (res.accessToken && res.admin) {
+        const role = acceptIssuedSession({
+          accessToken: res.accessToken,
+          admin: {
+            ...res.admin,
+            status: res.admin.status ?? "ACTIVE",
+          },
+        });
         toast.success("가입 완료");
-        const role = normalizeAdminWebRole(res.admin?.role ?? "BUSINESS_ADMIN");
-        router.replace(role ? homePathForRole(role) : "/login");
+        router.replace(homePathForRole(role));
         return;
       }
 
-      // ACCOUNT_ACTIVATED_LOGIN_REQUIRED style
       toast.success("계정이 활성화되었습니다. 로그인해 주세요.");
       router.replace("/login");
     } catch (err) {
@@ -114,8 +129,8 @@ export default function InviteAcceptPage({
               minLength={10}
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "처리 중…" : "가입 완료"}
+          <Button type="submit" className="w-full" disabled={loading || status === "booting"}>
+            {loading || status === "booting" ? "처리 중…" : "가입 완료"}
           </Button>
         </form>
       </CardContent>

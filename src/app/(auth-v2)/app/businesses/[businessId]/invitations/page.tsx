@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAdminMutation } from "@/auth/query/use-admin-mutation";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import {
   cancelInvitation,
   createInvitation,
@@ -27,6 +29,7 @@ import { businessDetailPath } from "@/auth/model/admin-routes";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 import { getBusiness, businessQueryKeys } from "@/auth/api/admin-business.api";
 import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,7 +54,7 @@ import {
  */
 export default function BusinessInvitationsPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <InvitationsPage />
     </RoleGuard>
   );
@@ -73,14 +76,20 @@ function InvitationsPage() {
     queryFn: () => listInvitations(businessId),
     enabled: !!businessId,
   });
+  const invitations = useMemo(() => invQuery.data ?? [], [invQuery.data]);
 
   const outboxQuery = useQuery({
-    queryKey: mailOutboxQueryKeys.list({ type: "INVITATION" }),
-    queryFn: () => listMailOutbox({ type: "INVITATION" }),
-    enabled: !!businessId,
+    queryKey: mailOutboxQueryKeys.list({
+      type: "INVITATION",
+      take: Math.min(100, Math.max(invitations.length, 1)),
+    }),
+    queryFn: () =>
+      listMailOutbox({
+        type: "INVITATION",
+        take: Math.min(100, Math.max(invitations.length, 1)),
+      }),
+    enabled: !!businessId && invitations.length > 0,
   });
-
-  const invitations = useMemo(() => invQuery.data ?? [], [invQuery.data]);
   const deliveryMap = useMemo(
     () =>
       latestInviteDeliveryByInvitationId(
@@ -94,7 +103,7 @@ function InvitationsPage() {
     await Promise.all([
       qc.invalidateQueries({ queryKey: inviteQueryKeys.list(businessId) }),
       qc.invalidateQueries({
-        queryKey: mailOutboxQueryKeys.list({ type: "INVITATION" }),
+        queryKey: mailOutboxQueryKeys.all,
       }),
     ]);
   };
@@ -125,7 +134,7 @@ function InvitationsPage() {
           <div>
             <CardTitle className="text-base">초대 목록</CardTitle>
             <CardDescription>
-              resend = 동일 row · tokenVersion++ · 이전 outbox CANCELLED
+              재발송은 같은 초대를 갱신하고, 이전 메일은 취소됩니다.
             </CardDescription>
           </div>
           <Button
@@ -198,30 +207,27 @@ function CreateInviteCard({
   onCreated: () => Promise<void>;
 }) {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const [lastDevToken, setLastDevToken] = useState<string | null>(null);
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    setLoading(true);
-    setLastDevToken(null);
-    try {
-      const res = await createInvitation(businessId, email.trim());
-      toast.success(`초대 생성: ${res.invitation.email}`);
+  const create = useAdminMutation({
+    mutationFn: (inviteEmail: string) => createInvitation(businessId, inviteEmail),
+    successMessage: (res) => `초대 생성: ${res.invitation.email}`,
+    errorMessage: "초대 생성 실패",
+    onSuccess: async (res) => {
       if (res.inviteToken) {
         setLastDevToken(res.inviteToken);
         toast.message("dev inviteToken 응답 (운영에서는 비활성)");
       }
       setEmail("");
       await onCreated();
-    } catch (err) {
-      toast.error(
-        err instanceof AdminAuthError ? err.message : "초대 생성 실패",
-      );
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const inviteEmail = email.trim();
+    if (!inviteEmail) return;
+    setLastDevToken(null);
+    create.mutate(inviteEmail);
   };
 
   return (
@@ -248,8 +254,8 @@ function CreateInviteCard({
               required
             />
           </div>
-          <Button type="submit" disabled={loading}>
-            {loading ? "생성 중…" : "초대 생성"}
+          <Button type="submit" disabled={create.isPending}>
+            {create.isPending ? "생성 중…" : "초대 생성"}
           </Button>
         </form>
         {lastDevToken && (
@@ -306,7 +312,7 @@ function InviteRow({
       <TableCell>
         <div className="font-medium">{invitation.email}</div>
         <div className="text-xs text-muted-foreground font-mono">
-          v{invitation.tokenVersion} · {invitation.role}
+          {invitation.role}
         </div>
       </TableCell>
       <TableCell>
@@ -329,7 +335,7 @@ function InviteRow({
         />
       </TableCell>
       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-        {new Date(invitation.expiresAt).toLocaleString()}
+        {formatDateTime(invitation.expiresAt)}
       </TableCell>
       <TableCell className="text-sm text-center">
         {invitation.resendCount}

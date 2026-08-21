@@ -2,6 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
   businessDetailPath,
@@ -17,7 +18,7 @@ import { PartyListPanel } from "../../../_components/PartyListPanel";
  */
 export default function SuperAdminBusinessPartiesPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <ScopedList />
     </RoleGuard>
   );

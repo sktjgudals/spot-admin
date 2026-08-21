@@ -1,18 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { notifySlackError } from "@/lib/slack";
+import {
+  clientErrorRelayAllowedOrigin,
+  consumeClientErrorRateLimit,
+  parseClientErrorBody,
+} from "./client-error-relay";
 
-/** 브라우저(클라이언트)에서 잡힌 오류를 Slack([admin (client)])으로 전달한다. */
+/** Same-origin client errors only. Stacks stay in Sentry, not this Slack relay. */
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
+  const origin = req.headers.get("origin");
+  const host = req.headers.get("host");
+  if (!clientErrorRelayAllowedOrigin(origin, host)) {
+    return new NextResponse(null, { status: 403 });
+  }
+
+  const ip =
+    req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    "unknown";
+  if (!consumeClientErrorRateLimit(ip)) {
+    return new NextResponse(null, { status: 429 });
+  }
+
+  const body = parseClientErrorBody(await req.json().catch(() => null));
   if (!body) return NextResponse.json({ ok: false }, { status: 400 });
 
   await notifySlackError({
     source: "admin (client)",
-    title: String(body.title ?? "브라우저 오류").slice(0, 200),
-    detail: typeof body.detail === "string" ? body.detail : undefined,
+    title: body.title,
     fields: {
-      path: typeof body.path === "string" ? body.path : undefined,
-      digest: typeof body.digest === "string" ? body.digest : undefined,
+      path: body.path,
+      digest: body.digest,
     },
   });
 

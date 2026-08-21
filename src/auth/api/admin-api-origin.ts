@@ -2,6 +2,13 @@ import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 
 const ACTIVE_ORIGIN_STORAGE_KEY = "dopa-admin-api-origin";
 const HEALTH_TIMEOUT_MS = 4_000;
+const HEALTH_CACHE_TTL_MS = 30_000;
+
+const healthCache = new Map<string, { ok: true; at: number }>();
+
+export function resetHealthProbeCacheForTests() {
+  healthCache.clear();
+}
 
 function normalizeOrigin(value: string | undefined): string | null {
   const normalized = value?.trim().replace(/\/$/, "") ?? "";
@@ -62,8 +69,14 @@ export async function selectReachableAdminApiBaseUrl(): Promise<string> {
   const candidates = active
     ? [active, ...origins.filter((origin) => origin !== active)]
     : origins;
+  const now = Date.now();
 
   for (const origin of candidates) {
+    const cached = healthCache.get(origin);
+    if (cached && now - cached.at < HEALTH_CACHE_TTL_MS) {
+      rememberOrigin(origin);
+      return origin;
+    }
     try {
       const response = await fetch(`${origin}/health`, {
         method: "GET",
@@ -73,11 +86,12 @@ export async function selectReachableAdminApiBaseUrl(): Promise<string> {
         signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
       });
       if (response.ok) {
+        healthCache.set(origin, { ok: true, at: now });
         rememberOrigin(origin);
         return origin;
       }
     } catch {
-      // Probe the next configured direct Worker origin.
+      healthCache.delete(origin);
     }
   }
 

@@ -5,18 +5,30 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ChevronRight, UserRound } from "lucide-react";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { BUSINESS_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import {
   businessOperatorQueryKeys,
+  checkInByQr,
   checkInManually,
   getCheckInStatus,
   getOperatorPartyDetail,
   type CheckInParticipant,
 } from "@/auth/api/business-operator.api";
+import { CheckInQrScanner } from "@/components/business-mobile/CheckInQrScanner";
 import { MobilePartyHeader } from "@/components/business-mobile/MobilePartyHeader";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export default function PartyCheckInPage() {
   return (
-    <RoleGuard allow={["BUSINESS_ADMIN"]}>
+    <RoleGuard allow={BUSINESS_ADMIN_ONLY}>
       <CheckIn />
     </RoleGuard>
   );
@@ -26,6 +38,7 @@ function CheckIn() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<CheckInParticipant | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
   const party = useQuery({
     queryKey: businessOperatorQueryKeys.party(partyId),
     queryFn: () => getOperatorPartyDetail(partyId),
@@ -36,6 +49,7 @@ function CheckIn() {
     queryFn: () => getCheckInStatus(partyId),
     enabled: partyId.length > 0,
   });
+  const participants = status.data?.participants ?? [];
   const mutation = useMutation({
     mutationFn: ({ userId }: { userId: string }) => checkInManually(partyId, userId),
     onSuccess: () => {
@@ -46,7 +60,20 @@ function CheckIn() {
       window.setTimeout(() => setNotice(null), 3500);
     },
   });
-  const participants = status.data?.participants ?? [];
+  const qrMutation = useMutation({
+    mutationFn: (token: string) => checkInByQr(partyId, token),
+    onSuccess: (result) => {
+      const nickname = participants.find((person) => person.userId === result.userId)?.nickname;
+      setQrOpen(false);
+      setNotice(
+        result.replay
+          ? `${nickname ? `[${nickname}]님은` : "이 참가자는"} 이미 입장 처리되었습니다.`
+          : `${nickname ? `[${nickname}]님` : "참가자"} 파티 입장처리가 완료되었습니다.`,
+      );
+      void queryClient.invalidateQueries({ queryKey: businessOperatorQueryKeys.checkIn(partyId) });
+      window.setTimeout(() => setNotice(null), 3500);
+    },
+  });
 
   return (
     <div className="font-pretendard min-h-dvh bg-white pb-24">
@@ -104,21 +131,40 @@ function CheckIn() {
         </div>
       )}
       <div className="fixed inset-x-0 bottom-0 mx-auto w-full max-w-[430px] bg-white px-4 pb-[max(15px,env(safe-area-inset-bottom))] pt-2">
-        <button type="button" className="h-12 w-full rounded-xl bg-[#9c6cf2] text-[14px] text-white">QR 체크인</button>
+        <button type="button" onClick={() => setQrOpen(true)} className="h-12 w-full rounded-xl bg-[#9c6cf2] text-[14px] text-white">QR 체크인</button>
       </div>
+      <CheckInQrScanner
+        open={qrOpen}
+        pending={qrMutation.isPending}
+        error={qrMutation.error instanceof Error ? qrMutation.error.message : null}
+        onClose={() => {
+          setQrOpen(false);
+          qrMutation.reset();
+        }}
+        onToken={(token) => qrMutation.mutate(token)}
+      />
 
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35" role="dialog" aria-modal="true">
-          <div className="w-full max-w-[430px] rounded-t-[24px] bg-white px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-7">
-            <h2 className="text-center text-[18px] font-bold">[{selected.nickname}]님을 입장처리 할까요?</h2>
-            {mutation.error && <p className="mt-3 text-center text-[13px] text-red-600">{mutation.error.message}</p>}
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setSelected(null)} className="h-12 rounded-xl border border-[#dedede] text-[#686868]">닫기</button>
-              <button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate({ userId: selected.userId })} className="h-12 rounded-xl bg-[#9c6cf2] text-white disabled:opacity-50">입장처리</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={selected !== null} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>[{selected?.nickname}]님을 입장처리 할까요?</DialogTitle>
+            <DialogDescription>입장 처리는 즉시 반영됩니다.</DialogDescription>
+          </DialogHeader>
+          {mutation.error && (
+            <p className="text-sm text-destructive">{mutation.error.message}</p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setSelected(null)}>닫기</Button>
+            <Button
+              type="button"
+              disabled={mutation.isPending || !selected}
+              onClick={() => selected && mutation.mutate({ userId: selected.userId })}
+            >
+              입장처리
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

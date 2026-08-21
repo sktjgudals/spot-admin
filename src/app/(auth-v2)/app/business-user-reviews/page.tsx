@@ -11,6 +11,7 @@ import {
   updateBusinessUserReviewTag,
 } from "@/auth/api/admin-business-user-review.api";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 export default function BusinessUserReviewAdminPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <div className="grid gap-6 xl:grid-cols-2">
         <TagManager />
         <ReviewModeration />

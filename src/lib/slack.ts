@@ -1,4 +1,5 @@
 import "server-only";
+import { maskSlackText } from "@/lib/slack-mask";
 
 type ErrorSource = "admin" | "admin (client)";
 
@@ -18,15 +19,17 @@ export async function notifySlackError(p: {
 
   const env = process.env.NODE_ENV === "production" ? "prod" : "dev";
   const source = p.source ?? "admin";
-  const lines = [`:rotating_light: *[${source}][${env}]* ${p.title}`];
+  const lines = [
+    `:rotating_light: *[${source}][${env}]* ${maskSlackText(p.title, 200)}`,
+  ];
 
   if (p.fields) {
     for (const [k, v] of Object.entries(p.fields)) {
-      if (v) lines.push(`*${k}:* ${v}`);
+      if (v) lines.push(`*${k}:* ${maskSlackText(v, 200)}`);
     }
   }
   if (p.detail) {
-    lines.push("```" + p.detail.slice(0, 2500) + "```");
+    lines.push("```" + maskSlackText(p.detail) + "```");
   }
 
   try {

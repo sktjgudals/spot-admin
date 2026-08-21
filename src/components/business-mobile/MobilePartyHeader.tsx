@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { formatPartyDate } from "@/lib/format-date";
 
 export function MobilePartyHeader({
   title,
@@ -36,7 +37,7 @@ export function MobilePartyHeader({
               <p className="mt-1 truncate text-[14px] leading-[1.5] text-[#686868]">
                 {location}
                 {location && startsAt ? " · " : ""}
-                {startsAt ? formatDate(startsAt) : ""}
+                {startsAt ? formatPartyDate(startsAt) : ""}
               </p>
             )}
           </div>
@@ -45,14 +46,4 @@ export function MobilePartyHeader({
       )}
     </>
   );
-}
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
 }

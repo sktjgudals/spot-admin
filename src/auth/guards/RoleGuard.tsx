@@ -16,7 +16,7 @@ export function RoleGuard({
   allow,
   children,
 }: {
-  allow: AdminWebRole[];
+  allow: readonly AdminWebRole[];
   children: ReactNode;
 }) {
   const { status, admin } = useAdminAuth();

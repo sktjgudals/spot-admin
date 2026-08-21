@@ -1,4 +1,6 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
+import { adminQueryKeys } from "@/auth/model/admin-query-keys";
+import { AdminApi } from "@/auth/model/admin-routes";
 
 export type AgeBand = "10s" | "20s" | "30s" | "40s" | "50s+" | "unknown";
 
@@ -17,13 +19,9 @@ export type BusinessInsights = {
 };
 
 export function insightsQueryKey(partyId?: string) {
-  return ["businessInsights", partyId ?? "all"] as const;
+  return adminQueryKeys.insights(partyId);
 }
 
 export function getBusinessInsights(partyId?: string) {
-  const query =
-    partyId === undefined || partyId === ""
-      ? ""
-      : `?partyId=${encodeURIComponent(partyId)}`;
-  return adminFetchJson<BusinessInsights>(`/businesses/me/insights${query}`);
+  return adminFetchJson<BusinessInsights>(AdminApi.insights(partyId));
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { businessQueryKeys, getBusiness } from "@/auth/api/admin-business.api";
 import {
   businessInvitationsPath,
@@ -14,6 +15,7 @@ import { BusinessStatusBadge } from "../_components/BusinessStatusBadge";
 import { BusinessLifecycleActions } from "../_components/BusinessLifecycleActions";
 import { BusinessAdminPicker } from "@/components/admin/BusinessAdminPicker";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/format-date";
 import {
   Card,
   CardContent,
@@ -28,7 +30,7 @@ import {
  */
 export default function BusinessDetailPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <BusinessDetail />
     </RoleGuard>
   );
@@ -103,16 +105,16 @@ function BusinessDetail() {
           </div>
           <Field
             label="생성"
-            value={new Date(data.createdAt).toLocaleString()}
+            value={formatDateTime(data.createdAt)}
           />
           <Field
             label="수정"
-            value={new Date(data.updatedAt).toLocaleString()}
+            value={formatDateTime(data.updatedAt)}
           />
           {data.deletedAt && (
             <Field
               label="삭제"
-              value={new Date(data.deletedAt).toLocaleString()}
+              value={formatDateTime(data.deletedAt)}
             />
           )}
         </CardContent>

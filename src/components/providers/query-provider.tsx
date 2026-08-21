@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { shouldRetryAdminQuery } from "@/auth/query/should-retry-admin-query";
 
 export default function QueryProvider({
   children,
@@ -15,6 +16,10 @@ export default function QueryProvider({
           queries: {
             staleTime: 30_000,
             refetchOnWindowFocus: false,
+            retry: shouldRetryAdminQuery,
+          },
+          mutations: {
+            retry: false,
           },
         },
       }),

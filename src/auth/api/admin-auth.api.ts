@@ -1,9 +1,7 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
-import {
-  getAdminApiBaseUrl,
-  selectReachableAdminApiBaseUrl,
-} from "@/auth/api/admin-api-origin";
+import { selectReachableAdminApiBaseUrl } from "@/auth/api/admin-api-origin";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
+import { AdminApi } from "@/auth/model/admin-routes";
 import type {
   LoginResponse,
   MeResponse,
@@ -91,12 +89,9 @@ export async function refreshSession(): Promise<RefreshResponse> {
 }
 
 export async function fetchAdminMe(): Promise<MeResponse> {
-  return adminFetchJson<MeResponse>(
-    `${getAdminApiBaseUrl()}/auth/v2/admin/me`,
-    {
-      method: "GET",
-    },
-  );
+  return adminFetchJson<MeResponse>(AdminApi.me(), {
+    method: "GET",
+  });
 }
 
 export async function logoutSession(): Promise<void> {

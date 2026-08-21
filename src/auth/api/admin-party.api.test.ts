@@ -77,4 +77,23 @@ describe("admin-party.api", () => {
     );
     expect(adminFetchJson).toHaveBeenLastCalledWith("/businesses/me/parties/p1");
   });
+
+  it("encodes super-admin party ids", async () => {
+    vi.mocked(adminFetchJson).mockResolvedValue({ id: "p/1", businessId: "biz-1" });
+    await getParty("p/1", "super");
+    expect(adminFetchJson).toHaveBeenCalledWith("/admin/v2/parties/p%2F1");
+    await transitionParty(
+      "p/1",
+      {
+        toStatus: "RECRUITING",
+        expectedVersion: 0,
+        idempotencyKey: "publish-p1",
+      },
+      "super",
+    );
+    expect(adminFetchJson).toHaveBeenCalledWith(
+      "/admin/v2/parties/p%2F1/transitions",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
 });

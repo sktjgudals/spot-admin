@@ -3,17 +3,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Building2, PartyPopper, RefreshCw, ShieldAlert, Users } from "lucide-react";
 import { fetchAdminDashboardSummary } from "@/auth/api/admin-dashboard.api";
+import { adminQueryKeys } from "@/auth/model/admin-query-keys";
+import { formatDateTime } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const queryKey = ["admin-v2", "dashboard", "summary"] as const;
-
 export default function SuperAdminDashboard() {
   const summary = useQuery({
-    queryKey,
+    queryKey: adminQueryKeys.dashboard,
     queryFn: fetchAdminDashboardSummary,
     staleTime: 30_000,
-    retry: 2,
   });
 
   const cards = summary.data
@@ -100,7 +99,7 @@ export default function SuperAdminDashboard() {
 
       {summary.data ? (
         <p className="text-xs text-muted-foreground">
-          기준 시각 {new Date(summary.data.asOf).toLocaleString("ko-KR")}
+          기준 시각 {formatDateTime(summary.data.asOf)}
         </p>
       ) : null}
     </div>

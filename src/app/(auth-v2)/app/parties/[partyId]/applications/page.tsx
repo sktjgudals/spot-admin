@@ -7,6 +7,16 @@ import { ChevronRight, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { BUSINESS_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
+import {
   businessOperatorQueryKeys,
   getOperatorPartyDetail,
   reviewPartyApplication,
@@ -16,7 +26,7 @@ import { MobilePartyHeader } from "@/components/business-mobile/MobilePartyHeade
 
 export default function PartyApplicationsPage() {
   return (
-    <RoleGuard allow={["BUSINESS_ADMIN"]}>
+    <RoleGuard allow={BUSINESS_ADMIN_ONLY}>
       <Applications />
     </RoleGuard>
   );
@@ -47,6 +57,8 @@ function Applications() {
   });
 
   const applicants = data?.pendingApplications ?? [];
+  const maleCount = applicants.filter((applicant) => applicant.gender === "MALE").length;
+  const femaleCount = applicants.filter((applicant) => applicant.gender === "FEMALE").length;
   return (
     <div className="font-pretendard min-h-dvh bg-white pb-8">
       <MobilePartyHeader
@@ -55,12 +67,12 @@ function Applications() {
         location={data?.location}
         startsAt={data?.startsAt ?? data?.date}
       />
-      <div className="flex gap-4 px-4 pt-2 text-[16px]" role="tablist">
-        <button type="button" className="border-b-2 border-[#2d2d2d] px-2 pb-3 font-bold">
+      <div className="flex gap-4 px-4 pt-2 text-[16px]" role="tablist" aria-label="신청자 성별">
+        <span className="border-b-2 border-[#2d2d2d] px-2 pb-3 font-bold">
           전체 {applicants.length}
-        </button>
-        <span className="px-1 pb-3 text-[#8f8f8f]">남자 -</span>
-        <span className="px-1 pb-3 text-[#8f8f8f]">여자 -</span>
+        </span>
+        <span className="px-1 pb-3 text-[#8f8f8f]">남자 {maleCount}</span>
+        <span className="px-1 pb-3 text-[#8f8f8f]">여자 {femaleCount}</span>
       </div>
 
       {isLoading && <p className="py-20 text-center text-[14px] text-[#686868]">불러오는 중…</p>}
@@ -113,33 +125,42 @@ function Applications() {
         ))}
       </div>
 
-      {rejecting && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35" role="dialog" aria-modal="true" aria-labelledby="reject-title">
-          <div className="w-full max-w-[430px] rounded-t-[24px] bg-white px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-7">
-            <h2 id="reject-title" className="text-center text-[18px] font-bold">
-              [{rejecting.nickname}]님의 파티 참여를 거절할까요?
-            </h2>
-            <textarea
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="거절 사유를 입력해주세요."
-              className="mobile-input mt-4 min-h-[108px] resize-none py-3"
-              maxLength={500}
-            />
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setRejecting(null)} className="h-12 rounded-xl border border-[#dedede] text-[#686868]">닫기</button>
-              <button
-                type="button"
-                disabled={reason.trim().length === 0 || mutation.isPending}
-                onClick={() => mutation.mutate({ partyId, applicationId: rejecting.applicationId, status: "REJECTED", reason: reason.trim() })}
-                className="h-12 rounded-xl bg-[#9c6cf2] text-white disabled:bg-[#c8c8c8]"
-              >
-                거절
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={rejecting !== null} onOpenChange={(open) => { if (!open) setRejecting(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              [{rejecting?.nickname}]님의 파티 참여를 거절할까요?
+            </DialogTitle>
+            <DialogDescription>거절 사유는 신청자에게 안내됩니다.</DialogDescription>
+          </DialogHeader>
+          <textarea
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="거절 사유를 입력해주세요."
+            className="mobile-input min-h-[108px] resize-none py-3"
+            maxLength={500}
+            aria-label="거절 사유"
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRejecting(null)}>닫기</Button>
+            <Button
+              type="button"
+              disabled={reason.trim().length === 0 || mutation.isPending}
+              onClick={() =>
+                rejecting &&
+                mutation.mutate({
+                  partyId,
+                  applicationId: rejecting.applicationId,
+                  status: "REJECTED",
+                  reason: reason.trim(),
+                })
+              }
+            >
+              거절
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

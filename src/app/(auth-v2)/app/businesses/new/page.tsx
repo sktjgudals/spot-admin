@@ -4,10 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { formResolver } from "@/lib/form-resolver";
 import { toast } from "sonner";
+import { useAdminMutation } from "@/auth/query/use-admin-mutation";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import {
   assignBusinessAdmin,
   createBusiness,
@@ -43,7 +45,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function NewBusinessPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <NewBusinessForm />
     </RoleGuard>
   );
@@ -51,7 +53,6 @@ export default function NewBusinessPage() {
 
 function NewBusinessForm() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [selectedAdmin, setSelectedAdmin] =
     useState<BusinessAdminCandidate | null>(null);
   const {
@@ -59,13 +60,12 @@ function NewBusinessForm() {
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema) as never,
+    resolver: formResolver<FormValues>(schema),
     defaultValues: { kind: "COMPANY", feeRateBps: 1000 },
   });
 
-  const onSubmit = async (data: FormValues) => {
-    setLoading(true);
-    try {
+  const save = useAdminMutation({
+    mutationFn: async (data: FormValues) => {
       const created = await createBusiness({
         name: data.name.trim(),
         kind: data.kind,
@@ -76,33 +76,40 @@ function NewBusinessForm() {
         businessNumber: data.businessNumber?.trim() || undefined,
         feeRateBps: data.feeRateBps,
       });
-      if (selectedAdmin) {
-        try {
-          await assignBusinessAdmin(created.id, selectedAdmin.id);
-          toast.success(
-            `업체를 생성하고 ${selectedAdmin.nickname}님을 관리자로 할당했습니다.`,
-          );
-        } catch (assignmentError) {
-          toast.error(
-            assignmentError instanceof AdminAuthError
-              ? `업체는 생성됐지만 관리자 할당에 실패했습니다: ${assignmentError.message}`
-              : "업체는 생성됐지만 관리자 할당에 실패했습니다. 상세 화면에서 다시 시도하세요.",
-          );
-        }
+      if (!selectedAdmin) {
+        return { created, assignment: "skipped" as const };
+      }
+      try {
+        await assignBusinessAdmin(created.id, selectedAdmin.id);
+        return {
+          created,
+          assignment: "ok" as const,
+          nickname: selectedAdmin.nickname,
+        };
+      } catch (assignmentError) {
+        return { created, assignment: "failed" as const, assignmentError };
+      }
+    },
+    errorMessage: "생성에 실패했습니다",
+    onSuccess: (result) => {
+      if (result.assignment === "ok") {
+        toast.success(
+          `업체를 생성하고 ${result.nickname}님을 관리자로 할당했습니다.`,
+        );
+      } else if (result.assignment === "failed") {
+        toast.error(
+          result.assignmentError instanceof AdminAuthError
+            ? `업체는 생성됐지만 관리자 할당에 실패했습니다: ${result.assignmentError.message}`
+            : "업체는 생성됐지만 관리자 할당에 실패했습니다. 상세 화면에서 다시 시도하세요.",
+        );
       } else {
         toast.success(
           "업체가 생성되었습니다. 상세 화면에서 관리자를 할당할 수 있습니다.",
         );
       }
-      router.replace(businessDetailPath(created.id));
-    } catch (err) {
-      toast.error(
-        err instanceof AdminAuthError ? err.message : "생성에 실패했습니다",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+      router.replace(businessDetailPath(result.created.id));
+    },
+  });
 
   return (
     <Card className="max-w-lg">
@@ -114,7 +121,7 @@ function NewBusinessForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit((data) => save.mutate(data))} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="name">업체명 *</Label>
             <Input id="name" {...register("name")} />
@@ -176,7 +183,7 @@ function NewBusinessForm() {
             <BusinessAdminPicker
               selectedUserId={selectedAdmin?.id}
               onSelect={setSelectedAdmin}
-              disabled={loading}
+              disabled={save.isPending}
             />
             {selectedAdmin && (
               <div className="flex items-center justify-between gap-2 rounded-md bg-muted p-2 text-sm">
@@ -189,7 +196,7 @@ function NewBusinessForm() {
                   size="sm"
                   variant="ghost"
                   onClick={() => setSelectedAdmin(null)}
-                  disabled={loading}
+                  disabled={save.isPending}
                 >
                   선택 해제
                 </Button>
@@ -197,8 +204,8 @@ function NewBusinessForm() {
             )}
           </div>
           <div className="flex gap-2">
-            <Button type="submit" disabled={loading}>
-              {loading ? "생성 중…" : "생성"}
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending ? "생성 중…" : "생성"}
             </Button>
             <Button
               type="button"

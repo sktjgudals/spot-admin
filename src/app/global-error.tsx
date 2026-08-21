@@ -19,7 +19,6 @@ export default function GlobalError({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: error.message || "브라우저 오류",
-        detail: error.stack,
         digest: error.digest,
         path: typeof window !== "undefined" ? window.location.pathname : undefined,
       }),

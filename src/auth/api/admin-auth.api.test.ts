@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { resetHealthProbeCacheForTests } from "./admin-api-origin";
 import { loginWithOidc, loginWithPassword, refreshSession } from "./admin-auth.api";
 
 const PRIMARY = "https://api.example.test";
@@ -23,6 +24,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 describe("admin auth API origin failover", () => {
   afterEach(() => {
     window.localStorage.clear();
+    resetHealthProbeCacheForTests();
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
@@ -158,6 +160,44 @@ describe("admin auth API origin failover", () => {
       `${FALLBACK}/auth/v2/admin/refresh`,
       expect.objectContaining({ credentials: "include" }),
     );
+  });
+
+  it("reuses a successful health probe within the cache TTL", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", PRIMARY);
+    vi.stubEnv("NEXT_PUBLIC_API_FALLBACK_URL", FALLBACK);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ ok: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          accessToken: "access-1",
+          sessionId: "session",
+          admin,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          accessToken: "access-2",
+          sessionId: "session",
+          admin,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await loginWithPassword({
+      email: "admin@example.test",
+      password: "password",
+    });
+    await loginWithPassword({
+      email: "admin@example.test",
+      password: "password",
+    });
+
+    const healthCalls = fetchMock.mock.calls.filter(([url]) =>
+      String(url).endsWith("/health"),
+    );
+    expect(healthCalls).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("returns a retryable network error only when every origin is unreachable", async () => {

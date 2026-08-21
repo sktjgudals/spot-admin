@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { ALL_ADMIN_ROLES } from "@/auth/model/admin-auth.types";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
   myPartyDetailPath,
@@ -23,7 +24,7 @@ import {
  */
 export default function AppPartiesPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN", "BUSINESS_ADMIN"]}>
+    <RoleGuard allow={ALL_ADMIN_ROLES}>
       <MyPartiesShell />
     </RoleGuard>
   );

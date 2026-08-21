@@ -1,4 +1,5 @@
 import { adminFetchJson } from "@/auth/api/admin-http";
+import { AdminApi } from "@/auth/model/admin-routes";
 
 export type AdminDashboardSummary = {
   asOf: string;
@@ -8,7 +9,7 @@ export type AdminDashboardSummary = {
 };
 
 export function fetchAdminDashboardSummary(): Promise<AdminDashboardSummary> {
-  return adminFetchJson<AdminDashboardSummary>("/admin/v2/dashboard/summary", {
+  return adminFetchJson<AdminDashboardSummary>(AdminApi.dashboard(), {
     method: "GET",
   });
 }

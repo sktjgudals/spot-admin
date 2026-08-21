@@ -10,6 +10,7 @@ import {
   type AdminParty,
 } from "@/auth/api/admin-party.api";
 import { Button } from "@/components/ui/button";
+import { formatDateTime, formatPartyDate } from "@/lib/format-date";
 import { PartyStatusBadge } from "./PartyOperationsPanel";
 import {
   Table,
@@ -58,7 +59,7 @@ export function PartyListPanel({
   const { admin } = useAdminAuth();
   const scope = admin?.role === "SUPER_ADMIN" ? "super" : "business";
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: [...partyQueryKeys.list(businessId), scope],
+    queryKey: partyQueryKeys.list(businessId, scope),
     queryFn: () => listParties(businessId, scope),
     enabled: !!businessId,
   });
@@ -162,7 +163,7 @@ export function PartyListPanel({
                     </Link>
                   </TableCell>
                   <TableCell className="text-sm whitespace-nowrap">
-                    {new Date(p.date).toLocaleString()}
+                    {formatDateTime(p.date)}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">
                     {p.location}
@@ -222,17 +223,6 @@ function partyBadge(status: AdminParty["operationalStatus"]): {
     return { label: "대기", className: "bg-[#f5f5f5] text-[#686868]" };
   }
   return { label: "종료", className: "bg-[#f5f5f5] text-[#686868]" };
-}
-
-function formatPartyDate(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(value));
 }
 
 function BusinessPartyList({

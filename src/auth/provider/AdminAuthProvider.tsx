@@ -22,8 +22,7 @@ import {
   setAccessToken,
 } from "@/auth/store/admin-auth.store";
 import {
-  ensureAccessToken,
-  refreshAccessToken,
+  refreshAdminSession,
   assertRefreshFailedUnauthorized,
 } from "@/auth/refresh/refresh-single-flight";
 import {
@@ -95,14 +94,24 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const boot = useCallback(async () => {
     setState((s) => ({ ...s, status: "booting", bootError: null }));
     try {
-      const token = await ensureAccessToken();
+      const existing = getAccessToken();
+      if (!existing) {
+        const session = await refreshAdminSession();
+        const profile = toAdminProfile(session.admin);
+        if (!profile) {
+          applyUnauthenticated();
+          return;
+        }
+        applyAuthenticated(session.accessToken, profile);
+        return;
+      }
       const me = await fetchAdminMe();
       const profile = toAdminProfile(me);
       if (!profile) {
         applyUnauthenticated();
         return;
       }
-      applyAuthenticated(token, profile);
+      applyAuthenticated(existing, profile);
     } catch (err) {
       if (assertRefreshFailedUnauthorized(err) || isUnauthorized(err)) {
         applyUnauthenticated();
@@ -132,9 +141,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const adoptLoginResponse = useCallback(
     async (res: Awaited<ReturnType<typeof loginWithPassword>>) => {
-      setAccessToken(res.accessToken);
-      const me = await fetchAdminMe();
-      const profile = toAdminProfile(me) ?? toAdminProfile(res.admin);
+      const profile = toAdminProfile(res.admin);
       if (!profile) {
         clearAccessToken();
         throw new AdminAuthError(
@@ -247,6 +254,3 @@ export function useAdminAuthContext(): AdminAuthContextValue {
 export function useAdminAuthContextOptional(): AdminAuthContextValue | null {
   return useContext(AdminAuthContext);
 }
-
-// re-export refresh for interceptor tests
-export { refreshAccessToken };

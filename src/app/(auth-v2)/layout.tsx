@@ -3,10 +3,8 @@
 import type { ReactNode } from "react";
 import { AuthGuard } from "@/auth/guards/AuthGuard";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { BusinessMobileChrome } from "@/components/business-mobile/BusinessMobileChrome";
-import AdminSidebar, { MobileHeader } from "@/components/layout/AdminSidebar";
+import { AdminDesktopChrome } from "@/components/layout/AdminDesktopChrome";
 
 /** Cloudflare Admin API shell — HttpOnly session cookies + memory access token. */
 export default function AuthV2AppLayout({ children }: { children: ReactNode }) {
@@ -18,64 +16,11 @@ export default function AuthV2AppLayout({ children }: { children: ReactNode }) {
 }
 
 function AuthV2Chrome({ children }: { children: ReactNode }) {
-  const { admin, logout } = useAdminAuth();
+  const { admin } = useAdminAuth();
 
   if (admin?.role === "BUSINESS_ADMIN") {
     return <BusinessMobileChrome>{children}</BusinessMobileChrome>;
   }
 
-  if (admin?.role === "SUPER_ADMIN") {
-    const sidebarProps = { name: admin.name, email: admin.email };
-    return (
-      <div className="flex flex-col md:flex-row md:h-screen">
-        <AdminSidebar {...sidebarProps} />
-        <div className="flex min-w-0 flex-1 flex-col md:overflow-hidden">
-          <MobileHeader {...sidebarProps} />
-          <main className="flex-1 bg-slate-50 p-4 sm:p-5 md:overflow-y-auto lg:p-6 dark:bg-slate-950">
-            {children}
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
-      <header className="border-b bg-white px-4 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4 min-w-0">
-          <Link href="/app" className="font-semibold text-sm shrink-0">
-            Dopa Admin
-          </Link>
-          <span className="text-xs text-muted-foreground truncate">
-            Auth v2 · {admin?.role}
-            {admin?.businessId ? ` · ${admin.businessId.slice(0, 8)}…` : ""}
-          </span>
-          <Link href="/app/parties" className="text-xs text-primary">
-            파티
-          </Link>
-          {admin?.role === "SUPER_ADMIN" && (
-            <Link href="/app/business-user-reviews" className="text-xs text-primary">
-              업체 유저리뷰 관리
-            </Link>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-muted-foreground hidden sm:inline truncate max-w-[180px]">
-            {admin?.email}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void logout().then(() => {
-              window.location.assign("/login");
-            })}
-          >
-            로그아웃
-          </Button>
-        </div>
-      </header>
-      <main className="flex-1 p-4 sm:p-6">{children}</main>
-    </div>
-  );
+  return <AdminDesktopChrome>{children}</AdminDesktopChrome>;
 }

@@ -13,6 +13,7 @@ import {
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,7 +44,7 @@ export function PartyOperationsPanel({ party }: { party: AdminParty }) {
   const [reason, setReason] = useState("");
   const [pending, setPending] = useState<PartyOperationalStatus | null>(null);
   const history = useQuery({
-    queryKey: [...partyQueryKeys.detail(party.id), "status-history"],
+    queryKey: partyQueryKeys.statusHistory(party.id),
     queryFn: () => getPartyStatusHistory(party.id, scope),
   });
 
@@ -85,7 +86,7 @@ export function PartyOperationsPanel({ party }: { party: AdminParty }) {
           <span className="text-xs text-muted-foreground">v{party.operationalVersion}</span>
         </div>
         <CardDescription>
-          {new Date(party.startsAt).toLocaleString()} → {new Date(party.endsAt).toLocaleString()}
+          {formatDateTime(party.startsAt)} → {formatDateTime(party.endsAt)}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -123,7 +124,7 @@ export function PartyOperationsPanel({ party }: { party: AdminParty }) {
             <div key={item.id} className="flex flex-wrap items-center gap-2 text-xs">
               <span className="text-muted-foreground">v{item.version}</span>
               <span>{LABELS[item.fromStatus]} → {LABELS[item.toStatus]}</span>
-              <span className="text-muted-foreground">{item.actorType} · {new Date(item.createdAt).toLocaleString()}</span>
+              <span className="text-muted-foreground">{item.actorType} · {formatDateTime(item.createdAt)}</span>
               {item.reason && <span className="text-muted-foreground">{item.reason}</span>}
             </div>
           ))}

@@ -68,6 +68,22 @@ describe("admin-routes scope contract", () => {
     ).toEqual({ businessId: "biz-1" });
   });
 
+  it("encodes resource ids in Admin API paths", () => {
+    expect(AdminApi.party("a/b")).toBe("/admin/v2/parties/a%2Fb");
+    expect(AdminApi.myParty("a/b")).toBe("/businesses/me/parties/a%2Fb");
+    expect(AdminApi.partyTransitions("a/b", "super")).toBe(
+      "/admin/v2/parties/a%2Fb/transitions",
+    );
+    expect(AdminApi.paymentManualRefund("pay 1")).toBe(
+      "/admin/v2/payments/pay%201/manual-refund",
+    );
+    expect(AdminApi.insights("p/1")).toBe(
+      "/businesses/me/insights?partyId=p%2F1",
+    );
+    expect(AdminApi.me()).toBe("/auth/v2/admin/me");
+    expect(AdminApi.dashboard()).toBe("/admin/v2/dashboard/summary");
+  });
+
   it("cross-tenant: BUSINESS_ADMIN cannot use foreign route businessId", () => {
     const r = resolveBusinessScope({
       role: "BUSINESS_ADMIN",

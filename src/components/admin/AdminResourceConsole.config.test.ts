@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resourceConfigs } from "@/components/admin/AdminResourceConsole";
+import { getResourceConfig, resourceConfigs } from "@/components/admin/AdminResourceConsole";
 
 describe("business role request resource config", () => {
   it("connects the admin list and review actions to the backend contract", () => {
@@ -17,5 +17,10 @@ describe("business role request resource config", () => {
     );
     expect(config.actions?.[0]?.hidden?.(pending)).toBe(false);
     expect(config.actions?.[0]?.hidden?.({ ...pending, status: "APPROVED" })).toBe(true);
+  });
+
+  it("does not treat prototype keys as resource configs", () => {
+    expect(getResourceConfig("constructor")).toBeUndefined();
+    expect(getResourceConfig("users")?.key).toBe("users");
   });
 });

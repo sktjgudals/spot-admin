@@ -2,17 +2,18 @@
 
 import { useParams } from "next/navigation";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
   businessPartiesPath,
   businessPartyDetailPath,
   resolveBusinessScope,
 } from "@/auth/model/admin-routes";
-import { PartyForm } from "../../../../_components/PartyForm";
+import { BusinessMobilePartyForm } from "@/components/business-mobile/BusinessMobilePartyForm";
 
 export default function NewPartySuperAdminPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <Form />
     </RoleGuard>
   );
@@ -34,7 +35,7 @@ function Form() {
   }
 
   return (
-    <PartyForm
+    <BusinessMobilePartyForm
       mode="create"
       businessId={scope.businessId}
       successHref={(id) => businessPartyDetailPath(scope.businessId, id)}
