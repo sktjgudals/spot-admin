@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -26,4 +26,31 @@ test("Next config uploads source maps only when a Sentry token is present", () =
   const config = readFileSync(join(root, "next.config.ts"), "utf8");
   assert.match(config, /withSentryConfig/);
   assert.match(config, /sourcemaps:\s*\{[\s\S]*disable:\s*!process\.env\.SENTRY_AUTH_TOKEN/);
+});
+
+test("unused UI, legacy BFF leftovers and starter assets stay deleted", () => {
+  const gone = [
+    "src/components/ui/sidebar.tsx",
+    "src/components/ui/dropdown-menu.tsx",
+    "src/components/ui/select.tsx",
+    "src/components/ui/tooltip.tsx",
+    "src/components/ui/skeleton.tsx",
+    "src/hooks/use-mobile.ts",
+    "src/lib/banner-actions.ts",
+    "src/lib/query-keys.ts",
+    "src/app/(auth)/invite/[token]/BusinessSignupForm.tsx",
+    "src/generated/prisma",
+    "public/next.svg",
+    "public/vercel.svg",
+    "public/globe.svg",
+    "public/file.svg",
+    "public/window.svg",
+  ];
+  for (const rel of gone) {
+    assert.equal(existsSync(join(root, rel)), false, rel);
+  }
+  const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  for (const dep of ["recharts", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"]) {
+    assert.equal(pkg.dependencies?.[dep], undefined, dep);
+  }
 });
