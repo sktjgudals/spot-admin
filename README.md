@@ -86,3 +86,4 @@ node scripts/seed-parties.mjs --env staging
 데이터 구성, 가격 근거, production 등록 절차와 되돌리는 방법은 [시드 데이터 문서](docs/SEED-PARTIES.md)를 참고하세요.
 
 라우트, 인증, 배포, 롤백과 E2E 기준은 [운영 정본](docs/OPERATIONS.md)을 참고하세요.
+문서별 역할과 보관 범위는 [문서 지도](docs/README.md)에 정리돼 있습니다.
