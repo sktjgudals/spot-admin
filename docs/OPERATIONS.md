@@ -1,6 +1,6 @@
 # DOPA Admin 운영 정본
 
-마지막 갱신: 2026-08-17
+마지막 갱신: 2026-08-22
 
 이 문서는 `spot-admin`의 현재 기능·라우트·인증·배포·검증 기준을 한곳에 기록한다.
 과거 구현 메모나 릴리스별 체크리스트보다 현재 코드, 테스트와 이 문서를 우선한다.
@@ -11,18 +11,19 @@
 | ------------------------- | ---------------------------------------------------- |
 | Production Worker         | `dopa-admin`                                         |
 | Production URL            | `https://admin.dopa.ing`                             |
-| Production Worker version | `4048e1a1-6994-42c4-a872-1b81ccb652e8`               |
-| Git                       | `main` `bb9a707`                                     |
+| Production Worker version | `f0926705-cc8b-467b-8b95-e96f05aaad97`               |
+| Git                       | `main` `c25ad84`                                     |
 | API                       | `https://api.dopa.ing`                               |
 | WebSocket                 | `wss://api.dopa.ing/v2/chat`                         |
 | Staging Worker            | `dopa-admin-staging`                                 |
 | Staging API               | `https://dopa-backend-staging.ceoofspot.workers.dev` |
 
-2026-08-17 라이브는 git `bb9a707`, Worker `4048e1a1`(100%, wrangler deploy로
-확인)이다. `/login`은 HTTP 200이다. API는 production `c5d454d`다. 결제 목록에
-토스 재조회 확정과 잔액 기본 수동 환불이 있다. 업체 인사이트 빈 상태와 0명
-연령대 숨김, 앱과 같은 Google 웹 클라이언트로 배정된 담당자 로그인이 이
-버전에 있다. 실계정으로 그래프를 연 확인은 아직 없다.
+2026-08-22 라이브는 git `c25ad84`, Worker `f0926705`(100%, wrangler deploy로
+확인)이다. `/login`은 HTTP 200이고 CSP·HSTS가 응답에 있다. `/super-admin/dashboard`는
+비로그인 시 `/login`으로 307이다. API는 그대로 `api.dopa.ing`이다. PR #16 full
+review(보안 헤더, 콘솔 분리, 로그인된 운영자 `/login`→`/app`)가 이 버전에 있다.
+`c25ad84` seed 스크립트 변경은 Worker에 포함되지 않는다. 직전 정상 version은
+`4048e1a1`이다. 실계정으로 그래프를 연 확인은 아직 없다.
 
 업체 담당자 웹 로그인: 앱과 같은 Google 웹 클라이언트
 (`109162230288-9644lmdagmid6oc5bqttoq2q9asnigji`)로 `POST /auth/v2/admin/oidc-login`.
