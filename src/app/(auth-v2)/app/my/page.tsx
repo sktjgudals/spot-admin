@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { Building2, LogOut, Mail, UserRound } from "lucide-react";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { BUSINESS_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { BusinessBottomNav } from "@/components/business-mobile/BusinessMobileChrome";
 
 export default function BusinessMyPage() {
   return (
-    <RoleGuard allow={["BUSINESS_ADMIN"]}>
+    <RoleGuard allow={BUSINESS_ADMIN_ONLY}>
       <MyPage />
     </RoleGuard>
   );

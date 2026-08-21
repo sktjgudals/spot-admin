@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Star } from "lucide-react";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { BUSINESS_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { listParties, partyQueryKeys } from "@/auth/api/admin-party.api";
 import { BusinessBottomNav } from "@/components/business-mobile/BusinessMobileChrome";
 
 export default function BusinessReviewsPage() {
   return (
-    <RoleGuard allow={["BUSINESS_ADMIN"]}>
+    <RoleGuard allow={BUSINESS_ADMIN_ONLY}>
       <Reviews />
     </RoleGuard>
   );

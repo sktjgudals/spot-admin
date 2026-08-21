@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, ChevronRight, UserRound } from "lucide-react";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { BUSINESS_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import {
   businessOperatorQueryKeys,
   checkInByQr,
@@ -15,10 +16,19 @@ import {
 } from "@/auth/api/business-operator.api";
 import { CheckInQrScanner } from "@/components/business-mobile/CheckInQrScanner";
 import { MobilePartyHeader } from "@/components/business-mobile/MobilePartyHeader";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export default function PartyCheckInPage() {
   return (
-    <RoleGuard allow={["BUSINESS_ADMIN"]}>
+    <RoleGuard allow={BUSINESS_ADMIN_ONLY}>
       <CheckIn />
     </RoleGuard>
   );
@@ -134,18 +144,27 @@ function CheckIn() {
         onToken={(token) => qrMutation.mutate(token)}
       />
 
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35" role="dialog" aria-modal="true">
-          <div className="w-full max-w-[430px] rounded-t-[24px] bg-white px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-7">
-            <h2 className="text-center text-[18px] font-bold">[{selected.nickname}]님을 입장처리 할까요?</h2>
-            {mutation.error && <p className="mt-3 text-center text-[13px] text-red-600">{mutation.error.message}</p>}
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setSelected(null)} className="h-12 rounded-xl border border-[#dedede] text-[#686868]">닫기</button>
-              <button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate({ userId: selected.userId })} className="h-12 rounded-xl bg-[#9c6cf2] text-white disabled:opacity-50">입장처리</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={selected !== null} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>[{selected?.nickname}]님을 입장처리 할까요?</DialogTitle>
+            <DialogDescription>입장 처리는 즉시 반영됩니다.</DialogDescription>
+          </DialogHeader>
+          {mutation.error && (
+            <p className="text-sm text-destructive">{mutation.error.message}</p>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setSelected(null)}>닫기</Button>
+            <Button
+              type="button"
+              disabled={mutation.isPending || !selected}
+              onClick={() => selected && mutation.mutate({ userId: selected.userId })}
+            >
+              입장처리
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

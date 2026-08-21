@@ -10,6 +10,7 @@ import {
   type AdminResource,
 } from "@/auth/api/admin-resources.api";
 import {
+  getResourceConfig,
   resourceConfigs,
   type Action,
   type ActionFields,
@@ -42,7 +43,7 @@ import { formatDateTime } from "@/lib/format-date";
 const PAGE_SIZE = 50;
 
 export type { ResourceConfig };
-export { resourceConfigs };
+export { getResourceConfig, resourceConfigs };
 
 type PendingAction = {
   action: Action;

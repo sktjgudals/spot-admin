@@ -4,6 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type BarcodeDetectorLike = {
   detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue: string }>>;
@@ -96,15 +104,18 @@ export function CheckInQrScanner({
     };
   }, [open]);
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="qr-checkin-title">
-      <div className="flex w-full max-w-[430px] flex-col gap-4 rounded-t-[24px] bg-white px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-6">
-        <h2 id="qr-checkin-title" className="text-center text-[18px] font-bold">QR 체크인</h2>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent className="sm:max-w-md" showCloseButton={false}>
+        <DialogHeader>
+          <DialogTitle>QR 체크인</DialogTitle>
+          <DialogDescription>
+            카메라를 비추거나 토큰을 직접 입력해 입장 처리할 수 있습니다.
+          </DialogDescription>
+        </DialogHeader>
         <video ref={videoRef} className="h-48 w-full rounded-xl bg-black object-cover" muted playsInline />
-        {cameraError ? <p className="text-center text-[13px] text-[#686868]">{cameraError}</p> : null}
-        {error ? <p className="text-center text-[13px] text-red-600">{error}</p> : null}
+        {cameraError ? <p className="text-sm text-muted-foreground">{cameraError}</p> : null}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
         <div className="grid gap-1.5">
           <Label htmlFor="qr-token">QR 토큰</Label>
           <Input
@@ -114,18 +125,17 @@ export function CheckInQrScanner({
             autoComplete="off"
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Button type="button" variant="outline" className="h-12" onClick={onClose}>닫기</Button>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>닫기</Button>
           <Button
             type="button"
-            className="h-12 bg-[#9c6cf2] text-white hover:bg-[#9c6cf2]/90"
             disabled={pending || manual.trim().length === 0}
             onClick={() => onToken(manual.trim())}
           >
             {pending ? "처리 중…" : "토큰으로 체크인"}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

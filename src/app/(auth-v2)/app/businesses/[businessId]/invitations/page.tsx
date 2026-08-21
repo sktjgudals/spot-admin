@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAdminMutation } from "@/auth/query/use-admin-mutation";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import {
   cancelInvitation,
   createInvitation,
@@ -53,7 +54,7 @@ import {
  */
 export default function BusinessInvitationsPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <InvitationsPage />
     </RoleGuard>
   );
@@ -133,7 +134,7 @@ function InvitationsPage() {
           <div>
             <CardTitle className="text-base">초대 목록</CardTitle>
             <CardDescription>
-              resend = 동일 row · tokenVersion++ · 이전 outbox CANCELLED
+              재발송은 같은 초대를 갱신하고, 이전 메일은 취소됩니다.
             </CardDescription>
           </div>
           <Button
@@ -311,7 +312,7 @@ function InviteRow({
       <TableCell>
         <div className="font-medium">{invitation.email}</div>
         <div className="text-xs text-muted-foreground font-mono">
-          v{invitation.tokenVersion} · {invitation.role}
+          {invitation.role}
         </div>
       </TableCell>
       <TableCell>

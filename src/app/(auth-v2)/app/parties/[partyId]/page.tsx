@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { BUSINESS_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { getParty, partyQueryKeys } from "@/auth/api/admin-party.api";
 import {
@@ -18,7 +19,7 @@ import { BusinessUserReviewsPanel } from "../../_components/BusinessUserReviewsP
  */
 export default function MyPartyEditPage() {
   return (
-    <RoleGuard allow={["BUSINESS_ADMIN"]}>
+    <RoleGuard allow={BUSINESS_ADMIN_ONLY}>
       <Edit />
     </RoleGuard>
   );
@@ -59,9 +60,9 @@ function Edit() {
   if (data.businessId !== scope.businessId) {
     return (
       <div className="space-y-2 text-sm">
-        <p className="text-destructive font-medium">CROSS_TENANT_BLOCKED</p>
+        <p className="text-destructive font-medium">다른 업체의 파티입니다</p>
         <p className="text-muted-foreground">
-          다른 업체의 파티입니다. API의 업체 범위 검사에서도 거부됩니다.
+          이 계정으로 열 수 없는 파티입니다. 목록에서 다시 선택해 주세요.
         </p>
       </div>
     );

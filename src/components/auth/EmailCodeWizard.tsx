@@ -4,8 +4,8 @@ import { useId, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { formResolver } from "@/lib/form-resolver";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -90,16 +90,15 @@ export function EmailCodeWizard({ config }: { config: EmailCodeWizardConfig }) {
   const [expiresHint, setExpiresHint] = useState<string | null>(null);
 
   const emailForm = useForm<EmailValues>({
-    // zod v4 + hookform resolver typing noise — runtime validation still applied
-    resolver: zodResolver(config.emailSchema as never) as never,
+    resolver: formResolver<EmailValues>(config.emailSchema),
     defaultValues: { email: "" },
   });
   const codeForm = useForm<CodeValues>({
-    resolver: zodResolver(emailCodeSchema),
+    resolver: formResolver<CodeValues>(emailCodeSchema),
     defaultValues: { code: "" },
   });
   const passwordForm = useForm<PasswordValues>({
-    resolver: zodResolver(passwordSchema(includeName)) as never,
+    resolver: formResolver<PasswordValues>(passwordSchema(includeName)),
     defaultValues: { name: "", password: "", passwordConfirm: "" },
   });
 

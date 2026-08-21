@@ -1,9 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CheckInQrScanner } from "./CheckInQrScanner";
 
 describe("CheckInQrScanner", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.replaceChildren();
+  });
+
   it("submits a pasted check-in token when the camera is unavailable", async () => {
     const onToken = vi.fn();
     const user = userEvent.setup();

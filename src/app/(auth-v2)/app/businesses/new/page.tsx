@@ -4,11 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { formResolver } from "@/lib/form-resolver";
 import { toast } from "sonner";
 import { useAdminMutation } from "@/auth/query/use-admin-mutation";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import {
   assignBusinessAdmin,
   createBusiness,
@@ -44,7 +45,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function NewBusinessPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <NewBusinessForm />
     </RoleGuard>
   );
@@ -59,7 +60,7 @@ function NewBusinessForm() {
     handleSubmit,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema) as never,
+    resolver: formResolver<FormValues>(schema),
     defaultValues: { kind: "COMPANY", feeRateBps: 1000 },
   });
 

@@ -1,6 +1,13 @@
 /** Canonical roles for Admin Web. */
 export type AdminWebRole = "SUPER_ADMIN" | "BUSINESS_ADMIN";
 
+export const SUPER_ADMIN_ONLY: readonly AdminWebRole[] = ["SUPER_ADMIN"];
+export const BUSINESS_ADMIN_ONLY: readonly AdminWebRole[] = ["BUSINESS_ADMIN"];
+export const ALL_ADMIN_ROLES: readonly AdminWebRole[] = [
+  "SUPER_ADMIN",
+  "BUSINESS_ADMIN",
+];
+
 export type AuthStatus = "booting" | "authenticated" | "unauthenticated" | "degraded";
 
 export type AdminProfile = {

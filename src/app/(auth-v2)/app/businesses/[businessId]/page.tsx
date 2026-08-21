@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { businessQueryKeys, getBusiness } from "@/auth/api/admin-business.api";
 import {
   businessInvitationsPath,
@@ -29,7 +30,7 @@ import {
  */
 export default function BusinessDetailPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <BusinessDetail />
     </RoleGuard>
   );

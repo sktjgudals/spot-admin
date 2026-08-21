@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Bell, Copy, Menu, Plus, UserRound, X } from "lucide-react";
+import { ArrowLeft, Copy, Menu, Plus, UserRound } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -287,31 +294,35 @@ export function BusinessMobileChatRoom({ roomId }: { roomId: string }) {
               }
             }}
             placeholder="메시지 입력"
+            aria-label="메시지 입력"
             className="min-w-0 flex-1 bg-transparent px-2 text-[14px] outline-none placeholder:text-[#8f8f8f]"
           />
           <button type="button" onClick={send} disabled={!connected || !input.trim()} className="rounded-lg bg-[#9c6cf2] px-3 py-1.5 text-[13px] text-white disabled:hidden">전송</button>
         </div>
       </div>
 
-      {drawer && (
-        <div className="fixed inset-0 z-50 flex justify-center bg-black/20" role="dialog" aria-modal="true" aria-label="채팅방 정보">
-          <aside className="ml-auto min-h-dvh w-full max-w-[430px] bg-white px-4 pb-6 pt-3 shadow-xl">
-            <div className="flex justify-end gap-2">
-              <button type="button" className="grid size-10 place-items-center rounded-lg hover:bg-[#f5f5f5]" aria-label="알림 설정"><Bell className="size-5" /></button>
-              <button type="button" onClick={() => setDrawer(false)} className="grid size-10 place-items-center rounded-lg hover:bg-[#f5f5f5]" aria-label="닫기"><X className="size-5" /></button>
-            </div>
-            <h2 className="mt-4 text-[14px] text-[#686868]">대화상대 (2명)</h2>
-            <div className="mt-4 space-y-5">
-              <Participant
-                name={admin?.business?.name ?? admin?.name ?? "업체 관리자"}
-                mine
-              />
-              <Participant name={room?.userNickname || "고객"} />
-            </div>
-            <button type="button" onClick={() => router.push("/app/chat")} className="absolute bottom-6 left-4 right-4 h-12 rounded-xl border border-[#dedede] text-[14px] text-[#686868]">채팅방 나가기</button>
-          </aside>
-        </div>
-      )}
+      <Sheet open={drawer} onOpenChange={setDrawer}>
+        <SheetContent side="right" className="w-full sm:max-w-[430px]">
+          <SheetHeader>
+            <SheetTitle>채팅방 정보</SheetTitle>
+            <SheetDescription>대화상대 (2명)</SheetDescription>
+          </SheetHeader>
+          <div className="space-y-5 px-4">
+            <Participant
+              name={admin?.business?.name ?? admin?.name ?? "업체 관리자"}
+              mine
+            />
+            <Participant name={room?.userNickname || "고객"} />
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push("/app/chat")}
+            className="absolute bottom-6 left-4 right-4 h-12 rounded-xl border border-[#dedede] text-[14px] text-[#686868]"
+          >
+            채팅방 나가기
+          </button>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

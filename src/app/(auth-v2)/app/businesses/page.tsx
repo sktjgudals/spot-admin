@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import {
   businessQueryKeys,
   listBusinesses,
@@ -30,7 +31,7 @@ import {
  */
 export default function AppBusinessesPage() {
   return (
-    <RoleGuard allow={["SUPER_ADMIN"]}>
+    <RoleGuard allow={SUPER_ADMIN_ONLY}>
       <BusinessList />
     </RoleGuard>
   );

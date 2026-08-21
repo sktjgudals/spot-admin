@@ -19,6 +19,13 @@ import { useAdminMutation } from "@/auth/query/use-admin-mutation";
 import { PartyImageUploader } from "@/components/party-image-uploader";
 import { cn } from "@/lib/utils";
 
+type InclusionRow = { id: string; label: string };
+type FaqRow = { id: string; question: string; answer: string };
+
+function newRowId(): string {
+  return crypto.randomUUID();
+}
+
 type FormState = {
   title: string;
   description: string;
@@ -144,11 +151,15 @@ export function BusinessMobilePartyForm({
     if (party?.coverImage) return [party.coverImage];
     return [];
   });
-  const [inclusions, setInclusions] = useState<string[]>(
-    party?.inclusions?.map((item) => item.label) ?? [],
+  const [inclusions, setInclusions] = useState<InclusionRow[]>(
+    party?.inclusions?.map((item) => ({ id: item.id || newRowId(), label: item.label })) ?? [],
   );
-  const [faqs, setFaqs] = useState<Array<{ question: string; answer: string }>>(
-    party?.faqs?.map(({ question, answer }) => ({ question, answer })) ?? [],
+  const [faqs, setFaqs] = useState<FaqRow[]>(
+    party?.faqs?.map((item) => ({
+      id: item.id || newRowId(),
+      question: item.question,
+      answer: item.answer,
+    })) ?? [],
   );
   const [placeQuery, setPlaceQuery] = useState(party?.placeName ?? "");
   const [placeResults, setPlaceResults] = useState<
@@ -229,7 +240,7 @@ export function BusinessMobilePartyForm({
         images,
         coverImage: images[0],
         inclusions: inclusions
-          .map((label) => label.trim())
+          .map((item) => item.label.trim())
           .filter(Boolean)
           .map((label) => ({ label })),
         faqs: faqs.map(({ question, answer }) => ({
@@ -287,7 +298,7 @@ export function BusinessMobilePartyForm({
       toast.error("최소 나이는 최대 나이보다 작아야 합니다.");
       return;
     }
-    if (faqs.some(({ question, answer }) => question.trim().length === 0 || answer.trim().length === 0)) {
+    if (faqs.some((faq) => faq.question.trim().length === 0 || faq.answer.trim().length === 0)) {
       toast.error("FAQ의 질문과 답변을 모두 입력해 주세요");
       return;
     }
@@ -558,23 +569,23 @@ export function BusinessMobilePartyForm({
           <button
             type="button"
             disabled={inclusions.length >= 20}
-            onClick={() => setInclusions((items) => [...items, ""])}
+            onClick={() => setInclusions((items) => [...items, { id: newRowId(), label: "" }])}
             className="inline-flex items-center gap-1 text-[13px] text-[#7144c2]"
           >
             <Plus className="size-4" />
             추가
           </button>
-          {inclusions.map((label, index) => (
-            <div key={index} className="flex items-center gap-2">
+          {inclusions.map((row, index) => (
+            <div key={row.id} className="flex items-center gap-2">
               <input
                 aria-label={`포함 사항 ${index + 1}`}
                 maxLength={80}
                 placeholder="예: 웰컴 드링크"
-                value={label}
+                value={row.label}
                 onChange={(event) =>
                   setInclusions((items) =>
-                    items.map((item, itemIndex) =>
-                      itemIndex === index ? event.target.value : item,
+                    items.map((item) =>
+                      item.id === row.id ? { ...item, label: event.target.value } : item,
                     ),
                   )
                 }
@@ -584,7 +595,7 @@ export function BusinessMobilePartyForm({
                 type="button"
                 aria-label={`포함 사항 ${index + 1} 삭제`}
                 onClick={() =>
-                  setInclusions((items) => items.filter((_, itemIndex) => itemIndex !== index))
+                  setInclusions((items) => items.filter((item) => item.id !== row.id))
                 }
               >
                 <Trash2 className="size-4 text-red-500" />
@@ -597,14 +608,16 @@ export function BusinessMobilePartyForm({
           <button
             type="button"
             disabled={faqs.length >= 20}
-            onClick={() => setFaqs((items) => [...items, { question: "", answer: "" }])}
+            onClick={() =>
+              setFaqs((items) => [...items, { id: newRowId(), question: "", answer: "" }])
+            }
             className="inline-flex items-center gap-1 text-[13px] text-[#7144c2]"
           >
             <Plus className="size-4" />
             질문 추가
           </button>
           {faqs.map((faq, index) => (
-            <div key={index} className="space-y-2 rounded-xl border border-[#dedede] p-3">
+            <div key={faq.id} className="space-y-2 rounded-xl border border-[#dedede] p-3">
               <div className="flex items-start gap-2">
                 <div className="flex-1 space-y-2">
                   <input
@@ -614,8 +627,8 @@ export function BusinessMobilePartyForm({
                     value={faq.question}
                     onChange={(event) =>
                       setFaqs((items) =>
-                        items.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, question: event.target.value } : item,
+                        items.map((item) =>
+                          item.id === faq.id ? { ...item, question: event.target.value } : item,
                         ),
                       )
                     }
@@ -629,8 +642,8 @@ export function BusinessMobilePartyForm({
                     value={faq.answer}
                     onChange={(event) =>
                       setFaqs((items) =>
-                        items.map((item, itemIndex) =>
-                          itemIndex === index ? { ...item, answer: event.target.value } : item,
+                        items.map((item) =>
+                          item.id === faq.id ? { ...item, answer: event.target.value } : item,
                         ),
                       )
                     }
@@ -641,7 +654,7 @@ export function BusinessMobilePartyForm({
                   type="button"
                   aria-label={`FAQ ${index + 1} 삭제`}
                   onClick={() =>
-                    setFaqs((items) => items.filter((_, itemIndex) => itemIndex !== index))
+                    setFaqs((items) => items.filter((item) => item.id !== faq.id))
                   }
                 >
                   <Trash2 className="size-4 text-red-500" />

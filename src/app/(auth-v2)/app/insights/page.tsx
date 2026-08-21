@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { BUSINESS_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { getBusinessInsights } from "@/auth/api/business-insights.api";
 import { adminQueryKeys } from "@/auth/model/admin-query-keys";
@@ -15,7 +16,7 @@ import { AudienceCharts } from "../_components/AudienceCharts";
 
 export default function BusinessInsightsPage() {
   return (
-    <RoleGuard allow={["BUSINESS_ADMIN"]}>
+    <RoleGuard allow={BUSINESS_ADMIN_ONLY}>
       <InsightsBody />
     </RoleGuard>
   );

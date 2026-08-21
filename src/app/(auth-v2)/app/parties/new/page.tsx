@@ -1,6 +1,7 @@
 "use client";
 
 import { RoleGuard } from "@/auth/guards/RoleGuard";
+import { BUSINESS_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
   resolveBusinessScope,
@@ -9,7 +10,7 @@ import { BusinessMobilePartyForm } from "@/components/business-mobile/BusinessMo
 
 export default function NewMyPartyPage() {
   return (
-    <RoleGuard allow={["BUSINESS_ADMIN"]}>
+    <RoleGuard allow={BUSINESS_ADMIN_ONLY}>
       <Form />
     </RoleGuard>
   );

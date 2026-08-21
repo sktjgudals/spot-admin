@@ -24,7 +24,7 @@ export function middleware(req: NextRequest) {
       hasSession &&
       (pathname.startsWith("/login") || pathname.startsWith("/signup"))
     ) {
-      return NextResponse.redirect(new URL("/super-admin/dashboard", req.url));
+      return NextResponse.redirect(new URL("/app", req.url));
     }
     return NextResponse.next();
   }
