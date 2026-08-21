@@ -17,6 +17,7 @@ import {
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { uuidV7 } from "@/lib/uuid-v7";
 import { cn } from "@/lib/utils";
+import { formatClockTime } from "@/lib/format-date";
 
 export function BusinessMobileChatRoom({ roomId }: { roomId: string }) {
   const router = useRouter();
@@ -36,6 +37,25 @@ export function BusinessMobileChatRoom({ roomId }: { roomId: string }) {
   const maxSeqRef = useRef(0);
   const ackRef = useRef(0);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingReadSeqRef = useRef(0);
+  const sendTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const flushRead = useCallback(() => {
+    const seq = pendingReadSeqRef.current;
+    if (seq > 0) {
+      void markBusinessOperatorRoomRead(roomId, seq).catch(() => undefined);
+    }
+  }, [roomId]);
+
+  const scheduleRead = useCallback(
+    (seq: number) => {
+      pendingReadSeqRef.current = Math.max(pendingReadSeqRef.current, seq);
+      if (readTimerRef.current) clearTimeout(readTimerRef.current);
+      readTimerRef.current = setTimeout(flushRead, 400);
+    },
+    [flushRead],
+  );
 
   const mergeMessage = useCallback((raw: Record<string, unknown>) => {
     const message = normalizeMessage(raw, roomId);
@@ -50,9 +70,16 @@ export function BusinessMobileChatRoom({ roomId }: { roomId: string }) {
       else next.push(message);
       return next.sort((left, right) => left.roomSeq - right.roomSeq);
     });
+    if (message.clientMessageId) {
+      const timer = sendTimersRef.current.get(message.clientMessageId);
+      if (timer) {
+        clearTimeout(timer);
+        sendTimersRef.current.delete(message.clientMessageId);
+      }
+    }
     maxSeqRef.current = Math.max(maxSeqRef.current, message.roomSeq);
-    void markBusinessOperatorRoomRead(roomId, message.roomSeq).catch(() => undefined);
-  }, [roomId]);
+    scheduleRead(message.roomSeq);
+  }, [roomId, scheduleRead]);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +90,7 @@ export function BusinessMobileChatRoom({ roomId }: { roomId: string }) {
         maxSeqRef.current = ordered.at(-1)?.roomSeq ?? 0;
         setMessages(ordered);
         if (maxSeqRef.current > 0) {
-          void markBusinessOperatorRoomRead(roomId, maxSeqRef.current).catch(() => undefined);
+          scheduleRead(maxSeqRef.current);
         }
       })
       .catch((error) => {
@@ -75,11 +102,12 @@ export function BusinessMobileChatRoom({ roomId }: { roomId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [roomId]);
+  }, [roomId, scheduleRead]);
 
   useEffect(() => {
     let cancelled = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempt = 0;
     const connect = async () => {
       try {
         const ticket = await issueAdminChatGatewayTicket(roomId);
@@ -89,6 +117,7 @@ export function BusinessMobileChatRoom({ roomId }: { roomId: string }) {
         const socket = new WebSocket(url);
         socketRef.current = socket;
         socket.onopen = () => {
+          attempt = 0;
           socket.send(JSON.stringify({ type: "chat:join", ackId: `web-${++ackRef.current}`, payload: { roomId, generation: 1 } }));
           setConnected(true);
         };
@@ -103,33 +132,57 @@ export function BusinessMobileChatRoom({ roomId }: { roomId: string }) {
         };
         socket.onclose = () => {
           setConnected(false);
-          if (!cancelled) reconnectTimer = setTimeout(() => void connect(), 1800);
+          if (!cancelled) {
+            const delay = Math.min(30_000, 1_000 * 2 ** attempt);
+            attempt += 1;
+            reconnectTimer = setTimeout(() => void connect(), delay);
+          }
         };
         socket.onerror = () => socket.close();
       } catch {
         setConnected(false);
-        if (!cancelled) reconnectTimer = setTimeout(() => void connect(), 3000);
+        if (!cancelled) {
+          const delay = Math.min(30_000, 1_000 * 2 ** attempt);
+          attempt += 1;
+          reconnectTimer = setTimeout(() => void connect(), delay);
+        }
       }
     };
     void connect();
+    const sendTimers = sendTimersRef.current;
     return () => {
       cancelled = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (readTimerRef.current) clearTimeout(readTimerRef.current);
+      flushRead();
+      for (const timer of sendTimers.values()) clearTimeout(timer);
+      sendTimers.clear();
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [mergeMessage, roomId]);
+  }, [flushRead, mergeMessage, roomId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages?.length]);
 
+  function markFailed(clientMessageId: string) {
+    setMessages((current) =>
+      (current ?? []).map((item) =>
+        item.clientMessageId === clientMessageId && item.deliveryState === "pending"
+          ? { ...item, deliveryState: "failed" }
+          : item,
+      ),
+    );
+  }
+
   function send() {
     const body = input.trim();
     const socket = socketRef.current;
-    if (!body || !socket || socket.readyState !== WebSocket.OPEN) return;
+    if (!body) return;
     const clientMessageId = uuidV7();
     const createdAt = new Date().toISOString();
+    const socketOpen = socket != null && socket.readyState === WebSocket.OPEN;
     const optimistic: BusinessOperatorMessage = {
       id: `local:${clientMessageId}`,
       roomSeq: Number.MAX_SAFE_INTEGER,
@@ -145,15 +198,26 @@ export function BusinessMobileChatRoom({ roomId }: { roomId: string }) {
       thumbnailUrl: null,
       clientMessageId,
       createdAt,
-      deliveryState: "pending",
+      deliveryState: socketOpen ? "pending" : "failed",
     };
     setMessages((current) => [...(current ?? []), optimistic]);
     setInput("");
+    if (!socketOpen || !socket) {
+      toast.error("연결이 끊어져 메시지를 보내지 못했습니다.");
+      return;
+    }
     socket.send(JSON.stringify({
       type: "chat:send",
       ackId: `web-${++ackRef.current}`,
       payload: { roomId, content: body, clientMessageId, clientCreatedAt: createdAt, type: "TEXT" },
     }));
+    sendTimersRef.current.set(
+      clientMessageId,
+      setTimeout(() => {
+        sendTimersRef.current.delete(clientMessageId);
+        markFailed(clientMessageId);
+      }, 8_000),
+    );
   }
 
   return (
@@ -285,5 +349,5 @@ function normalizeMessage(raw: Record<string, unknown>, roomId: string): Busines
 }
 
 function formatMessageTime(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(value));
+  return formatClockTime(value);
 }

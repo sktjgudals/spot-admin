@@ -28,6 +28,7 @@ import { businessDetailPath } from "@/auth/model/admin-routes";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 import { getBusiness, businessQueryKeys } from "@/auth/api/admin-business.api";
 import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -333,7 +334,7 @@ function InviteRow({
         />
       </TableCell>
       <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-        {new Date(invitation.expiresAt).toLocaleString()}
+        {formatDateTime(invitation.expiresAt)}
       </TableCell>
       <TableCell className="text-sm text-center">
         {invitation.resendCount}

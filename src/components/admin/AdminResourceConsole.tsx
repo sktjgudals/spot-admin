@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDateTime } from "@/lib/format-date";
 
 const PAGE_SIZE = 50;
 
@@ -54,12 +55,12 @@ function display(value: unknown, key: string): React.ReactNode {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "예" : "아니오";
   if (typeof value === "number") {
-    if (/At$/.test(key) && value > 1_000_000_000_000) return new Date(value).toLocaleString("ko-KR");
+    if (/At$/.test(key) && value > 1_000_000_000_000) return formatDateTime(value);
     return value.toLocaleString("ko-KR");
   }
   if (typeof value === "string" && (/At$/.test(key) || key === "date")) {
     const parsed = Date.parse(value);
-    if (!Number.isNaN(parsed)) return new Date(parsed).toLocaleString("ko-KR");
+    if (!Number.isNaN(parsed)) return formatDateTime(parsed);
   }
   if (typeof value === "object") return JSON.stringify(value);
   if (/status|role|kind|audience|actionType/i.test(key)) {
@@ -72,12 +73,12 @@ function displayText(value: unknown, key: string): string {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "예" : "아니오";
   if (typeof value === "number") {
-    if (/At$/.test(key) && value > 1_000_000_000_000) return new Date(value).toLocaleString("ko-KR");
+    if (/At$/.test(key) && value > 1_000_000_000_000) return formatDateTime(value);
     return value.toLocaleString("ko-KR");
   }
   if (typeof value === "string" && (/At$/.test(key) || key === "date")) {
     const parsed = Date.parse(value);
-    if (!Number.isNaN(parsed)) return new Date(parsed).toLocaleString("ko-KR");
+    if (!Number.isNaN(parsed)) return formatDateTime(parsed);
   }
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
@@ -214,7 +215,7 @@ export function AdminResourceConsole({ config }: { config: ResourceConfig }) {
           <p className="text-sm text-muted-foreground">{config.description}</p>
           {list.data && asOf ? (
             <p className="mt-1 text-xs text-muted-foreground">
-              {`${items.length}건${list.hasNextPage ? "+" : ""} · 기준 ${new Date(asOf).toLocaleString("ko-KR")}`}
+              {`${items.length}건${list.hasNextPage ? "+" : ""} · 기준 ${formatDateTime(asOf)}`}
             </p>
           ) : null}
         </div>

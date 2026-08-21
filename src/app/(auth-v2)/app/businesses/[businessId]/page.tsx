@@ -14,6 +14,7 @@ import { BusinessStatusBadge } from "../_components/BusinessStatusBadge";
 import { BusinessLifecycleActions } from "../_components/BusinessLifecycleActions";
 import { BusinessAdminPicker } from "@/components/admin/BusinessAdminPicker";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/format-date";
 import {
   Card,
   CardContent,
@@ -103,16 +104,16 @@ function BusinessDetail() {
           </div>
           <Field
             label="생성"
-            value={new Date(data.createdAt).toLocaleString()}
+            value={formatDateTime(data.createdAt)}
           />
           <Field
             label="수정"
-            value={new Date(data.updatedAt).toLocaleString()}
+            value={formatDateTime(data.updatedAt)}
           />
           {data.deletedAt && (
             <Field
               label="삭제"
-              value={new Date(data.deletedAt).toLocaleString()}
+              value={formatDateTime(data.deletedAt)}
             />
           )}
         </CardContent>

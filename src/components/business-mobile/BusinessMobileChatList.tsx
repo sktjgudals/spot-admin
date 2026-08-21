@@ -8,6 +8,7 @@ import {
   listBusinessOperatorRooms,
 } from "@/auth/api/admin-chat.api";
 import { BusinessBottomNav } from "@/components/business-mobile/BusinessMobileChrome";
+import { formatClockTime } from "@/lib/format-date";
 
 export function BusinessMobileChatList() {
   const { data, isLoading, error } = useQuery({
@@ -65,9 +66,5 @@ export function BusinessMobileChatList() {
   );
 }
 function formatTime(value: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(new Date(value));
+  return formatClockTime(value);
 }

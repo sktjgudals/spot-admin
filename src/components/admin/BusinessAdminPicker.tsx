@@ -15,6 +15,7 @@ import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatDateTime } from "@/lib/format-date";
 
 type Props = {
   businessId?: string;
@@ -197,7 +198,7 @@ export function BusinessAdminPicker({
 
       {search.data && (
         <p className="text-xs text-muted-foreground">
-          사용자 목록 기준 시각: {new Date(search.data.asOf).toLocaleString()}
+          사용자 목록 기준 시각: {formatDateTime(search.data.asOf)}
         </p>
       )}
     </div>
