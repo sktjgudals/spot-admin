@@ -45,6 +45,7 @@ export type BusinessAdminAssignment = {
 
 export type CommerceProfileStatus = "DRAFT" | "ACTIVE" | "PAUSED";
 export type CommercePaymentMode = "TEST" | "LIVE";
+export type CommerceRuntimeMode = "DISABLED" | CommercePaymentMode;
 export type CommerceSalesModel = "DIRECT" | "PAYOUT_AGENCY";
 
 export type BusinessCommerceProfile = {
@@ -82,7 +83,7 @@ export type BusinessCommerceRuntime = {
   paymentMode: CommercePaymentMode | null;
   paymentKeysValid: boolean;
   paymentKeyReasonCode: string | null;
-  payoutMode: CommercePaymentMode | null;
+  payoutMode: CommerceRuntimeMode;
   contractMaxAmount: number | null;
   newPaymentsEnabled: boolean;
   externalHostPaymentsEnabled: boolean;
