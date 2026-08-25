@@ -1,9 +1,10 @@
-# Admin 소셜 로그인 — GPT/운영 인수인계
+# Admin 소셜 로그인 — 초기 인수인계 보관 기록
 
-다른 에이전트나 사람에게 이 파일만 넘기면 된다. 코드는 이미 `main`에 있다.
-남은 일은 **콘솔 설정 + production 배포 + 실계정 확인**이다.
+> **보관 문서:** 이 문서는 2026-08-17 초기 소셜 로그인 배포 전 인수인계다. production
+> 배포 상태와 현재 후속 검증은 `OPERATIONS.md`가 정본이다. 아래 commit과 “남은 일”은
+> 당시의 기록이며 현재 배포 지시로 사용하지 않는다.
 
-마지막 갱신: 2026-08-17
+마지막 갱신: 2026-08-22
 
 | 저장소 | 브랜치 | 커밋 |
 |---|---|---|
@@ -50,7 +51,6 @@ Worker `APPLE_CLIENT_IDS`는 지금 `com.hyeongmin.dopa` (iOS 번들)만 있다.
 - Apple 웹 버튼에 iOS 번들 ID `com.hyeongmin.dopa`를 client ID로 넣지 말 것.
 - Firebase Auth를 켜지 말 것.
 - 시크릿을 git에 커밋하지 말 것. Google 웹 client ID는 공개 식별자라 커밋해도 된다.
-- App Store / Play **프로덕션 심사**를 제출하지 말 것.
 - TestFlight를 staging URL로 돌리지 말 것.
 - 사용자 승인 없이 production Worker/Admin을 배포하지 말 것. 아래 3·4·5는 승인이 있으면 실행.
 
