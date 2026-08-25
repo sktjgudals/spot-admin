@@ -7,28 +7,23 @@
 
 ## 운영 상태
 
-| 항목                       | 현재 값                                              |
-| -------------------------- | ---------------------------------------------------- |
-| Production Worker          | `dopa-admin`                                         |
-| Production URL             | `https://admin.dopa.ing`                             |
-| Production Worker version  | `f0926705-cc8b-467b-8b95-e96f05aaad97`               |
-| Production source commit   | `c25ad84`                                            |
-| Unreleased source baseline | `4258bf8`                                            |
-| API                        | `https://api.dopa.ing`                               |
-| WebSocket                  | `wss://api.dopa.ing/v2/chat`                         |
-| Staging Worker             | `dopa-admin-staging`                                 |
-| Staging API                | `https://dopa-backend-staging.ceoofspot.workers.dev` |
+| 항목                      | 현재 값                                              |
+| ------------------------- | ---------------------------------------------------- |
+| Production Worker         | `dopa-admin`                                         |
+| Production URL            | `https://admin.dopa.ing`                             |
+| Production Worker version | `09ec4530-1261-4312-b9c1-00abccc1024b`               |
+| Production source commit  | `6ea43f0`                                            |
+| API                       | `https://api.dopa.ing`                               |
+| WebSocket                 | `wss://api.dopa.ing/v2/chat`                         |
+| Staging Worker            | `dopa-admin-staging`                                 |
+| Staging API               | `https://dopa-backend-staging.ceoofspot.workers.dev` |
 
-2026-08-22 라이브는 git `c25ad84`, Worker `f0926705`(100%, wrangler deploy로
-확인)이다. `/login`은 HTTP 200이고 CSP·HSTS가 응답에 있다. `/super-admin/dashboard`는
-비로그인 시 `/login`으로 307이다. API는 그대로 `api.dopa.ing`이다. PR #16 full
-review(보안 헤더, 콘솔 분리, 로그인된 운영자 `/login`→`/app`)가 이 버전에 있다.
-`c25ad84` seed 스크립트 변경은 Worker에 포함되지 않는다. 직전 정상 version은
-`4048e1a1`이다. 실계정으로 그래프를 연 확인은 아직 없다.
-
-2026-08-26 repository `main`의 `4258bf8`은 업체별 결제·정산 운영 콘솔을 포함하지만
-Production Worker에는 아직 배포되지 않았다. 저장소 `main`과 실제 배포 source를 같은
-상태로 간주하지 않는다.
+2026-08-26 라이브는 git `6ea43f0`, Worker `09ec4530`(100%, Wrangler deployment
+list로 확인)이다. `/login`은 HTTP 200이고 CSP·HSTS가 응답에 있다.
+`/super-admin/dashboard`는 비로그인 시 `/login`으로 307이다. 원격 `BUILD_ID`는 배포한
+production 산출물과 일치한다. PR #18의 업체별 결제·정산 콘솔과 PR #19의 fail-closed
+런타임 상태 표시가 이 버전에 있다. 직전 정상 version은 `f0926705`다. 실계정으로 결제 운영
+프로필을 조회·변경한 확인은 아직 없다.
 
 업체 담당자 웹 로그인: 앱과 같은 Google 웹 클라이언트
 (`109162230288-9644lmdagmid6oc5bqttoq2q9asnigji`)로 `POST /auth/v2/admin/oidc-login`.
