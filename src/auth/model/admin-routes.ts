@@ -95,9 +95,18 @@ export const AdminApi = {
   dashboard: () => "/admin/v2/dashboard/summary",
   businesses: () => "/admin/v2/businesses",
   business: (id: string) => `/admin/v2/businesses/${encodeURIComponent(id)}`,
-  businessDisable: (id: string) => `/admin/v2/businesses/${encodeURIComponent(id)}/disable`,
-  businessEnable: (id: string) => `/admin/v2/businesses/${encodeURIComponent(id)}/enable`,
-  businessRestore: (id: string) => `/admin/v2/businesses/${encodeURIComponent(id)}/restore`,
+  businessDisable: (id: string) =>
+    `/admin/v2/businesses/${encodeURIComponent(id)}/disable`,
+  businessEnable: (id: string) =>
+    `/admin/v2/businesses/${encodeURIComponent(id)}/enable`,
+  businessRestore: (id: string) =>
+    `/admin/v2/businesses/${encodeURIComponent(id)}/restore`,
+  businessCommerce: (id: string) =>
+    `/admin/v2/businesses/${encodeURIComponent(id)}/commerce`,
+  businessCommerceActivate: (id: string) =>
+    `/admin/v2/businesses/${encodeURIComponent(id)}/commerce/activate`,
+  businessCommercePause: (id: string) =>
+    `/admin/v2/businesses/${encodeURIComponent(id)}/commerce/pause`,
   businessOperatorCandidates: () => "/admin/v2/business-operator-candidates",
   businessOperators: (businessId: string) =>
     `/admin/v2/businesses/${encodeURIComponent(businessId)}/operators`,
@@ -108,10 +117,12 @@ export const AdminApi = {
   invitationResend: (businessId: string, invitationId: string) =>
     `/admin/v2/businesses/${encodeURIComponent(businessId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
   myParties: () => "/businesses/me/parties",
-  myParty: (partyId: string) => `/businesses/me/parties/${encodeURIComponent(partyId)}`,
+  myParty: (partyId: string) =>
+    `/businesses/me/parties/${encodeURIComponent(partyId)}`,
   parties: (businessId: string) =>
     `/admin/v2/businesses/${encodeURIComponent(businessId)}/parties`,
-  party: (partyId: string) => `/admin/v2/parties/${encodeURIComponent(partyId)}`,
+  party: (partyId: string) =>
+    `/admin/v2/parties/${encodeURIComponent(partyId)}`,
   /** Kakao place search provided by the Cloudflare API. */
   placesKakaoSearch: () => `/places/kakao/search`,
   partyTransitions: (partyId: string, scope: PartyAdminScope = "business") =>

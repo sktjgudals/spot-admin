@@ -43,6 +43,69 @@ export type BusinessAdminAssignment = {
   alreadyAssigned: boolean;
 };
 
+export type CommerceProfileStatus = "DRAFT" | "ACTIVE" | "PAUSED";
+export type CommercePaymentMode = "TEST" | "LIVE";
+export type CommerceSalesModel = "DIRECT" | "PAYOUT_AGENCY";
+
+export type BusinessCommerceProfile = {
+  businessId: string;
+  status: CommerceProfileStatus;
+  paymentMode: CommercePaymentMode;
+  salesModel: CommerceSalesModel;
+  maxAmount: number;
+  salesUrl: string;
+  refundUrl: string;
+  approvedByUserId: string | null;
+  approvedAt: number | null;
+  pausedByUserId: string | null;
+  pausedAt: number | null;
+  pauseReason: string | null;
+  updatedByUserId: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type BusinessCommerceReadiness = {
+  businessId: string;
+  businessName: string;
+  businessActive: boolean;
+  businessDisclosureComplete: boolean;
+  refundPolicyPublished: boolean;
+  payoutSellerStatus: string | null;
+  payoutSellerApproved: boolean;
+  payoutAccountReady: boolean;
+  oldestUnresolvedPayoutAt: number | null;
+};
+
+export type BusinessCommerceRuntime = {
+  environment: string;
+  paymentMode: CommercePaymentMode | null;
+  paymentKeysValid: boolean;
+  paymentKeyReasonCode: string | null;
+  payoutMode: CommercePaymentMode | null;
+  contractMaxAmount: number | null;
+  newPaymentsEnabled: boolean;
+  externalHostPaymentsEnabled: boolean;
+};
+
+export type BusinessCommerceOverview = {
+  profile: BusinessCommerceProfile | null;
+  readiness: BusinessCommerceReadiness;
+  missingRequirements: string[];
+  /** Exact server-side activation gate. Optional only for rolling deployment compatibility. */
+  activationBlockers?: string[];
+  runtime: BusinessCommerceRuntime;
+  auditId?: string;
+};
+
+export type UpdateBusinessCommerceInput = {
+  paymentMode: CommercePaymentMode;
+  salesModel: CommerceSalesModel;
+  maxAmount: number;
+  salesUrl: string;
+  refundUrl: string;
+};
+
 export type CreateBusinessInput = {
   name: string;
   kind?: BusinessKind;
@@ -138,6 +201,46 @@ export async function restoreBusiness(id: string): Promise<AdminBusiness> {
   });
 }
 
+export async function getBusinessCommerce(
+  id: string,
+): Promise<BusinessCommerceOverview> {
+  return adminFetchJson<BusinessCommerceOverview>(
+    AdminApi.businessCommerce(id),
+  );
+}
+
+export async function updateBusinessCommerce(
+  id: string,
+  input: UpdateBusinessCommerceInput,
+): Promise<BusinessCommerceOverview> {
+  return adminFetchJson<BusinessCommerceOverview>(
+    AdminApi.businessCommerce(id),
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function activateBusinessCommerce(
+  id: string,
+): Promise<BusinessCommerceOverview> {
+  return adminFetchJson<BusinessCommerceOverview>(
+    AdminApi.businessCommerceActivate(id),
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export async function pauseBusinessCommerce(
+  id: string,
+  reason: string,
+): Promise<BusinessCommerceOverview> {
+  return adminFetchJson<BusinessCommerceOverview>(
+    AdminApi.businessCommercePause(id),
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+}
+
 export async function searchBusinessAdminCandidates(query: string): Promise<{
   items: BusinessAdminCandidate[];
   nextCursor: string | null;
@@ -164,6 +267,8 @@ export const businessQueryKeys = {
   list: (params?: ListBusinessesParams) =>
     [...businessQueryKeys.all, "list", params ?? {}] as const,
   detail: (id: string) => [...businessQueryKeys.all, "detail", id] as const,
+  commerce: (id: string) =>
+    [...businessQueryKeys.all, "detail", id, "commerce"] as const,
   operatorCandidates: (query: string) =>
     [...businessQueryKeys.all, "operator-candidates", query] as const,
 };

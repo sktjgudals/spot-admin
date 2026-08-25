@@ -13,6 +13,7 @@ import {
 } from "@/auth/model/admin-routes";
 import { BusinessStatusBadge } from "../_components/BusinessStatusBadge";
 import { BusinessLifecycleActions } from "../_components/BusinessLifecycleActions";
+import { BusinessCommerceConsole } from "../_components/BusinessCommerceConsole";
 import { BusinessAdminPicker } from "@/components/admin/BusinessAdminPicker";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format-date";
@@ -103,20 +104,24 @@ function BusinessDetail() {
           <div className="sm:col-span-2">
             <Field label="소개" value={data.description ?? "—"} />
           </div>
-          <Field
-            label="생성"
-            value={formatDateTime(data.createdAt)}
-          />
-          <Field
-            label="수정"
-            value={formatDateTime(data.updatedAt)}
-          />
+          <Field label="생성" value={formatDateTime(data.createdAt)} />
+          <Field label="수정" value={formatDateTime(data.updatedAt)} />
           {data.deletedAt && (
-            <Field
-              label="삭제"
-              value={formatDateTime(data.deletedAt)}
-            />
+            <Field label="삭제" value={formatDateTime(data.deletedAt)} />
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">결제·정산 운영</CardTitle>
+          <CardDescription>
+            호스트 자격, 계약 한도, 지급대행 준비 상태를 확인한 뒤 초안 저장과
+            활성·중지를 수행합니다. 서버가 모든 변경을 감사 로그로 남깁니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BusinessCommerceConsole businessId={data.id} />
         </CardContent>
       </Card>
 
