@@ -122,6 +122,13 @@ wrangler r2 bucket domain add dopa-media-staging \
 
 두 도메인 모두 Cloudflare 엣지 캐시를 거친다. 같은 키에 다시 올려도 잠시 옛 이미지가 나올 수 있다. 시드는 매번 새 키를 쓰므로 문제가 되지 않지만, 수동으로 덮어쓸 때는 캐시를 감안한다.
 
-### 남은 설정 (시드 범위 밖)
+### 현재 미디어 설정
 
-staging 워커에는 `R2_PUBLIC_BASE_URL`이 여전히 비어 있다. 시드는 자체적으로 공개 주소를 알고 있어 영향이 없지만, **어드민 UI의 이미지 업로더는 staging에서 503으로 실패한다** — `publicBaseFor`가 production 외의 환경에서는 이 값을 요구하기 때문이다. 고치려면 staging 워커에 `R2_PUBLIC_BASE_URL=https://media-staging.dopa.ing`을 넣고 백엔드를 배포해야 한다.
+2026-08-25 현재 staging 워커에는
+`R2_PUBLIC_BASE_URL=https://media-staging.dopa.ing`, staging 전용
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`가 설정돼 있다. R2 토큰은
+`dopa-media-staging` 한 버킷에만 Object Read & Write 권한을 가지며,
+`https://dopa-admin-staging.ceoofspot.workers.dev`와 `http://localhost:3001`에서의
+presigned PUT만 CORS로 허용한다. S3 목록 200, 브라우저 PUT preflight 204,
+백엔드 media readiness `allReady: true`를 확인했으므로 어드민 UI의 staging 이미지
+업로더는 더 이상 설정 누락으로 503을 반환하지 않는다.
