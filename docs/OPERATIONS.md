@@ -1,22 +1,23 @@
 # DOPA Admin 운영 정본
 
-마지막 갱신: 2026-08-22
+마지막 갱신: 2026-08-26
 
 이 문서는 `spot-admin`의 현재 기능·라우트·인증·배포·검증 기준을 한곳에 기록한다.
 과거 구현 메모나 릴리스별 체크리스트보다 현재 코드, 테스트와 이 문서를 우선한다.
 
 ## 운영 상태
 
-| 항목                      | 현재 값                                              |
-| ------------------------- | ---------------------------------------------------- |
-| Production Worker         | `dopa-admin`                                         |
-| Production URL            | `https://admin.dopa.ing`                             |
-| Production Worker version | `f0926705-cc8b-467b-8b95-e96f05aaad97`               |
-| Git                       | `main` `c25ad84`                                     |
-| API                       | `https://api.dopa.ing`                               |
-| WebSocket                 | `wss://api.dopa.ing/v2/chat`                         |
-| Staging Worker            | `dopa-admin-staging`                                 |
-| Staging API               | `https://dopa-backend-staging.ceoofspot.workers.dev` |
+| 항목                       | 현재 값                                              |
+| -------------------------- | ---------------------------------------------------- |
+| Production Worker          | `dopa-admin`                                         |
+| Production URL             | `https://admin.dopa.ing`                             |
+| Production Worker version  | `f0926705-cc8b-467b-8b95-e96f05aaad97`               |
+| Production source commit   | `c25ad84`                                            |
+| Unreleased source baseline | `4258bf8`                                            |
+| API                        | `https://api.dopa.ing`                               |
+| WebSocket                  | `wss://api.dopa.ing/v2/chat`                         |
+| Staging Worker             | `dopa-admin-staging`                                 |
+| Staging API                | `https://dopa-backend-staging.ceoofspot.workers.dev` |
 
 2026-08-22 라이브는 git `c25ad84`, Worker `f0926705`(100%, wrangler deploy로
 확인)이다. `/login`은 HTTP 200이고 CSP·HSTS가 응답에 있다. `/super-admin/dashboard`는
@@ -24,6 +25,10 @@
 review(보안 헤더, 콘솔 분리, 로그인된 운영자 `/login`→`/app`)가 이 버전에 있다.
 `c25ad84` seed 스크립트 변경은 Worker에 포함되지 않는다. 직전 정상 version은
 `4048e1a1`이다. 실계정으로 그래프를 연 확인은 아직 없다.
+
+2026-08-26 repository `main`의 `4258bf8`은 업체별 결제·정산 운영 콘솔을 포함하지만
+Production Worker에는 아직 배포되지 않았다. 저장소 `main`과 실제 배포 source를 같은
+상태로 간주하지 않는다.
 
 업체 담당자 웹 로그인: 앱과 같은 Google 웹 클라이언트
 (`109162230288-9644lmdagmid6oc5bqttoq2q9asnigji`)로 `POST /auth/v2/admin/oidc-login`.
@@ -89,6 +94,21 @@ review(보안 헤더, 콘솔 분리, 로그인된 운영자 `/login`→`/app`)�
 사용자는 선택할 수 없으며, 같은 업체에 대한 재요청은 멱등하게 성공한다. 초대 메일은 기존
 사용자 검색으로 찾을 수 없는 신규 담당자를 위한 별도 흐름으로 유지한다.
 
+### 업체별 결제·정산 운영
+
+`SUPER_ADMIN`은 `/app/businesses/:businessId`에서 업체별 commerce 프로필을 조회하고 초안
+저장, 프로필 활성화, 신규 결제 중지를 수행한다. 서버의 `activationBlockers`가 활성화 가능
+여부의 정본이며 Admin은 Secret 값이나 전역 런타임 스위치를 직접 변경하지 않는다.
+
+- 호스트 프로필 `ACTIVE`는 `PAYMENT_NEW_ENABLED=true`를 의미하지 않는다. 전역 스위치가
+  `OFF`이면 고객의 신규 결제는 계속 fail-closed다.
+- PG 키 모드는 `TEST | LIVE | null`, 지급대행 모드는 `DISABLED | TEST | LIVE`다.
+  `DISABLED`에서는 지급대행 준비가 끝난 것으로 표시하거나 활성화 가능하다고 해석하지 않는다.
+- 테스트 지급대행은 유효한 법인사업자 셀러만 지원한다. 개인·개인사업자 입력 제한은 업체
+  관리자 앱과 백엔드가 집행하며, Admin의 업체 종류만으로 셀러 승인을 추정하지 않는다.
+- 라이브 키 발급 후에는 서버 키와 계약 스위치를 교체·검증한다. Admin UI나 저장된 호스트
+  프로필에서 키를 입력하거나 노출하지 않는다.
+
 ## 검증
 
 ```bash
@@ -97,8 +117,8 @@ git diff --check
 ```
 
 `npm run verify`는 Vitest, release gate, runtime boundary 검사, ESLint와 staging OpenNext
-빌드를 실행한다. 2026-08-15 기준 Vitest 53개, release test 9개와 production build가
-통과했다.
+빌드를 실행한다. 2026-08-26 기준 Vitest 100개, release test 23개, runtime boundary,
+ESLint와 staging OpenNext build가 통과했다.
 
 수동 E2E 최소 범위:
 

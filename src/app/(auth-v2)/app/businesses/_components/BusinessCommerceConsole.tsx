@@ -12,6 +12,7 @@ import {
   updateBusinessCommerce,
   type BusinessCommerceOverview,
   type CommercePaymentMode,
+  type CommerceRuntimeMode,
   type CommerceSalesModel,
   type UpdateBusinessCommerceInput,
 } from "@/auth/api/admin-business.api";
@@ -72,6 +73,12 @@ function errorMessage(error: Error): string {
     : error.message || "결제 운영 설정을 처리하지 못했습니다.";
 }
 
+function runtimeModeLabel(mode: CommerceRuntimeMode | null): string {
+  if (mode === null) return "확인 불가";
+  if (mode === "DISABLED") return "준비 안 됨 (DISABLED)";
+  return mode;
+}
+
 export function BusinessCommerceConsole({
   businessId,
 }: {
@@ -103,7 +110,11 @@ export function BusinessCommerceConsole({
     mutationFn: () => activateBusinessCommerce(businessId),
     onSuccess: (overview) => {
       applyOverview(queryClient, businessId, overview);
-      toast.success("이 호스트의 결제를 활성화했습니다.");
+      toast.success(
+        overview.runtime.newPaymentsEnabled
+          ? "이 호스트의 결제 운영 프로필을 활성화했습니다."
+          : "호스트 프로필을 활성화했습니다. 신규 결제 전역 스위치는 OFF입니다.",
+      );
     },
     onError: (error: Error) => toast.error(errorMessage(error)),
   });
@@ -202,7 +213,7 @@ export function BusinessCommerceConsole({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant={profile?.status === "ACTIVE" ? "default" : "outline"}>
-          {profile?.status ?? "미설정"}
+          호스트 프로필 {profile?.status ?? "미설정"}
         </Badge>
         <Badge variant="secondary">{runtime.environment}</Badge>
         <span className="text-xs text-muted-foreground">
@@ -211,10 +222,20 @@ export function BusinessCommerceConsole({
         </span>
       </div>
 
+      {profile?.status === "ACTIVE" && !runtime.newPaymentsEnabled && (
+        <div
+          className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm"
+          role="status"
+        >
+          호스트 프로필은 활성화됐지만 신규 결제 전역 스위치가 OFF라 고객
+          결제는 시작되지 않습니다.
+        </div>
+      )}
+
       <div className="grid gap-3 rounded-md border bg-muted/20 p-4 text-sm sm:grid-cols-2">
         <RuntimeField
           label="PG 키 모드"
-          value={runtime.paymentMode ?? "확인 불가"}
+          value={runtimeModeLabel(runtime.paymentMode)}
         />
         <RuntimeField
           label="PG 키 쌍"
@@ -226,7 +247,7 @@ export function BusinessCommerceConsole({
         />
         <RuntimeField
           label="지급대행 모드"
-          value={runtime.payoutMode ?? "준비 안 됨"}
+          value={runtimeModeLabel(runtime.payoutMode)}
         />
         <RuntimeField
           label="계약 한도"
@@ -376,14 +397,14 @@ export function BusinessCommerceConsole({
             onClick={() => {
               if (
                 window.confirm(
-                  "확인된 자격과 계약 범위로 이 호스트의 결제를 활성화할까요?",
+                  "확인된 자격과 계약 범위로 이 호스트의 결제 운영 프로필을 활성화할까요? 전역 결제 스위치는 별도로 관리됩니다.",
                 )
               ) {
                 activate.mutate();
               }
             }}
           >
-            {activate.isPending ? "활성화 중…" : "결제 활성화"}
+            {activate.isPending ? "활성화 중…" : "호스트 프로필 활성화"}
           </Button>
         </div>
       </form>

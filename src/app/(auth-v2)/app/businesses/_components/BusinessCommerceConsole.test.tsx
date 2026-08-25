@@ -24,6 +24,7 @@ import {
   type BusinessCommerceOverview,
 } from "@/auth/api/admin-business.api";
 import { BusinessCommerceConsole } from "@/app/(auth-v2)/app/businesses/_components/BusinessCommerceConsole";
+import { toast } from "sonner";
 
 const overview: BusinessCommerceOverview = {
   profile: {
@@ -60,7 +61,7 @@ const overview: BusinessCommerceOverview = {
     paymentMode: "TEST",
     paymentKeysValid: true,
     paymentKeyReasonCode: null,
-    payoutMode: null,
+    payoutMode: "DISABLED",
     contractMaxAmount: 29_000,
     newPaymentsEnabled: false,
     externalHostPaymentsEnabled: false,
@@ -84,6 +85,8 @@ describe("BusinessCommerceConsole", () => {
     vi.mocked(updateBusinessCommerce).mockReset();
     vi.mocked(activateBusinessCommerce).mockReset();
     vi.mocked(pauseBusinessCommerce).mockReset();
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
     vi.spyOn(window, "confirm").mockReturnValue(true);
   });
 
@@ -102,7 +105,9 @@ describe("BusinessCommerceConsole", () => {
     expect(screen.getByText("업체 활성 상태")).toBeInTheDocument();
     expect(screen.queryByText("정산 계좌 확인")).toBeNull();
     expect(screen.getByText(/신규 결제 스위치 OFF/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "결제 활성화" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "호스트 프로필 활성화" }),
+    ).toBeEnabled();
   });
 
   it("saves a draft, activates it, and requires a reason before pausing", async () => {
@@ -136,9 +141,14 @@ describe("BusinessCommerceConsole", () => {
       }),
     );
 
-    await user.click(screen.getByRole("button", { name: "결제 활성화" }));
+    await user.click(
+      screen.getByRole("button", { name: "호스트 프로필 활성화" }),
+    );
     await waitFor(() =>
       expect(activateBusinessCommerce).toHaveBeenCalledWith("business-1"),
+    );
+    expect(toast.success).toHaveBeenCalledWith(
+      "호스트 프로필을 활성화했습니다. 신규 결제 전역 스위치는 OFF입니다.",
     );
 
     const pauseButton = screen.getByRole("button", { name: "신규 결제 중지" });
@@ -154,5 +164,30 @@ describe("BusinessCommerceConsole", () => {
         "계약 점검",
       ),
     );
+  });
+
+  it("shows fail-closed payout and active-profile rollout states", async () => {
+    vi.mocked(getBusinessCommerce).mockResolvedValue({
+      ...overview,
+      profile: { ...overview.profile!, status: "ACTIVE" },
+      runtime: {
+        ...overview.runtime,
+        payoutMode: "DISABLED",
+        newPaymentsEnabled: false,
+      },
+    });
+
+    renderConsole();
+
+    expect(
+      await screen.findByText("호스트 프로필 ACTIVE"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("준비 안 됨 (DISABLED)")).toBeInTheDocument();
+    expect(
+      screen.getByText(/신규 결제 전역 스위치가 OFF라 고객 결제는 시작되지 않습니다/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "호스트 프로필 활성화" }),
+    ).toBeDisabled();
   });
 });
