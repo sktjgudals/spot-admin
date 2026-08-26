@@ -1,15 +1,15 @@
 # Admin 소셜 로그인 — GPT/운영 인수인계
 
-다른 에이전트나 사람에게 이 파일만 넘기면 된다. 코드는 이미 `main`에 있다.
-남은 일은 **콘솔 설정 + production 배포 + 실계정 확인**이다.
+다른 에이전트나 사람에게 이 파일만 넘기면 된다. 코드·콘솔 설정·production 배포는
+완료됐다. 남은 일은 **승인된 담당자와 미배정 사용자 실계정 확인**이다.
 
-마지막 갱신: 2026-08-17
+마지막 갱신: 2026-08-26
 
-| 저장소 | 브랜치 | 커밋 |
-|---|---|---|
-| `spot-cloudflare-backend` | `main` | `d12868c` `feat(auth): let assigned operators open admin with Google or Apple` |
-| `spot-admin` | `main` | `6f57b7e` `feat(admin): sign assigned operators in with the app Google client` |
-| `spot-app` | `main` | `6c3a80b` docs only |
+| 저장소                    | 브랜치 | 커밋                                 |
+| ------------------------- | ------ | ------------------------------------ |
+| `spot-cloudflare-backend` | `main` | `e6872e3` PR #55, production release |
+| `spot-admin`              | `main` | `99ba954` PR #21, production source  |
+| `spot-app`                | `main` | `6c3a80b` docs only                  |
 
 앱 경로:
 
@@ -39,7 +39,8 @@ Google 웹 클라이언트는 **앱과 같다.** 새로 만들지 마라.
 Firebase 프로젝트: `dopa-66dfb`. 삭제된 `spot-4749d`는 쓰지 마라.
 
 Worker `GOOGLE_CLIENT_IDS`에 이 웹 ID가 이미 들어 있다.
-Worker `APPLE_CLIENT_IDS`는 지금 `com.hyeongmin.dopa` (iOS 번들)만 있다.
+Worker `APPLE_CLIENT_IDS`는 production에서
+`com.hyeongmin.dopa,ing.dopa.admin.web`을 허용한다.
 
 ---
 
@@ -56,9 +57,9 @@ Worker `APPLE_CLIENT_IDS`는 지금 `com.hyeongmin.dopa` (iOS 번들)만 있다.
 
 ---
 
-## 3. Google Cloud — 기존 웹 클라이언트에 origin만 추가
+## 3. Google Cloud — 기존 웹 클라이언트 origin (완료)
 
-코드는 이미 이 클라이언트를 쓴다. 빠진 것은 **Authorized JavaScript origins**다.
+2026-08-26 기존 클라이언트에 아래 **Authorized JavaScript origins** 저장을 확인했다.
 
 1. https://console.cloud.google.com/ 로그인
 2. 프로젝트 **`dopa-66dfb`** 선택
@@ -81,11 +82,21 @@ http://localhost:3001
 
 ---
 
-## 4. Apple — 같은 앱 아래 Services ID (웹 전용)
+## 4. Apple — 같은 앱 아래 Services ID (완료)
 
 앱 Apple 로그인은 번들 ID `com.hyeongmin.dopa`다. **웹 JS는 Services ID가 필요하다.**
 
-아직 Services ID가 없으면 Admin의 Apple 버튼은 숨겨진 상태가 맞다. Google만으로 업체 담당자는 들어올 수 있다.
+Services ID `ing.dopa.admin.web`을 만들고 primary App ID `com.hyeongmin.dopa`에 연결했다.
+등록된 production Website URLs는 다음 두 항목이다.
+
+```
+admin.dopa.ing
+https://admin.dopa.ing/login
+```
+
+Apple authorization endpoint가 “DOPA Admin Web” 로그인 화면을 반환하는 것까지 확인했다.
+staging을 Apple로 검증할 때는 HTTPS staging return URL을 별도로 등록한다. Apple 웹 return
+URL은 HTTPS가 필수이므로 `http://localhost`를 production Services ID에 넣지 않는다.
 
 만들 때:
 
@@ -97,37 +108,34 @@ http://localhost:3001
 5. 이 Services ID를 연다 → Sign In with Apple → Enable → Configure
 6. Primary App ID: **`com.hyeongmin.dopa`**
 7. Domains: `admin.dopa.ing`
-8. Return URLs:
+8. Production Return URL:
 
 ```
 https://admin.dopa.ing/login
-https://dopa-admin-staging.ceoofspot.workers.dev/login
-http://localhost:3001/login
 ```
 
-9. Domain verification 파일을 Apple이 주면 `admin.dopa.ing`에 올려 검증한다.
-10. Worker `APPLE_CLIENT_IDS`에 **append** 한다. 기존 iOS 값을 지우지 말 것.
+9. Worker `APPLE_CLIENT_IDS`에 **append** 한다. 기존 iOS 값을 지우지 말 것.
 
 ```
 com.hyeongmin.dopa,ing.dopa.admin.web
 ```
 
-staging `wrangler.jsonc` `env.staging.vars`와 production vars 둘 다.
+staging은 `wrangler.jsonc`의 `env.staging.vars`, production은 Workers Secret으로 관리한다.
 
-11. Admin에 공개 Services ID를 넣는다.
+10. Admin에 공개 Services ID를 넣는다.
 
 - `spot-admin/wrangler.production.jsonc` `vars.NEXT_PUBLIC_APPLE_CLIENT_ID`
 - `spot-admin/wrangler.jsonc` `vars.NEXT_PUBLIC_APPLE_CLIENT_ID`
 - `spot-admin/package.json`의 `cf:build` / `cf:build:production`에도 같은 값
 - `spot-admin/scripts/deploy-cloudflare-staging.mjs` 빌드 env에도 같은 값
 
-12. Admin을 다시 빌드·배포해야 버튼이 보인다. `NEXT_PUBLIC_*`는 빌드 타임이다.
+11. Admin을 다시 빌드·배포해야 버튼이 보인다. `NEXT_PUBLIC_*`는 빌드 타임이다.
 
 Apple JS가 JWT `nonce`에 SHA-256을 넣으면 웹 Apple이 401일 수 있다. 그때는 실제 토큰의 `nonce` claim을 보고 Worker 비교를 맞춘다. Google은 nonce와 무관하다.
 
 ---
 
-## 5. Production 배포 (코드는 이미 main)
+## 5. Production 배포 (2026-08-26 완료)
 
 콘솔 origin(3)을 먼저 하는 편이 안전하다. 배포만 하고 origin이 없으면 Google 버튼이 깨진다.
 
@@ -142,9 +150,11 @@ node scripts/deploy-production.mjs
 curl -sS https://api.dopa.ing/health
 ```
 
-`/health.release`가 배포한 SHA와 같아야 한다. `d12868c` 이상이어야 `oidc-login`이 산다.
+`/health.release`가 배포한 SHA와 같아야 한다.
 
-Apple Services ID를 넣었다면 그 vars를 포함한 커밋으로 다시 배포한다.
+현재 API release는 `e6872e3c24eb78766e91dcc6bb54be3374c59935`, 코드 배포 version은
+`146ca65c-6f64-4ac1-a740-77fb2d21b3c1`이다. `APPLE_CLIENT_IDS` 교체 뒤 최종 100% version은
+`e34b0baa-426e-476f-bf91-f4721a9ec574`이고 `/health.release`는 계속 `e6872e3`과 일치한다.
 
 ### 5-2. Admin Web
 
@@ -159,6 +169,10 @@ curl -sSI https://admin.dopa.ing/super-admin/dashboard
 ```
 
 `/login`은 200, 비로그인 `/super-admin/dashboard`는 `/login`으로 307.
+
+현재 Admin source는 `99ba954`, 100% Worker version은
+`94de5fae-a818-43ab-b24f-c41d0fba5150`이다. 원격 `BUILD_ID`와 production 산출물의
+`BUILD_ID`가 일치한다.
 
 staging만 시험할 때:
 
@@ -185,24 +199,25 @@ DOPA_ADMIN_STAGING_DEPLOY_ACK=I_ACKNOWLEDGE_STAGING_ADMIN_DEPLOY \
 
 ## 7. 완료 조건
 
-- [ ] 기존 Google 웹 클라이언트에 `https://admin.dopa.ing` origin이 있다. 새 클라이언트가 아니다.
-- [ ] production API `/health.release`가 `d12868c` 이상이다.
-- [ ] production Admin이 `6f57b7e` 이상이다.
+- [x] 기존 Google 웹 클라이언트에 production·staging·localhost origin이 있다. 새 클라이언트가 아니다.
+- [x] production API `/health.release`가 `e6872e3`이다.
+- [x] production Admin source가 `99ba954`, Worker가 `94de5fae`다.
 - [ ] 배정된 앱 Google 계정으로 `admin.dopa.ing` 로그인 성공
 - [ ] 미배정 계정은 실패
 - [ ] 비밀번호 로그인 유지
-- [ ] Apple은 Services ID가 있을 때만 버튼이 보인다 (없어도 Google은 된다)
+- [x] Apple Services ID와 production URL이 등록되고 authorization 화면이 열린다.
+- [ ] 배정된 Apple 계정의 ID token을 API에 보내 `/app` 진입
 
 ---
 
 ## 8. 관련 코드
 
-| 역할 | 경로 |
-|---|---|
-| OIDC API | `spot-cloudflare-backend/apps/api-worker/src/routes/admin-auth.ts` `POST /oidc-login` |
-| 공개 라우트 목록 | `spot-cloudflare-backend/scripts/check-route-guards.mjs` |
-| Admin 로그인 UI | `spot-admin/src/app/(auth)/login/page.tsx` |
-| Google GIS | `spot-admin/src/auth/oidc/google-gis.tsx` |
-| Apple JS | `spot-admin/src/auth/oidc/apple-signin.ts` |
-| 클라이언트 ID | `spot-admin/src/auth/oidc/public-clients.ts` |
-| Admin 운영 정본 | `spot-admin/docs/OPERATIONS.md` |
+| 역할             | 경로                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| OIDC API         | `spot-cloudflare-backend/apps/api-worker/src/routes/admin-auth.ts` `POST /oidc-login` |
+| 공개 라우트 목록 | `spot-cloudflare-backend/scripts/check-route-guards.mjs`                              |
+| Admin 로그인 UI  | `spot-admin/src/app/(auth)/login/page.tsx`                                            |
+| Google GIS       | `spot-admin/src/auth/oidc/google-gis.tsx`                                             |
+| Apple JS         | `spot-admin/src/auth/oidc/apple-signin.ts`                                            |
+| 클라이언트 ID    | `spot-admin/src/auth/oidc/public-clients.ts`                                          |
+| Admin 운영 정본  | `spot-admin/docs/OPERATIONS.md`                                                       |
