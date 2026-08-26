@@ -19,4 +19,9 @@ describe("admin public OIDC clients", () => {
     vi.stubEnv("NEXT_PUBLIC_APPLE_CLIENT_ID", "");
     expect(publicAppleClientId()).toBe("");
   });
+
+  it("uses the configured Apple web Services ID", () => {
+    vi.stubEnv("NEXT_PUBLIC_APPLE_CLIENT_ID", "ing.dopa.admin.web");
+    expect(publicAppleClientId()).toBe("ing.dopa.admin.web");
+  });
 });
