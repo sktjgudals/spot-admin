@@ -5,6 +5,8 @@ import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 
 import {
+  APPLE_WEB_CLIENT_ID,
+  GOOGLE_WEB_CLIENT_ID,
   STAGING_API_URL,
   STAGING_CHAT_WS_URL,
   STAGING_WORKER_NAME,
@@ -62,8 +64,8 @@ export function executeStagingDeploy({ root, ack }) {
     ADMIN_ENVIRONMENT: "staging",
     NEXT_PUBLIC_API_URL: STAGING_API_URL,
     NEXT_PUBLIC_CHAT_WS_URL: STAGING_CHAT_WS_URL,
-    NEXT_PUBLIC_GOOGLE_CLIENT_ID:
-      "109162230288-9644lmdagmid6oc5bqttoq2q9asnigji.apps.googleusercontent.com",
+    NEXT_PUBLIC_GOOGLE_CLIENT_ID: GOOGLE_WEB_CLIENT_ID,
+    NEXT_PUBLIC_APPLE_CLIENT_ID: APPLE_WEB_CLIENT_ID,
   });
   run(binary, ["deploy", "--config", "wrangler.jsonc"], root);
 }

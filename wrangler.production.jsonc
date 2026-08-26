@@ -22,6 +22,7 @@
     "NEXT_PUBLIC_API_FALLBACK_URL": "https://dopa-backend.ceoofspot.workers.dev",
     "NEXT_PUBLIC_CHAT_WS_URL": "wss://api.dopa.ing/v2/chat",
     "NEXT_PUBLIC_GOOGLE_CLIENT_ID": "109162230288-9644lmdagmid6oc5bqttoq2q9asnigji.apps.googleusercontent.com",
+    "NEXT_PUBLIC_APPLE_CLIENT_ID": "ing.dopa.admin.web",
   },
   "observability": {
     "enabled": true,

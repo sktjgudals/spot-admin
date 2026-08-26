@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  APPLE_WEB_CLIENT_ID,
+  GOOGLE_WEB_CLIENT_ID,
   STAGING_API_URL,
   STAGING_CHAT_WS_URL,
   STAGING_WORKER_NAME,
@@ -18,6 +20,8 @@ function validConfig() {
       ADMIN_ENVIRONMENT: "staging",
       NEXT_PUBLIC_API_URL: STAGING_API_URL,
       NEXT_PUBLIC_CHAT_WS_URL: STAGING_CHAT_WS_URL,
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: GOOGLE_WEB_CLIENT_ID,
+      NEXT_PUBLIC_APPLE_CLIENT_ID: APPLE_WEB_CLIENT_ID,
     },
   };
 }

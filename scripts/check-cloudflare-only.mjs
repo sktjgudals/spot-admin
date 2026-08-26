@@ -7,6 +7,9 @@ export const STAGING_API_URL =
   "https://dopa-backend-staging.ceoofspot.workers.dev";
 export const STAGING_CHAT_WS_URL =
   "wss://dopa-backend-staging.ceoofspot.workers.dev/v2/chat";
+export const GOOGLE_WEB_CLIENT_ID =
+  "109162230288-9644lmdagmid6oc5bqttoq2q9asnigji.apps.googleusercontent.com";
+export const APPLE_WEB_CLIENT_ID = "ing.dopa.admin.web";
 
 const FORBIDDEN_REFERENCES = [
   { label: "deleted Cloud Run host", pattern: /\.run\.app/i },
@@ -123,6 +126,12 @@ export function validateWranglerConfig(config) {
     failures.push(
       "NEXT_PUBLIC_CHAT_WS_URL must target the staging Cloudflare WebSocket",
     );
+  }
+  if (config.vars?.NEXT_PUBLIC_GOOGLE_CLIENT_ID !== GOOGLE_WEB_CLIENT_ID) {
+    failures.push("NEXT_PUBLIC_GOOGLE_CLIENT_ID must use the DOPA web client");
+  }
+  if (config.vars?.NEXT_PUBLIC_APPLE_CLIENT_ID !== APPLE_WEB_CLIENT_ID) {
+    failures.push("NEXT_PUBLIC_APPLE_CLIENT_ID must use the DOPA Admin Services ID");
   }
   if (!config.compatibility_flags?.includes("nodejs_compat")) {
     failures.push("nodejs_compat compatibility flag is required");
