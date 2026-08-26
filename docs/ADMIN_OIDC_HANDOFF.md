@@ -77,6 +77,18 @@ http://localhost:3001
 6. Authorized redirect URIs는 GIS popup이면 보통 필요 없다. 이미 있는 값을 지우지 말 것.
 7. 클라이언트 ID 문자열을 바꾸지 말 것.
 
+OAuth 앱은 2026-08-26 아래 브랜딩 URL을 저장하고 `프로덕션 단계`로 게시했다. `테스트 중`
+상태에서는 테스트 사용자만 접근하므로 production Admin 로그인 완료 상태로 보지 않는다.
+
+```
+홈페이지: https://www.dopa.ing/
+개인정보처리방침: https://www.dopa.ing/privacy/
+서비스 약관: https://www.dopa.ing/terms/
+```
+
+게시 상태는 Google 로그인 화면 접근 범위일 뿐 Admin 권한 범위가 아니다. 백엔드는 기존 DOPA
+사용자, `ADMIN` 역할과 업체 배정을 계속 검사한다.
+
 확인: 브라우저에서 `https://admin.dopa.ing/login`을 열고 Google 버튼이 렌더되고, 클릭 시 origin 오류가 콘솔에 없어야 한다.  
 `The given origin is not allowed` / `idpiframe_initialization_failed` 이면 origin이 빠진 것이다.
 
@@ -200,6 +212,7 @@ DOPA_ADMIN_STAGING_DEPLOY_ACK=I_ACKNOWLEDGE_STAGING_ADMIN_DEPLOY \
 ## 7. 완료 조건
 
 - [x] 기존 Google 웹 클라이언트에 production·staging·localhost origin이 있다. 새 클라이언트가 아니다.
+- [x] Google OAuth 브랜딩 URL이 저장되고 게시 상태가 `프로덕션 단계`다.
 - [x] production API `/health.release`가 `e6872e3`이다.
 - [x] production Admin source가 `99ba954`, Worker가 `94de5fae`다.
 - [ ] 배정된 앱 Google 계정으로 `admin.dopa.ing` 로그인 성공
