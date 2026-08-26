@@ -32,7 +32,10 @@ production 산출물과 일치한다. PR #18의 업체별 결제·정산 콘솔�
 `NEXT_PUBLIC_APPLE_CLIENT_ID=ing.dopa.admin.web`로 빌드되며, Services ID는
 `com.hyeongmin.dopa`에 연결돼 있다.
 초대 비밀번호와 `@dopa.ing` 슈퍼 어드민 폼은 그대로다. Google Cloud 웹
-클라이언트에는 production·staging·localhost JavaScript origin이 저장돼 있다. API
+클라이언트에는 production·staging·localhost JavaScript origin이 저장돼 있다. OAuth 앱의
+홈페이지·개인정보처리방침·서비스 약관은 `www.dopa.ing` 공개 URL로 저장했고 게시 상태는
+`프로덕션 단계`다. 모든 Google 계정이 OAuth 화면을 사용할 수 있어도 서버는 기존 사용자와
+ADMIN·업체 배정을 다시 검사하므로 Admin 권한이 자동 생성되지는 않는다. API
 production release는 `e6872e3`, 최종 Secret Change Worker는 `e34b0baa`이며 Apple audience는
 기존 iOS 번들과 Admin Services ID를 함께 허용한다. Apple authorization 화면 진입까지
 확인했고 실계정 선택·토큰 전송 E2E는 별도 개인정보 확인이 필요하다.
