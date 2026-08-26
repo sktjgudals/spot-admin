@@ -11,26 +11,31 @@
 | ------------------------- | ---------------------------------------------------- |
 | Production Worker         | `dopa-admin`                                         |
 | Production URL            | `https://admin.dopa.ing`                             |
-| Production Worker version | `09ec4530-1261-4312-b9c1-00abccc1024b`               |
-| Production source commit  | `6ea43f0`                                            |
+| Production Worker version | `94de5fae-a818-43ab-b24f-c41d0fba5150`               |
+| Production source commit  | `99ba954`                                            |
 | API                       | `https://api.dopa.ing`                               |
 | WebSocket                 | `wss://api.dopa.ing/v2/chat`                         |
 | Staging Worker            | `dopa-admin-staging`                                 |
 | Staging API               | `https://dopa-backend-staging.ceoofspot.workers.dev` |
 
-2026-08-26 라이브는 git `6ea43f0`, Worker `09ec4530`(100%, Wrangler deployment
+2026-08-26 라이브는 git `99ba954`, Worker `94de5fae`(100%, Wrangler deployment
 list로 확인)이다. `/login`은 HTTP 200이고 CSP·HSTS가 응답에 있다.
 `/super-admin/dashboard`는 비로그인 시 `/login`으로 307이다. 원격 `BUILD_ID`는 배포한
 production 산출물과 일치한다. PR #18의 업체별 결제·정산 콘솔과 PR #19의 fail-closed
-런타임 상태 표시가 이 버전에 있다. 직전 정상 version은 `f0926705`다. 실계정으로 결제 운영
+런타임 상태 표시, PR #21의 Apple 웹 로그인이 이 버전에 있다. 직전 정상 version은
+`09ec4530`이다. 실계정으로 결제 운영
 프로필을 조회·변경한 확인은 아직 없다.
 
 업체 담당자 웹 로그인: 앱과 같은 Google 웹 클라이언트
 (`109162230288-9644lmdagmid6oc5bqttoq2q9asnigji`)로 `POST /auth/v2/admin/oidc-login`.
 신규 유저는 만들지 않고, 배정된 ADMIN만 세션을 준다. Apple 버튼은
-`NEXT_PUBLIC_APPLE_CLIENT_ID`(같은 앱의 Services ID)가 있을 때만 보인다.
+`NEXT_PUBLIC_APPLE_CLIENT_ID=ing.dopa.admin.web`로 빌드되며, Services ID는
+`com.hyeongmin.dopa`에 연결돼 있다.
 초대 비밀번호와 `@dopa.ing` 슈퍼 어드민 폼은 그대로다. Google Cloud 웹
-클라이언트에 `https://admin.dopa.ing` JavaScript origin이 있어야 GIS가 산다.
+클라이언트에는 production·staging·localhost JavaScript origin이 저장돼 있다. API
+production release는 `e6872e3`, 최종 Secret Change Worker는 `e34b0baa`이며 Apple audience는
+기존 iOS 번들과 Admin Services ID를 함께 허용한다. Apple authorization 화면 진입까지
+확인했고 실계정 선택·토큰 전송 E2E는 별도 개인정보 확인이 필요하다.
 
 콘솔 origin·Apple Services ID·production 배포 체크리스트는
 [ADMIN_OIDC_HANDOFF.md](ADMIN_OIDC_HANDOFF.md)다. 다른 에이전트에 이 파일만 넘기면 된다.
@@ -112,7 +117,7 @@ git diff --check
 ```
 
 `npm run verify`는 Vitest, release gate, runtime boundary 검사, ESLint와 staging OpenNext
-빌드를 실행한다. 2026-08-26 기준 Vitest 100개, release test 23개, runtime boundary,
+빌드를 실행한다. 2026-08-26 기준 Vitest 102개, release test 25개, runtime boundary,
 ESLint와 staging OpenNext build가 통과했다.
 
 수동 E2E 최소 범위:
