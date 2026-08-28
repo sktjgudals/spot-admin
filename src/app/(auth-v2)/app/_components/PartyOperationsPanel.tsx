@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 
 const LABELS: Record<PartyOperationalStatus, string> = {
-  DRAFT: "임시 저장",
+  DRAFT: "대기",
   RECRUITING: "모집 중",
   CONFIRMED: "참가 확정",
   CHECKIN_OPEN: "체크인",

@@ -37,7 +37,9 @@ export async function adminFetch(
   const url = path.startsWith("http") ? path : `${getAdminApiBaseUrl()}${path}`;
   const headers = new Headers(init.headers);
 
-  if (init.body != null && !headers.has("Content-Type")) {
+  const isMultipart =
+    typeof FormData !== "undefined" && init.body instanceof FormData;
+  if (init.body != null && !isMultipart && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -98,11 +100,12 @@ export async function adminFetchJson<T>(
     const body = (await res.json().catch(() => ({}))) as {
       message?: string | string[];
       code?: string;
+      errorCode?: string;
     };
     const msg = Array.isArray(body.message)
       ? body.message.join(", ")
       : (body.message ?? `Request failed (${res.status})`);
-    throw new AdminAuthError(body.code ?? "HTTP_ERROR", msg, {
+    throw new AdminAuthError(body.code ?? body.errorCode ?? "HTTP_ERROR", msg, {
       status: res.status,
       permanent: res.status === 401 || res.status === 403,
     });

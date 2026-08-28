@@ -64,4 +64,31 @@ describe("adminFetch", () => {
     expect(refreshAccessToken).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it("lets the browser add a multipart boundary for FormData", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({ queued: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const form = new FormData();
+    form.set("subject", "테스트");
+
+    await adminFetchJson("/admin/v2/mail/messages", { method: "POST", body: form });
+
+    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
+    expect(headers.has("Content-Type")).toBe(false);
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(form);
+  });
+
+  it("reads the existing errorCode envelope", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        jsonResponse({ errorCode: "RATE_LIMITED", message: "잠시 후 다시 시도" }, 429),
+      ),
+    );
+
+    await expect(adminFetchJson("/admin/v2/mail/messages")).rejects.toMatchObject({
+      code: "RATE_LIMITED",
+      status: 429,
+    });
+  });
 });

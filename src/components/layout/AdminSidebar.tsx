@@ -15,6 +15,7 @@ import {
   LogOut,
   ChevronRight,
   Menu,
+  Mail,
   MessageSquareText,
   Settings,
   Star,
@@ -39,6 +40,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/super-admin/dashboard", label: "대시보드", icon: LayoutDashboard },
+  { href: "/super-admin/mail", label: "메일", icon: Mail },
   { href: "/super-admin/users", label: "사용자", icon: UserCog },
   { href: "/app/businesses", label: "업체 · 파티 · 초대", icon: Building2 },
   { href: "/super-admin/business-admins", label: "업체 관리자 배정", icon: ClipboardCheck },
