@@ -3,6 +3,13 @@ export type PartyAdminScope = "business" | "super";
 /** Single query-key factory so the same resource cannot be fetched under aliases. */
 export const adminQueryKeys = {
   dashboard: ["admin", "dashboard", "summary"] as const,
+  mail: {
+    all: ["admin", "mail"] as const,
+    mailbox: ["admin", "mail", "mailbox"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["admin", "mail", "list", params] as const,
+    detail: (id: string) => ["admin", "mail", "detail", id] as const,
+  },
   parties: {
     all: ["admin", "parties"] as const,
     categories: ["admin", "party-categories"] as const,

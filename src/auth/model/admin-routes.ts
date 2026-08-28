@@ -93,6 +93,14 @@ type PartyAdminScope = "business" | "super";
 export const AdminApi = {
   me: () => "/auth/v2/admin/me",
   dashboard: () => "/admin/v2/dashboard/summary",
+  mailbox: () => "/admin/v2/mailbox",
+  mailMessages: () => "/admin/v2/mail/messages",
+  mailMessage: (id: string) =>
+    `/admin/v2/mail/messages/${encodeURIComponent(id)}`,
+  mailAttachment: (messageId: string, attachmentId: string) =>
+    `/admin/v2/mail/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`,
+  mailRetry: (id: string) =>
+    `/admin/v2/mail/messages/${encodeURIComponent(id)}/retry`,
   businesses: () => "/admin/v2/businesses",
   business: (id: string) => `/admin/v2/businesses/${encodeURIComponent(id)}`,
   businessDisable: (id: string) =>
