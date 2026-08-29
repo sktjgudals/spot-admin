@@ -38,6 +38,14 @@ export interface AdminReport {
 
 export interface AdminReportPage {
   items: AdminReport[];
+  /**
+   * The offset of the next page, as a string, or null at the end.
+   *
+   * Named `nextCursor` because that is what the endpoint returns, but it is an
+   * offset — pass it straight back as `offset`. Calling it a cursor and then
+   * paginating by offset is how the first version of this screen ended up with
+   * a working API and no way to reach page two.
+   */
   nextCursor: string | null;
   openCount: number;
   overdueCount: number;

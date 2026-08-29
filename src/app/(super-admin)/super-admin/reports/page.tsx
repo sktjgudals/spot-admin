@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   AlertTriangle,
   Ban,
@@ -61,12 +66,21 @@ const TABS: { value: ReportStatus; label: string }[] = [
   { value: "DISMISSED", label: "기각" },
 ];
 
+/**
+ * 남은 시간 표기.
+ *
+ * 반올림하면 15분 전에 마감을 넘긴 건과 20분 뒤 마감인 건이 둘 다 "0시간"이
+ * 된다 — 큐에서 가장 급한 두 상태가 가장 안 읽히고, 서로 구분도 안 된다.
+ * 한 시간 미만은 분으로 말한다.
+ */
 function remainingLabel(report: AdminReport): string {
-  const due = new Date(report.dueAt).getTime();
-  const diffMs = due - Date.now();
-  const hours = Math.round(Math.abs(diffMs) / 3_600_000);
-  if (diffMs < 0) return `${hours}시간 초과`;
-  return `${hours}시간 남음`;
+  const diffMs = new Date(report.dueAt).getTime() - Date.now();
+  const abs = Math.abs(diffMs);
+  const unit =
+    abs < 3_600_000
+      ? `${Math.max(1, Math.floor(abs / 60_000))}분`
+      : `${Math.floor(abs / 3_600_000)}시간`;
+  return diffMs < 0 ? `${unit} 초과` : `${unit} 남음`;
 }
 
 export default function SuperAdminReportsPage() {
@@ -74,15 +88,24 @@ export default function SuperAdminReportsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const reports = useQuery({
+  // 무한 스크롤이 아니라 "더 보기"다. 큐가 50건을 넘으면 나머지는 화면에서
+  // 사라지는데, 상단 카드에는 전체 건수가 그대로 떠 있다 — 지킬 수 없는
+  // 마감을 지키라고 말하는 화면이 된다.
+  const reports = useInfiniteQuery({
     queryKey: adminQueryKeys.reports.list(status),
-    queryFn: () => listAdminReports({ status }),
+    queryFn: ({ pageParam }) =>
+      listAdminReports({ status, offset: pageParam as number }),
+    initialPageParam: 0,
+    getNextPageParam: (last) =>
+      last.nextCursor === null ? undefined : Number(last.nextCursor),
     // 처리 대기 목록은 오래 두면 남이 이미 처리한 건을 보게 된다.
     staleTime: 15_000,
     refetchInterval: status === "PENDING" ? 60_000 : false,
   });
 
-  const items = reports.data?.items ?? [];
+  const pages = reports.data?.pages ?? [];
+  const summary = pages[0];
+  const items = pages.flatMap((page) => page.items);
 
   const alertTest = useMutation({
     mutationFn: testModerationAlert,
@@ -102,7 +125,7 @@ export default function SuperAdminReportsPage() {
         <div>
           <h1 className="text-xl font-bold sm:text-2xl">신고 처리</h1>
           <p className="text-sm text-muted-foreground">
-            접수된 신고는 {reports.data?.slaHours ?? 24}시간 이내에 검토하고
+            접수된 신고는 {summary?.slaHours ?? 24}시간 이내에 검토하고
             조치해야 합니다.
           </p>
         </div>
@@ -139,17 +162,17 @@ export default function SuperAdminReportsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            {reports.data?.openCount ?? "—"}
+            {summary?.openCount ?? "—"}
           </CardContent>
         </Card>
         <Card
           className={
-            (reports.data?.overdueCount ?? 0) > 0 ? "border-destructive" : ""
+            (summary?.overdueCount ?? 0) > 0 ? "border-destructive" : ""
           }
         >
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              {(reports.data?.overdueCount ?? 0) > 0 ? (
+              {(summary?.overdueCount ?? 0) > 0 ? (
                 <AlertTriangle className="h-4 w-4 text-destructive" />
               ) : null}
               24시간 초과
@@ -157,10 +180,10 @@ export default function SuperAdminReportsPage() {
           </CardHeader>
           <CardContent
             className={`text-2xl font-bold ${
-              (reports.data?.overdueCount ?? 0) > 0 ? "text-destructive" : ""
+              (summary?.overdueCount ?? 0) > 0 ? "text-destructive" : ""
             }`}
           >
-            {reports.data?.overdueCount ?? "—"}
+            {summary?.overdueCount ?? "—"}
           </CardContent>
         </Card>
       </div>
@@ -255,6 +278,20 @@ export default function SuperAdminReportsPage() {
               </TableBody>
             </Table>
           )}
+          {reports.hasNextPage ? (
+            <div className="flex justify-center border-t p-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => reports.fetchNextPage()}
+                disabled={reports.isFetchingNextPage}
+              >
+                {reports.isFetchingNextPage
+                  ? "불러오는 중…"
+                  : `더 보기 (${items.length}/${summary?.openCount ?? "?"})`}
+              </Button>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

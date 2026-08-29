@@ -254,10 +254,17 @@ function ComposeDialog({
     mailboxAddress,
   );
   const [fromAddress, setFromAddress] = useState(defaultFromAddress);
+  // Falls back to a sender that is actually in the list, not to the mailbox
+  // address. The <select> is controlled by this value: an address absent from
+  // `senders` leaves selectedIndex at -1, and the dropdown then either blocks
+  // submit on a blank-looking required field or shows one address while the
+  // form posts another.
   const effectiveFromAddress =
     senders.find(
       (sender) => normalizeAddress(sender.address) === normalizeAddress(fromAddress),
-    )?.address ?? defaultFromAddress;
+    )?.address ??
+    senders[0]?.address ??
+    defaultFromAddress;
   const [to, setTo] = useState(replyTarget?.address ?? "");
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
@@ -641,7 +648,12 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
             <Button
               className="w-full justify-start"
               size="lg"
-              disabled={(mailbox.data?.senders.length ?? 0) === 0}
+              // `senders` is served by the backend and was added after this
+              // console shipped, so a deploy that lands the web app first — or
+              // a rollback — answers without it. `?.senders.length` reads
+              // `undefined.length` and takes the whole mail console down with a
+              // render error, which is a blank screen for a missing button.
+              disabled={(mailbox.data?.senders?.length ?? 0) === 0}
               onClick={() => openComposer("new")}
             >
               <Pencil /> 새 메일
