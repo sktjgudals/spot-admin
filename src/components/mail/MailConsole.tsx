@@ -196,11 +196,34 @@ function forwardedHtml(detail: MailMessageDetail | null): string {
   ].join("");
 }
 
+function normalizeAddress(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function replySenderAddress(
+  mode: ComposeMode,
+  message: MailMessage | null,
+  senders: readonly MailAddress[],
+  mailboxAddress: string,
+): string {
+  if (mode !== "reply" || message === null) return mailboxAddress;
+  const allowed = new Map(
+    senders.map((sender) => [normalizeAddress(sender.address), sender.address]),
+  );
+  const candidates = message.direction === "INBOUND" ? message.to : message.from;
+  for (const candidate of candidates) {
+    const owned = allowed.get(normalizeAddress(candidate.address));
+    if (owned) return owned;
+  }
+  return mailboxAddress;
+}
+
 function ComposeDialog({
   open,
   mode,
   detail,
   mailboxAddress,
+  senders,
   onOpenChange,
   onSent,
 }: {
@@ -208,16 +231,40 @@ function ComposeDialog({
   mode: ComposeMode;
   detail: MailMessageDetail | null;
   mailboxAddress: string;
+  senders: readonly MailAddress[];
   onOpenChange: (open: boolean) => void;
   onSent: (message: MailMessage | null) => void;
 }) {
   const source = detail?.message ?? null;
+  const senderAddresses = new Set(
+    senders.map((sender) => normalizeAddress(sender.address)),
+  );
   const replyTarget =
     mode === "reply" && source
       ? source.direction === "INBOUND"
-        ? source.from.find((address) => address.address !== mailboxAddress)
+        ? source.from.find(
+            (address) => !senderAddresses.has(normalizeAddress(address.address)),
+          )
         : source.to.at(0)
       : undefined;
+  const defaultFromAddress = replySenderAddress(
+    mode,
+    source,
+    senders,
+    mailboxAddress,
+  );
+  const [fromAddress, setFromAddress] = useState(defaultFromAddress);
+  // Falls back to a sender that is actually in the list, not to the mailbox
+  // address. The <select> is controlled by this value: an address absent from
+  // `senders` leaves selectedIndex at -1, and the dropdown then either blocks
+  // submit on a blank-looking required field or shows one address while the
+  // form posts another.
+  const effectiveFromAddress =
+    senders.find(
+      (sender) => normalizeAddress(sender.address) === normalizeAddress(fromAddress),
+    )?.address ??
+    senders[0]?.address ??
+    defaultFromAddress;
   const [to, setTo] = useState(replyTarget?.address ?? "");
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
@@ -268,6 +315,7 @@ function ComposeDialog({
       return;
     }
     const form = new FormData();
+    form.set("fromAddress", effectiveFromAddress);
     form.set("to", JSON.stringify(parsedTo));
     form.set("cc", JSON.stringify(parsedCc));
     form.set("bcc", JSON.stringify(parsedBcc));
@@ -296,11 +344,29 @@ function ComposeDialog({
                     : "새 메일"}
             </DialogTitle>
             <DialogDescription>
-              발신 주소는 로그인한 사서함인 {mailboxAddress}로 고정됩니다.
+              이 사서함에 허용된 주소만 발신자로 선택할 수 있습니다.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-3">
+            <label className="grid gap-1 text-xs font-medium">
+              보내는 사람
+              <select
+                value={effectiveFromAddress}
+                onChange={(event) => setFromAddress(event.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={senders.length <= 1}
+                required
+              >
+                {senders.map((sender) => (
+                  <option key={sender.address} value={sender.address}>
+                    {sender.name
+                      ? `${sender.name} <${sender.address}>`
+                      : sender.address}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="grid gap-1 text-xs font-medium">
               받는 사람
               <Input
@@ -462,7 +528,7 @@ function MailListItem({
   );
 }
 
-export function MailConsole() {
+export function MailConsole({ compact = false }: { compact?: boolean }) {
   const queryClient = useQueryClient();
   const [folder, setFolder] = useState<MailFolder>("INBOX");
   const [searchDraft, setSearchDraft] = useState("");
@@ -555,17 +621,41 @@ export function MailConsole() {
     mailbox.data?.folders.map((entry) => [entry.folder, entry]) ?? [],
   );
   return (
-    <div className="h-[calc(100dvh-3.5rem)] min-h-0 bg-background md:h-full">
-      <div className="grid h-full min-h-0 md:grid-cols-[210px_360px_minmax(0,1fr)] xl:grid-cols-[230px_400px_minmax(0,1fr)]">
+    <div
+      className={cn(
+        "min-h-0 bg-background",
+        compact
+          ? "h-[calc(100dvh-4rem)]"
+          : "h-[calc(100dvh-3.5rem)] md:h-full",
+      )}
+      data-mail-layout={compact ? "compact" : "responsive"}
+    >
+      <div
+        className={cn(
+          "grid h-full min-h-0",
+          !compact &&
+            "md:grid-cols-[210px_360px_minmax(0,1fr)] xl:grid-cols-[230px_400px_minmax(0,1fr)]",
+        )}
+      >
         <aside
           className={cn(
             "min-h-0 flex-col border-r bg-muted/20",
             mobilePane === "folders" ? "flex" : "hidden",
-            "md:flex",
+            !compact && "md:flex",
           )}
         >
           <div className="border-b p-4">
-            <Button className="w-full justify-start" size="lg" onClick={() => openComposer("new")}>
+            <Button
+              className="w-full justify-start"
+              size="lg"
+              // `senders` is served by the backend and was added after this
+              // console shipped, so a deploy that lands the web app first — or
+              // a rollback — answers without it. `?.senders.length` reads
+              // `undefined.length` and takes the whole mail console down with a
+              // render error, which is a blank screen for a missing button.
+              disabled={(mailbox.data?.senders?.length ?? 0) === 0}
+              onClick={() => openComposer("new")}
+            >
               <Pencil /> 새 메일
             </Button>
           </div>
@@ -606,7 +696,7 @@ export function MailConsole() {
           className={cn(
             "min-h-0 flex-col border-r bg-background",
             mobilePane === "list" ? "flex" : "hidden",
-            "md:flex",
+            !compact && "md:flex",
           )}
         >
           <div className="grid gap-3 border-b p-3">
@@ -615,7 +705,7 @@ export function MailConsole() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="md:hidden"
+                className={cn(!compact && "md:hidden")}
                 onClick={() => setMobilePane("folders")}
                 aria-label="폴더 목록"
               >
@@ -722,7 +812,7 @@ export function MailConsole() {
           className={cn(
             "min-h-0 flex-col bg-background",
             mobilePane === "detail" ? "flex" : "hidden",
-            "md:flex",
+            !compact && "md:flex",
           )}
         >
           {selectedId === null ? (
@@ -749,7 +839,7 @@ export function MailConsole() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="md:hidden"
+                  className={cn(!compact && "md:hidden")}
                   onClick={() => setMobilePane("list")}
                   aria-label="메일 목록으로"
                 >
@@ -960,6 +1050,7 @@ export function MailConsole() {
           mode={composeMode}
           detail={detail.data ?? null}
           mailboxAddress={mailbox.data?.address ?? ""}
+          senders={mailbox.data?.senders ?? []}
           onOpenChange={setComposeOpen}
           onSent={(message) => {
             void invalidateMail();
