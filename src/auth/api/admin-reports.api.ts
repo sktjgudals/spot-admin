@@ -92,6 +92,23 @@ export function resolveAdminReport(
   );
 }
 
+/**
+ * 신고 알림 Slack 연결 확인.
+ *
+ * 알림 경로는 실패해도 신고를 죽이지 않도록 조용히 설계돼 있다. 그래서
+ * 웹훅을 잘못 붙여넣어도 아무 일도 일어나지 않고, 설정한 사람은 그걸 알
+ * 방법이 없다. 이 호출이 그 침묵을 깬다.
+ */
+export function testModerationAlert(): Promise<{
+  configured: boolean;
+  usable: boolean;
+  delivered: boolean;
+  hint?: string;
+}> {
+  const init: AdminFetchInit = { method: "POST" };
+  return adminFetchJson("/admin/v2/reports/test-alert", init);
+}
+
 /** Korean labels for the codes the app sends. Unknown codes show as-is. */
 export const REASON_LABELS: Record<string, string> = {
   HARASSMENT: "괴롭힘 / 폭언",

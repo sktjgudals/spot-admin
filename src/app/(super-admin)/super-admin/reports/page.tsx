@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Ban, RefreshCw, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Ban,
+  BellRing,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   REASON_LABELS,
@@ -11,6 +18,7 @@ import {
   getAdminReport,
   listAdminReports,
   resolveAdminReport,
+  testModerationAlert,
   type AdminReport,
   type ReportResolution,
   type ReportStatus,
@@ -76,6 +84,18 @@ export default function SuperAdminReportsPage() {
 
   const items = reports.data?.items ?? [];
 
+  const alertTest = useMutation({
+    mutationFn: testModerationAlert,
+    onSuccess: (result) => {
+      if (result.delivered) {
+        toast.success("Slack에 테스트 알림을 보냈습니다. 채널을 확인하세요.");
+      } else {
+        toast.error(result.hint ?? "Slack이 알림을 받지 못했습니다.");
+      }
+    },
+    onError: () => toast.error("알림 테스트에 실패했습니다."),
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -86,17 +106,29 @@ export default function SuperAdminReportsPage() {
             조치해야 합니다.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => reports.refetch()}
-          disabled={reports.isFetching}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${reports.isFetching ? "animate-spin" : ""}`}
-          />
-          새로고침
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => alertTest.mutate()}
+            disabled={alertTest.isPending}
+            title="Slack 알림 연결을 확인합니다"
+          >
+            <BellRing className="mr-2 h-4 w-4" />
+            알림 테스트
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => reports.refetch()}
+            disabled={reports.isFetching}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${reports.isFetching ? "animate-spin" : ""}`}
+            />
+            새로고침
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
