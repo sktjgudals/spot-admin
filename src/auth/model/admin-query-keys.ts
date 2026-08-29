@@ -19,6 +19,12 @@ export const adminQueryKeys = {
     statusHistory: (partyId: string) =>
       ["admin", "parties", "detail", partyId, "status-history"] as const,
   },
+  reports: {
+    all: ["admin", "reports"] as const,
+    list: (status: string) => ["admin", "reports", "list", status] as const,
+    detail: (reportId: string) =>
+      ["admin", "reports", "detail", reportId] as const,
+  },
   insights: (partyId?: string) =>
     ["admin", "insights", partyId && partyId.length > 0 ? partyId : "all"] as const,
   mailOutbox: {
