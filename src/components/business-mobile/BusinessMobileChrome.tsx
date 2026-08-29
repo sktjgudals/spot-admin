@@ -3,13 +3,22 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChartPie, House, ListChecks, MessageSquare, UserRound } from "lucide-react";
+import {
+  Bell,
+  ChartPie,
+  House,
+  ListChecks,
+  Mail,
+  MessageSquare,
+  UserRound,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/app/parties", label: "홈", icon: House },
   { href: "/app/insights", label: "인사이트", icon: ChartPie },
   { href: "/app/chat", label: "채팅", icon: MessageSquare },
+  { href: "/app/mail", label: "메일", icon: Mail },
   { href: "/app/reviews", label: "리뷰", icon: ListChecks },
   { href: "/app/my", label: "마이", icon: UserRound },
 ] as const;

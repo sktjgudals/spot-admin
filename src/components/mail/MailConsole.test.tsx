@@ -55,13 +55,13 @@ const message: MailMessage = {
   messageCount: 1,
 };
 
-function renderMail() {
+function renderMail(compact = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <MailConsole />
+      <MailConsole compact={compact} />
     </QueryClientProvider>,
   );
 }
@@ -70,6 +70,10 @@ describe("MailConsole", () => {
   beforeEach(() => {
     vi.mocked(fetchMailbox).mockResolvedValue({
       address: "owner@dopa.ing",
+      senders: [
+        { name: "관리자", address: "owner@dopa.ing" },
+        { name: "관리자", address: "contact@dopa.ing" },
+      ],
       name: "관리자",
       folders: [
         { folder: "INBOX", total: 1, unread: 1 },
@@ -145,17 +149,62 @@ describe("MailConsole", () => {
     const editor = await screen.findByLabelText("텍스트 본문");
     await user.click(screen.getByRole("button", { name: "굵게" }));
     await user.type(editor, "본문입니다");
+    await user.selectOptions(screen.getByLabelText("보내는 사람"), "contact@dopa.ing");
     await user.click(screen.getByRole("button", { name: "보내기" }));
 
     await waitFor(() => expect(composeMail).toHaveBeenCalledTimes(1));
     const form = vi.mocked(composeMail).mock.calls[0]?.[0];
     expect(form).toBeInstanceOf(FormData);
+    expect(form?.get("fromAddress")).toBe("contact@dopa.ing");
     expect(JSON.parse(String(form?.get("to")))).toEqual([
       { name: "", address: "friend@example.com" },
     ]);
     expect(form?.get("subject")).toBe("안녕하세요");
     expect(form?.get("text")).toBe("본문입니다");
     expect(form?.get("html")).toContain("<strong>본문입니다</strong>");
+  });
+
+  it("prefers the original recipient alias when replying", async () => {
+    const user = userEvent.setup();
+    const aliasedMessage = {
+      ...message,
+      to: [{ name: "관리자", address: "contact@dopa.ing" }],
+    };
+    vi.mocked(listMailMessages).mockResolvedValue({
+      items: [aliasedMessage],
+      nextCursor: null,
+      asOf: "now",
+    });
+    vi.mocked(fetchMailMessage).mockResolvedValue({
+      message: aliasedMessage,
+      text: "계획안 본문입니다.",
+      html: null,
+      attachments: [],
+      thread: [aliasedMessage],
+    });
+    renderMail();
+
+    await user.click(await screen.findByText("분기 계획"));
+    await user.click(await screen.findByRole("button", { name: "답장" }));
+    expect(screen.getByLabelText("보내는 사람")).toHaveValue("contact@dopa.ing");
+    await user.type(await screen.findByLabelText("텍스트 본문"), "확인했습니다.");
+    await user.click(screen.getByRole("button", { name: "보내기" }));
+
+    await waitFor(() => expect(composeMail).toHaveBeenCalledTimes(1));
+    const form = vi.mocked(composeMail).mock.calls[0]?.[0];
+    expect(form?.get("fromAddress")).toBe("contact@dopa.ing");
+    expect(form?.get("replyToMessageId")).toBe("mail-1");
+  });
+
+  it("forces the business mailbox into the compact single-pane layout", async () => {
+    const { container } = renderMail(true);
+    expect(await screen.findByText("분기 계획")).toBeInTheDocument();
+    const compact = container.querySelector('[data-mail-layout="compact"]');
+    expect(compact).toHaveClass("h-[calc(100dvh-4rem)]");
+    expect(compact?.firstElementChild).not.toHaveClass(
+      "md:grid-cols-[210px_360px_minmax(0,1fr)]",
+    );
+    expect(compact?.querySelector("aside")).not.toHaveClass("md:flex");
   });
 
   it("attaches the selected mailbox message as an .eml source", async () => {

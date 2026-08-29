@@ -55,6 +55,7 @@ export type MailAttachment = {
 
 export type MailboxSummary = {
   address: string;
+  senders: MailAddress[];
   name: string;
   folders: { folder: MailFolder; total: number; unread: number }[];
   unreadTotal: number;
