@@ -12,6 +12,7 @@ import {
   refundPolicyRequestsConfig,
   refundsConfig,
 } from "./payments";
+import { reportReasonsConfig } from "./moderation";
 import { reviewTagCategoriesConfig, reviewTagsConfig } from "./reviews";
 import type { ResourceConfig } from "./types";
 import { usersConfig } from "./users";
@@ -37,5 +38,6 @@ export const resourceConfigs: Record<string, ResourceConfig> = {
   categories: categoriesConfig,
   "review-tag-categories": reviewTagCategoriesConfig,
   "review-tags": reviewTagsConfig,
+  "report-reasons": reportReasonsConfig,
   config: runtimeConfig,
 };
