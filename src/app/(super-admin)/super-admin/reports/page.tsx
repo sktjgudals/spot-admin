@@ -94,10 +94,12 @@ export default function SuperAdminReportsPage() {
   const reports = useInfiniteQuery({
     queryKey: adminQueryKeys.reports.list(status),
     queryFn: ({ pageParam }) =>
-      listAdminReports({ status, offset: pageParam as number }),
-    initialPageParam: 0,
-    getNextPageParam: (last) =>
-      last.nextCursor === null ? undefined : Number(last.nextCursor),
+      listAdminReports({ status, cursor: pageParam as string | undefined }),
+    initialPageParam: undefined as string | undefined,
+    // 커서는 그대로 돌려준다. 예전에는 Number()로 바꿔서 offset으로 보냈는데,
+    // 큐를 처리하는 동안 목록이 줄어들면 offset이 가리키는 위치가 밀려서
+    // 마감이 가장 임박한 신고가 조용히 건너뛰어졌다.
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     // 처리 대기 목록은 오래 두면 남이 이미 처리한 건을 보게 된다.
     staleTime: 15_000,
     refetchInterval: status === "PENDING" ? 60_000 : false,
