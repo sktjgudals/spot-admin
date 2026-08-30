@@ -39,12 +39,15 @@ export interface AdminReport {
 export interface AdminReportPage {
   items: AdminReport[];
   /**
-   * The offset of the next page, as a string, or null at the end.
+   * Where the next page starts, or null at the end.
    *
-   * Named `nextCursor` because that is what the endpoint returns, but it is an
-   * offset — pass it straight back as `offset`. Calling it a cursor and then
-   * paginating by offset is how the first version of this screen ended up with
-   * a working API and no way to reach page two.
+   * Opaque: it encodes the last row's position in the ordering, and nothing
+   * here may parse it. It used to be a decimal offset that this file read with
+   * `Number()`, which is why the warning is worth keeping — paging by offset
+   * over a queue that shrinks as it is worked skips the reports that slide up
+   * past the window, and those are the ones closest to their deadline.
+   *
+   * Pass it back verbatim as `cursor`.
    */
   nextCursor: string | null;
   openCount: number;
@@ -69,11 +72,11 @@ export interface AdminReportDetail extends AdminReport {
 }
 
 export async function listAdminReports(
-  params: { status?: ReportStatus; offset?: number; limit?: number } = {},
+  params: { status?: ReportStatus; cursor?: string; limit?: number } = {},
 ): Promise<AdminReportPage> {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
-  if (params.offset) query.set("offset", String(params.offset));
+  if (params.cursor) query.set("cursor", params.cursor);
   query.set("limit", String(params.limit ?? 50));
   return adminFetchJson<AdminReportPage>(
     `/admin/v2/reports?${query.toString()}`,

@@ -25,12 +25,26 @@ describe("listAdminReports", () => {
     expect(fetchJson).toHaveBeenCalledWith("/admin/v2/reports?limit=50");
   });
 
-  it("passes the status filter and offset through", async () => {
+  it("passes the status filter and cursor through", async () => {
     fetchJson.mockResolvedValue({ items: [] });
-    await listAdminReports({ status: "ACTIONED", offset: 50, limit: 25 });
+    await listAdminReports({
+      status: "ACTIONED",
+      cursor: "WzEsMTc1NjQ1NzIwMDAwMCwicmVwXzEiXQ",
+      limit: 25,
+    });
     expect(fetchJson).toHaveBeenCalledWith(
-      "/admin/v2/reports?status=ACTIONED&offset=50&limit=25",
+      "/admin/v2/reports?status=ACTIONED&cursor=WzEsMTc1NjQ1NzIwMDAwMCwicmVwXzEiXQ&limit=25",
     );
+  });
+
+  it("never sends an offset", async () => {
+    // The endpoint refuses `offset` outright now. Paging a queue by offset
+    // while moderators resolve rows out of it skips the reports that slide up
+    // past the window — and those are the ones nearest their deadline.
+    fetchJson.mockResolvedValue({ items: [] });
+    await listAdminReports({ status: "PENDING", cursor: "abc" });
+    const url = fetchJson.mock.calls[0][0] as string;
+    expect(url).not.toContain("offset");
   });
 });
 
