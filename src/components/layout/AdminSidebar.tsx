@@ -10,6 +10,7 @@ import {
   Building2,
   ClipboardCheck,
   CreditCard,
+  Flag,
   ImageIcon,
   LayoutDashboard,
   LogOut,
@@ -55,6 +56,7 @@ const navItems: NavItem[] = [
   { href: "/super-admin/banners", label: "배너", icon: ImageIcon },
   { href: "/super-admin/categories", label: "파티 카테고리", icon: Tags },
   { href: "/super-admin/review-tags", label: "리뷰 태그", icon: Star },
+  { href: "/super-admin/report-reasons", label: "신고 사유", icon: Flag },
   { href: "/super-admin/config", label: "런타임 설정", icon: Settings },
 ];
 
