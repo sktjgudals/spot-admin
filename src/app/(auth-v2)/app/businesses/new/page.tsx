@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "zod/mini";
 import { formResolver } from "@/lib/form-resolver";
 import { toast } from "sonner";
 import { useAdminMutation } from "@/auth/query/use-admin-mutation";
@@ -31,14 +31,23 @@ import {
 import { BusinessAdminPicker } from "@/components/admin/BusinessAdminPicker";
 
 const schema = z.object({
-  name: z.string().min(1, "업체명을 입력하세요").max(200),
+  name: z.string().check(
+    z.minLength(1, "업체명을 입력하세요"),
+    z.maxLength(200),
+  ),
   kind: z.enum(["COMPANY", "INDIVIDUAL"]),
-  tagline: z.string().max(200).optional(),
-  description: z.string().max(2000).optional(),
-  contactEmail: z.string().email("올바른 이메일").optional().or(z.literal("")),
-  contactPhone: z.string().max(40).optional(),
-  businessNumber: z.string().max(40).optional(),
-  feeRateBps: z.coerce.number().int().min(0).max(10000).optional(),
+  tagline: z.optional(z.string().check(z.maxLength(200))),
+  description: z.optional(z.string().check(z.maxLength(2000))),
+  contactEmail: z.optional(
+    z.union([z.email("올바른 이메일"), z.literal("")]),
+  ),
+  contactPhone: z.optional(z.string().check(z.maxLength(40))),
+  businessNumber: z.optional(z.string().check(z.maxLength(40))),
+  feeRateBps: z.optional(
+    z.coerce
+      .number()
+      .check(z.int(), z.minimum(0), z.maximum(10_000)),
+  ),
 });
 
 type FormValues = z.infer<typeof schema>;

@@ -67,7 +67,7 @@ function InvitationsPage() {
 
   const bizQuery = useQuery({
     queryKey: businessQueryKeys.detail(businessId),
-    queryFn: () => getBusiness(businessId, { includeDeleted: true }),
+    queryFn: () => getBusiness(businessId),
     enabled: !!businessId,
   });
 
@@ -410,7 +410,7 @@ function DeliveryCell({
     <div className="space-y-1">
       <MailStatusBadge status={delivery.status} />
       {delivery.lastError && (
-        <p className="text-[10px] text-muted-foreground line-clamp-2 max-w-[140px]">
+        <p className="max-w-[140px] line-clamp-2 text-xs text-muted-foreground">
           {delivery.lastError}
         </p>
       )}

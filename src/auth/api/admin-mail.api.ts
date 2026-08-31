@@ -1,4 +1,9 @@
-import { adminFetch, adminFetchJson } from "@/auth/api/admin-http";
+import {
+  adminFetch,
+  adminFetchJson,
+  assertAdminSessionGeneration,
+} from "@/auth/api/admin-http";
+import { getAdminSessionGeneration } from "@/auth/store/admin-auth.store";
 import { AdminApi } from "@/auth/model/admin-routes";
 
 export type MailFolder = "INBOX" | "SENT" | "ARCHIVE" | "SPAM" | "TRASH";
@@ -126,9 +131,12 @@ export async function downloadMailAttachment(
   messageId: string,
   attachment: Pick<MailAttachment, "id" | "filename">,
 ): Promise<void> {
+  const requestGeneration = getAdminSessionGeneration();
   const response = await adminFetch(AdminApi.mailAttachment(messageId, attachment.id));
   if (!response.ok) throw new Error(`Attachment download failed (${response.status})`);
-  const url = URL.createObjectURL(await response.blob());
+  const blob = await response.blob();
+  assertAdminSessionGeneration(requestGeneration);
+  const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = attachment.filename;

@@ -1,4 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { RUNTIME_SECURITY_HEADERS } from "@/lib/security-headers";
+
+function withSecurityHeaders(response: NextResponse) {
+  for (const [name, value] of Object.entries(RUNTIME_SECURITY_HEADERS)) {
+    response.headers.set(name, value);
+  }
+  return response;
+}
 
 /**
  * Edge middleware retained intentionally for Cloudflare OpenNext.
@@ -24,12 +32,12 @@ export function middleware(req: NextRequest) {
       hasSession &&
       (pathname.startsWith("/login") || pathname.startsWith("/signup"))
     ) {
-      return NextResponse.redirect(new URL("/app", req.url));
+      return withSecurityHeaders(NextResponse.redirect(new URL("/app", req.url)));
     }
-    return NextResponse.next();
+    return withSecurityHeaders(NextResponse.next());
   }
 
-  if (pathname === "/") return NextResponse.next();
+  if (pathname === "/") return withSecurityHeaders(NextResponse.next());
 
   if (
     pathname === "/app" ||
@@ -37,16 +45,20 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/super-admin")
   ) {
     if (!hasSession) {
-      return NextResponse.redirect(new URL("/login", req.url));
+      return withSecurityHeaders(
+        NextResponse.redirect(new URL("/login", req.url)),
+      );
     }
-    return NextResponse.next();
+    return withSecurityHeaders(NextResponse.next());
   }
 
   if (!hasSession) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return withSecurityHeaders(
+      NextResponse.redirect(new URL("/login", req.url)),
+    );
   }
 
-  return NextResponse.next();
+  return withSecurityHeaders(NextResponse.next());
 }
 
 export const config = {

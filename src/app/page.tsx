@@ -39,7 +39,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-3">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800" />
+      <div className="size-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
       <p className="text-sm text-muted-foreground">세션 확인 중…</p>
     </div>
   );

@@ -16,6 +16,17 @@ export type BusinessOperatorRoom = {
   isBusinessUserBlocked?: boolean;
 };
 
+export type BusinessOperatorRoomDetail = {
+  id: string;
+  type: "BIZ_DM";
+  title: string;
+  imageUrl: string | null;
+  otherUserId: string;
+  unreadCount: number;
+  isMuted: boolean;
+  isBusinessUserBlocked: boolean;
+};
+
 export type BusinessOperatorMessage = {
   id: string;
   roomSeq: number;
@@ -54,14 +65,26 @@ export function listBusinessOperatorRooms() {
 }
 
 export function getBusinessOperatorRoom(roomId: string) {
-  return adminFetchJson<Record<string, unknown>>(
+  return adminFetchJson<BusinessOperatorRoomDetail>(
     `/chat/operator/rooms/${encodeURIComponent(roomId)}`,
   );
 }
 
-export function listBusinessOperatorMessages(roomId: string, afterSeq?: number) {
-  const query = new URLSearchParams({ limit: "100" });
-  if (afterSeq !== undefined) query.set("afterSeq", String(afterSeq));
+export type BusinessOperatorMessageListOptions = {
+  afterSeq?: number;
+  beforeSeq?: number;
+  limit?: number;
+};
+
+export function listBusinessOperatorMessages(
+  roomId: string,
+  options: BusinessOperatorMessageListOptions | number = {},
+) {
+  const normalized = typeof options === "number" ? { afterSeq: options } : options;
+  const limit = Math.min(100, Math.max(1, normalized.limit ?? 100));
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (normalized.afterSeq !== undefined) query.set("afterSeq", String(normalized.afterSeq));
+  if (normalized.beforeSeq !== undefined) query.set("beforeSeq", String(normalized.beforeSeq));
   return adminFetchJson<{ messages: BusinessOperatorMessage[]; hasMore: boolean }>(
     `/chat/operator/rooms/${encodeURIComponent(roomId)}/messages?${query.toString()}`,
   );
@@ -76,6 +99,7 @@ export function markBusinessOperatorRoomRead(roomId: string, roomSeq: number) {
 
 export const businessChatQueryKeys = {
   rooms: ["business-operator", "chat-rooms"] as const,
+  room: (roomId: string) => ["business-operator", "chat-room", roomId] as const,
   messages: (roomId: string) => ["business-operator", "chat-messages", roomId] as const,
 };
 

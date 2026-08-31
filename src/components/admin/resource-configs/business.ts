@@ -5,6 +5,11 @@ export const businessRoleRequestsConfig: ResourceConfig = {
   title: "업체 권한 신청",
   description: "앱에서 접수된 업체 관리자 권한 신청을 검토합니다.",
   resource: "business-role-requests",
+  statusOptions: [
+    { value: "PENDING", label: "검토 대기" },
+    { value: "APPROVED", label: "승인" },
+    { value: "REJECTED", label: "거절" },
+  ],
   columns: [
     { key: "nickname", label: "신청자" },
     { key: "email", label: "이메일" },

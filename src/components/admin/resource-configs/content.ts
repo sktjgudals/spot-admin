@@ -166,6 +166,11 @@ export const categoriesConfig: ResourceConfig = {
   title: "파티 카테고리",
   description: "파티 분류와 앱 노출 순서를 관리합니다.",
   resource: "party-categories",
+  statusOptions: [
+    { value: "ACTIVE", label: "활성" },
+    { value: "FIXED", label: "고정" },
+    { value: "HIDDEN", label: "숨김" },
+  ],
   columns: [
     { key: "name", label: "이름" },
     { key: "status", label: "상태" },

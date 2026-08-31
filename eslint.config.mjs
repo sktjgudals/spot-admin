@@ -10,6 +10,9 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     ".open-next/**",
+    ".claude/**",
+    "graphify-out/**",
+    ".wrangler/**",
     "out/**",
     "build/**",
     "src/generated/**",

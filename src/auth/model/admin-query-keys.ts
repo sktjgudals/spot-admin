@@ -6,6 +6,7 @@ export const adminQueryKeys = {
   mail: {
     all: ["admin", "mail"] as const,
     mailbox: ["admin", "mail", "mailbox"] as const,
+    lists: ["admin", "mail", "list"] as const,
     list: (params: Record<string, unknown>) =>
       ["admin", "mail", "list", params] as const,
     detail: (id: string) => ["admin", "mail", "detail", id] as const,
@@ -21,6 +22,7 @@ export const adminQueryKeys = {
   },
   reports: {
     all: ["admin", "reports"] as const,
+    summary: ["admin", "reports", "summary"] as const,
     list: (status: string) => ["admin", "reports", "list", status] as const,
     detail: (reportId: string) =>
       ["admin", "reports", "detail", reportId] as const,

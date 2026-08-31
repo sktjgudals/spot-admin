@@ -1,0 +1,167 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "color": {
+    "light": {
+      "brand": {
+        "primary": { "$value": "oklch(0.53 0.205 295)", "$type": "color" },
+        "primaryHover": { "$value": "oklch(0.47 0.205 295)", "$type": "color" },
+        "onPrimary": { "$value": "oklch(0.99 0 0)", "$type": "color" }
+      },
+      "surface": {
+        "canvas": { "$value": "oklch(0.975 0.003 275)", "$type": "color" },
+        "default": { "$value": "oklch(1 0 0)", "$type": "color" },
+        "subtle": { "$value": "oklch(0.955 0.004 275)", "$type": "color" },
+        "raised": { "$value": "oklch(0.995 0.002 275)", "$type": "color" }
+      },
+      "text": {
+        "default": { "$value": "oklch(0.205 0.012 275)", "$type": "color" },
+        "muted": { "$value": "oklch(0.49 0.012 275)", "$type": "color" }
+      },
+      "border": {
+        "default": { "$value": "oklch(0.895 0.006 275)", "$type": "color" },
+        "input": { "$value": "oklch(0.87 0.008 275)", "$type": "color" }
+      },
+      "focus": {
+        "ring": { "$value": "oklch(0.58 0.19 295)", "$type": "color" }
+      },
+      "semantic": {
+        "success": { "$value": "oklch(0.53 0.14 153)", "$type": "color" },
+        "onSuccess": { "$value": "oklch(0.985 0.01 153)", "$type": "color" },
+        "warning": { "$value": "oklch(0.71 0.15 72)", "$type": "color" },
+        "onWarning": { "$value": "oklch(0.27 0.055 55)", "$type": "color" },
+        "danger": { "$value": "oklch(0.55 0.205 28)", "$type": "color" },
+        "dangerStrong": { "$value": "oklch(0.47 0.18 28)", "$type": "color" },
+        "dangerSubtle": { "$value": "oklch(0.965 0.018 28)", "$type": "color" },
+        "dangerSubtleHover": { "$value": "oklch(0.945 0.027 28)", "$type": "color" },
+        "information": { "$value": "oklch(0.56 0.16 255)", "$type": "color" }
+      },
+      "sidebar": {
+        "canvas": { "$value": "oklch(0.992 0.002 275)", "$type": "color" },
+        "text": { "$value": "oklch(0.25 0.012 275)", "$type": "color" },
+        "accent": { "$value": "oklch(0.94 0.018 295)", "$type": "color" },
+        "accentText": { "$value": "oklch(0.43 0.17 295)", "$type": "color" },
+        "border": { "$value": "oklch(0.9 0.006 275)", "$type": "color" }
+      }
+    },
+    "dark": {
+      "brand": {
+        "primary": { "$value": "oklch(0.72 0.145 295)", "$type": "color" },
+        "primaryHover": { "$value": "oklch(0.78 0.13 295)", "$type": "color" },
+        "onPrimary": { "$value": "oklch(0.16 0.025 295)", "$type": "color" }
+      },
+      "surface": {
+        "canvas": { "$value": "oklch(0.16 0.008 275)", "$type": "color" },
+        "default": { "$value": "oklch(0.195 0.009 275)", "$type": "color" },
+        "subtle": { "$value": "oklch(0.215 0.009 275)", "$type": "color" },
+        "raised": { "$value": "oklch(0.235 0.01 275)", "$type": "color" }
+      },
+      "text": {
+        "default": { "$value": "oklch(0.94 0.006 275)", "$type": "color" },
+        "muted": { "$value": "oklch(0.68 0.012 275)", "$type": "color" }
+      },
+      "border": {
+        "default": { "$value": "oklch(1 0 0 / 10%)", "$type": "color" },
+        "input": { "$value": "oklch(1 0 0 / 15%)", "$type": "color" }
+      },
+      "focus": {
+        "ring": { "$value": "oklch(0.72 0.145 295)", "$type": "color" }
+      },
+      "semantic": {
+        "success": { "$value": "oklch(0.69 0.13 153)", "$type": "color" },
+        "onSuccess": { "$value": "oklch(0.15 0.03 153)", "$type": "color" },
+        "warning": { "$value": "oklch(0.76 0.13 72)", "$type": "color" },
+        "onWarning": { "$value": "oklch(0.2 0.045 55)", "$type": "color" },
+        "danger": { "$value": "oklch(0.67 0.18 25)", "$type": "color" },
+        "dangerStrong": { "$value": "oklch(0.78 0.13 25)", "$type": "color" },
+        "dangerSubtle": { "$value": "oklch(0.22 0.025 25)", "$type": "color" },
+        "dangerSubtleHover": { "$value": "oklch(0.25 0.035 25)", "$type": "color" },
+        "information": { "$value": "oklch(0.72 0.12 255)", "$type": "color" }
+      },
+      "sidebar": {
+        "canvas": { "$value": "oklch(0.18 0.009 275)", "$type": "color" },
+        "text": { "$value": "oklch(0.91 0.006 275)", "$type": "color" },
+        "accent": { "$value": "oklch(0.26 0.035 295)", "$type": "color" },
+        "accentText": { "$value": "oklch(0.82 0.1 295)", "$type": "color" },
+        "border": { "$value": "oklch(1 0 0 / 10%)", "$type": "color" }
+      }
+    }
+  },
+  "typography": {
+    "family": {
+      "sans": {
+        "$value": [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Apple SD Gothic Neo",
+          "Noto Sans KR",
+          "Segoe UI",
+          "sans-serif"
+        ],
+        "$type": "fontFamily"
+      },
+      "mono": {
+        "$value": ["SFMono-Regular", "Consolas", "Liberation Mono", "monospace"],
+        "$type": "fontFamily"
+      }
+    },
+    "size": {
+      "data": { "$value": "12px", "$type": "dimension" },
+      "body": { "$value": "14px", "$type": "dimension" },
+      "title": { "$value": "24px", "$type": "dimension" }
+    }
+  },
+  "spacing": {
+    "base": { "$value": "4px", "$type": "dimension" },
+    "controlGap": { "$value": "8px", "$type": "dimension" },
+    "panelPadding": { "$value": "16px", "$type": "dimension" },
+    "pageGutter": { "$value": "24px", "$type": "dimension" }
+  },
+  "radius": {
+    "control": { "$value": "8px", "$type": "dimension" },
+    "panel": { "$value": "12px", "$type": "dimension" }
+  },
+  "size": {
+    "control": { "$value": "36px", "$type": "dimension" },
+    "touchTarget": { "$value": "44px", "$type": "dimension" },
+    "row": { "$value": "44px", "$type": "dimension" },
+    "header": { "$value": "56px", "$type": "dimension" },
+    "sidebar": { "$value": "272px", "$type": "dimension" }
+  },
+  "shadow": {
+    "resting": {
+      "$value": [
+        {
+          "color": "rgb(26 27 31 / 4%)",
+          "offsetX": "0px",
+          "offsetY": "1px",
+          "blur": "2px",
+          "spread": "0px"
+        },
+        {
+          "color": "rgb(26 27 31 / 3%)",
+          "offsetX": "0px",
+          "offsetY": "1px",
+          "blur": "8px",
+          "spread": "0px"
+        }
+      ],
+      "$type": "shadow"
+    },
+    "raised": {
+      "$value": [
+        {
+          "color": "rgb(26 27 31 / 10%)",
+          "offsetX": "0px",
+          "offsetY": "8px",
+          "blur": "28px",
+          "spread": "0px"
+        }
+      ],
+      "$type": "shadow"
+    }
+  },
+  "motion": {
+    "fast": { "$value": "100ms", "$type": "duration" },
+    "standard": { "$value": "160ms", "$type": "duration" }
+  }
+}

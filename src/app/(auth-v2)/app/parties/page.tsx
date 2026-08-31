@@ -9,7 +9,6 @@ import {
   resolveBusinessScope,
   ROUTE_BUSINESSES,
 } from "@/auth/model/admin-routes";
-import { PartyListPanel } from "../_components/PartyListPanel";
 import {
   Card,
   CardContent,
@@ -17,6 +16,28 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { createRetryableLazyComponent } from "@/components/performance/RetryableLazyComponent";
+import type { BusinessPartyListPanelProps } from "../_components/BusinessPartyListPanel";
+
+const BusinessPartyListPanel =
+  createRetryableLazyComponent<BusinessPartyListPanelProps>(
+    () =>
+      import("../_components/BusinessPartyListPanel").then((module) => ({
+        default: module.BusinessPartyListPanel,
+      })),
+    {
+      loading: (
+        <div
+          className="grid min-h-72 place-items-center rounded-2xl border bg-muted/20 text-sm text-muted-foreground"
+          role="status"
+          aria-busy="true"
+        >
+          업체 파티 화면을 준비하는 중…
+        </div>
+      ),
+      errorTitle: "업체 파티 화면을 불러오지 못했습니다.",
+    },
+  );
 
 /**
  * BUSINESS_ADMIN home parties — businessId from /me only.
@@ -70,13 +91,10 @@ function MyPartiesShell() {
   }
 
   return (
-    <PartyListPanel
+    <BusinessPartyListPanel
       businessId={scope.businessId}
-      title="내 파티 (BUSINESS_ADMIN)"
-      description="businessId = /me.businessId only · URL 테넌트 무시"
       partyHref={(id) => myPartyDetailPath(id)}
       createHref="/app/parties/new"
-      variant="business-mobile"
     />
   );
 }

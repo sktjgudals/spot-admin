@@ -27,4 +27,20 @@ describe("CheckInQrScanner", () => {
 
     expect(onToken).toHaveBeenCalledWith("qr-token-1");
   });
+
+  it("announces the camera fallback without relying on color", async () => {
+    render(
+      <CheckInQrScanner
+        open
+        pending={false}
+        error={null}
+        onClose={() => undefined}
+        onToken={() => undefined}
+      />,
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "카메라 스캔을 지원하지 않습니다",
+    );
+  });
 });

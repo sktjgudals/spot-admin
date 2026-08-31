@@ -12,30 +12,14 @@ import {
 } from "@/auth/api/admin-party.api";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
-import { Badge } from "@/components/ui/badge";
 import { formatDateTime } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-
-const LABELS: Record<PartyOperationalStatus, string> = {
-  DRAFT: "대기",
-  RECRUITING: "모집 중",
-  CONFIRMED: "참가 확정",
-  CHECKIN_OPEN: "체크인",
-  LIVE: "진행 중",
-  INTEREST_OPEN: "호감 선택",
-  INTEREST_CLOSED: "호감 마감",
-  MATCH_PENDING: "매칭 계산",
-  MATCH_REVEALED: "매칭 공개",
-  AFTER_PARTY: "애프터파티",
-  COMPLETED: "종료",
-  CANCELLED: "취소",
-};
-
-export function PartyStatusBadge({ status }: { status: PartyOperationalStatus }) {
-  return <Badge variant={status === "COMPLETED" || status === "CANCELLED" ? "outline" : "default"}>{LABELS[status]}</Badge>;
-}
+import {
+  PARTY_STATUS_LABELS,
+  PartyStatusBadge,
+} from "./PartyStatusBadge";
 
 export function PartyOperationsPanel({ party }: { party: AdminParty }) {
   const qc = useQueryClient();
@@ -53,7 +37,7 @@ export function PartyOperationsPanel({ party }: { party: AdminParty }) {
       toast.error("취소 사유를 입력해 주세요");
       return;
     }
-    if (!window.confirm(`상태를 「${LABELS[toStatus]}」(으)로 변경할까요?`)) return;
+    if (!window.confirm(`상태를 「${PARTY_STATUS_LABELS[toStatus]}」(으)로 변경할까요?`)) return;
     setPending(toStatus);
     try {
       const updated = await transitionParty(party.id, {
@@ -68,7 +52,7 @@ export function PartyOperationsPanel({ party }: { party: AdminParty }) {
         history.refetch(),
       ]);
       setReason("");
-      toast.success(`상태가 ${LABELS[toStatus]}(으)로 변경되었습니다`);
+      toast.success(`상태가 ${PARTY_STATUS_LABELS[toStatus]}(으)로 변경되었습니다`);
     } catch (error) {
       toast.error(error instanceof AdminAuthError ? error.message : "상태 변경에 실패했습니다");
       await qc.invalidateQueries({ queryKey: partyQueryKeys.detail(party.id) });
@@ -110,7 +94,7 @@ export function PartyOperationsPanel({ party }: { party: AdminParty }) {
                 disabled={pending !== null}
                 onClick={() => void run(status)}
               >
-                {pending === status ? "처리 중…" : LABELS[status]}
+                {pending === status ? "처리 중…" : PARTY_STATUS_LABELS[status]}
               </Button>
             ))
           )}
@@ -123,7 +107,7 @@ export function PartyOperationsPanel({ party }: { party: AdminParty }) {
           {history.data?.map((item) => (
             <div key={item.id} className="flex flex-wrap items-center gap-2 text-xs">
               <span className="text-muted-foreground">v{item.version}</span>
-              <span>{LABELS[item.fromStatus]} → {LABELS[item.toStatus]}</span>
+              <span>{PARTY_STATUS_LABELS[item.fromStatus]} → {PARTY_STATUS_LABELS[item.toStatus]}</span>
               <span className="text-muted-foreground">{item.actorType} · {formatDateTime(item.createdAt)}</span>
               {item.reason && <span className="text-muted-foreground">{item.reason}</span>}
             </div>

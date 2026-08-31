@@ -7,6 +7,11 @@ export const refundPolicyRequestsConfig: ResourceConfig = {
   title: "환불 정책 변경",
   description: "업체의 환불 정책 변경 요청을 검토합니다.",
   resource: "refund-policy-change-requests",
+  statusOptions: [
+    { value: "PENDING", label: "검토 대기" },
+    { value: "APPROVED", label: "승인" },
+    { value: "REJECTED", label: "거절" },
+  ],
   columns: [
     { key: "businessName", label: "업체" },
     { key: "proposedTiers", label: "정책" },

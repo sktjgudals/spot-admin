@@ -124,14 +124,26 @@ export type UpdateBusinessInput = Partial<CreateBusinessInput> & {
 };
 
 export type ListBusinessesParams = {
-  includeDeleted?: boolean;
   status?: BusinessStatus;
+  q?: string;
+  limit?: number;
+  cursor?: string;
+};
+
+export type BusinessPage = {
+  items: AdminBusiness[];
+  nextCursor: string | null;
+  asOf: string | null;
 };
 
 function listQuery(params?: ListBusinessesParams): string {
   const q = new URLSearchParams();
-  if (params?.includeDeleted) q.set("includeDeleted", "true");
   if (params?.status) q.set("status", params.status);
+  if (params?.q?.trim()) q.set("q", params.q.trim());
+  if (params?.limit !== undefined) {
+    q.set("limit", String(Math.min(100, Math.max(1, Math.floor(params.limit)))));
+  }
+  if (params?.cursor) q.set("cursor", params.cursor);
   const s = q.toString();
   return s ? `?${s}` : "";
 }
@@ -139,20 +151,35 @@ function listQuery(params?: ListBusinessesParams): string {
 export async function listBusinesses(
   params?: ListBusinessesParams,
 ): Promise<AdminBusiness[]> {
+  const page = await listBusinessesPage({ ...params, limit: params?.limit ?? 100 });
+  return page.items;
+}
+
+export async function listBusinessesPage(
+  params?: ListBusinessesParams,
+): Promise<BusinessPage> {
   const response = await adminFetchJson<
-    AdminBusiness[] | { items: AdminBusiness[] }
+    AdminBusiness[] | {
+      items: AdminBusiness[];
+      nextCursor: string | null;
+      asOf?: string;
+    }
   >(`${AdminApi.businesses()}${listQuery(params)}`);
-  return Array.isArray(response) ? response : response.items;
+  return Array.isArray(response)
+    ? { items: response, nextCursor: null, asOf: null }
+    : {
+        items: response.items,
+        nextCursor: response.nextCursor,
+        asOf: response.asOf ?? null,
+      };
 }
 
 export async function getBusiness(
   id: string,
-  opts?: { includeDeleted?: boolean },
 ): Promise<AdminBusiness> {
-  const q = opts?.includeDeleted ? "?includeDeleted=true" : "";
   const response = await adminFetchJson<
     AdminBusiness | { resource: AdminBusiness }
-  >(`${AdminApi.business(id)}${q}`);
+  >(AdminApi.business(id));
   return "resource" in response ? response.resource : response;
 }
 
@@ -242,12 +269,22 @@ export async function pauseBusinessCommerce(
   );
 }
 
-export async function searchBusinessAdminCandidates(query: string): Promise<{
+export type SearchBusinessAdminCandidatesParams = {
+  cursor?: string;
+  limit?: number;
+};
+
+export async function searchBusinessAdminCandidates(
+  query: string,
+  options?: SearchBusinessAdminCandidatesParams,
+): Promise<{
   items: BusinessAdminCandidate[];
   nextCursor: string | null;
   asOf: string;
 }> {
-  const params = new URLSearchParams({ q: query.trim(), limit: "20" });
+  const limit = Math.min(100, Math.max(1, Math.floor(options?.limit ?? 20)));
+  const params = new URLSearchParams({ q: query.trim(), limit: String(limit) });
+  if (options?.cursor) params.set("cursor", options.cursor);
   return adminFetchJson(
     AdminApi.businessOperatorCandidates() + `?${params.toString()}`,
   );

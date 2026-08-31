@@ -1,11 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RoleGuard } from "@/auth/guards/RoleGuard";
 import { SUPER_ADMIN_ONLY } from "@/auth/model/admin-auth.types";
-import { businessQueryKeys, getBusiness } from "@/auth/api/admin-business.api";
+import {
+  businessQueryKeys,
+  getBusiness,
+  getBusinessCommerce,
+} from "@/auth/api/admin-business.api";
 import {
   businessInvitationsPath,
   businessPartiesPath,
@@ -40,10 +45,11 @@ export default function BusinessDetailPage() {
 function BusinessDetail() {
   const params = useParams();
   const businessId = String(params.businessId ?? "");
+  useBusinessCommercePrefetch(businessId);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: businessQueryKeys.detail(businessId),
-    queryFn: () => getBusiness(businessId, { includeDeleted: true }),
+    queryFn: () => getBusiness(businessId),
     enabled: !!businessId,
   });
 
@@ -187,6 +193,18 @@ function BusinessDetail() {
       </Card>
     </div>
   );
+}
+
+function useBusinessCommercePrefetch(businessId: string) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!businessId) return;
+    void queryClient.prefetchQuery({
+      queryKey: businessQueryKeys.commerce(businessId),
+      queryFn: () => getBusinessCommerce(businessId),
+    });
+  }, [businessId, queryClient]);
 }
 
 function Field({ label, value }: { label: string; value: string }) {

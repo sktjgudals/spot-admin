@@ -23,4 +23,16 @@ describe("business role request resource config", () => {
     expect(getResourceConfig("constructor")).toBeUndefined();
     expect(getResourceConfig("users")?.key).toBe("users");
   });
+
+  it("declares only backend-supported status filters", () => {
+    expect(resourceConfigs.users.statusOptions).toEqual([
+      { value: "ACTIVE", label: "정상" },
+      { value: "SUSPENDED", label: "정지" },
+    ]);
+    expect(resourceConfigs["business-role-requests"].statusOptions?.map((item) => item.value)).toEqual([
+      "PENDING",
+      "APPROVED",
+      "REJECTED",
+    ]);
+  });
 });

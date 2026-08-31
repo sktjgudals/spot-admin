@@ -5,11 +5,59 @@ export type PendingApplication = {
   applicationId: string;
   userId: string;
   nickname: string;
-  profileImage?: string | null;
   averageRating?: number | null;
   appliedAt: string;
-  gender?: "MALE" | "FEMALE" | null;
-  birthYear?: number | null;
+};
+
+export type OperatorPartyApplicant = {
+  applicationId: string;
+  userId: string;
+  nickname: string;
+  profileImage: string | null;
+  gender: "MALE" | "FEMALE" | null;
+  birthYear: number | null;
+  birthDate: string | null;
+  phone: string | null;
+  bio: string | null;
+  city: string | null;
+  occupation: string | null;
+  company: string | null;
+  education: string | null;
+  height: number | string | null;
+  weight: number | string | null;
+  mbti: string | null;
+  instagramId: string | null;
+  smokingStatus: string | null;
+  drinkingStatus: string | null;
+  maritalStatus: string | null;
+  isProfilePublic: boolean;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELED";
+  participationStatus: string;
+  appliedAt: string;
+  formAnswers: Array<{ fieldId: string; value: unknown }>;
+  sharedReviews: Array<{
+    id: string;
+    businessId: string;
+    businessName: string;
+    partyId: string;
+    partyTitle: string;
+    score: number;
+    memo: string | null;
+    tagIds: string[];
+    createdAt: string;
+  }>;
+};
+
+export type OperatorPartyApplicants = {
+  truncated: boolean;
+  formQuestions: Array<{
+    fieldId: string;
+    label: string;
+    type: "TEXT" | "TEXTAREA" | "NUMBER" | "SELECT" | "MULTISELECT" | "IMAGE";
+    imageMaxCount: number | null;
+    required: boolean;
+  }>;
+  applicants: OperatorPartyApplicant[];
 };
 
 export type OperatorPartyDetail = {
@@ -46,6 +94,12 @@ export type CheckInStatus = {
 
 export function getOperatorPartyDetail(partyId: string) {
   return adminFetchJson<OperatorPartyDetail>(`/parties/${encodeURIComponent(partyId)}`);
+}
+
+export function getOperatorPartyApplicants(partyId: string) {
+  return adminFetchJson<OperatorPartyApplicants>(
+    `/parties/applicants?partyId=${encodeURIComponent(partyId)}`,
+  );
 }
 
 export function reviewPartyApplication(input: {
@@ -103,5 +157,6 @@ export function checkInByQr(partyId: string, token: string) {
 
 export const businessOperatorQueryKeys = {
   party: (partyId: string) => ["business-operator", "party", partyId] as const,
+  applicants: (partyId: string) => ["business-operator", "applicants", partyId] as const,
   checkIn: (partyId: string) => ["business-operator", "check-in", partyId] as const,
 };

@@ -12,7 +12,7 @@ import {
   disableBusiness,
   getBusiness,
   getBusinessCommerce,
-  listBusinesses,
+  listBusinessesPage,
   restoreBusiness,
   pauseBusinessCommerce,
   searchBusinessAdminCandidates,
@@ -25,19 +25,30 @@ describe("admin-business.api", () => {
     vi.mocked(adminFetchJson).mockReset();
   });
 
-  it("listBusinesses hits Nest list with includeDeleted", async () => {
-    vi.mocked(adminFetchJson).mockResolvedValue([]);
-    await listBusinesses({ includeDeleted: true });
+  it("lists a bounded business page with server-side filters and cursor", async () => {
+    vi.mocked(adminFetchJson).mockResolvedValue({
+      items: [{ id: "b1" }],
+      nextCursor: "next page",
+      asOf: "2026-08-31T00:00:00.000Z",
+    });
+    const page = await listBusinessesPage({
+      status: "ACTIVE",
+      q: "도파 라운지",
+      limit: 25,
+      cursor: "current page",
+    });
     expect(adminFetchJson).toHaveBeenCalledWith(
-      "/admin/v2/businesses?includeDeleted=true",
+      "/admin/v2/businesses?status=ACTIVE&q=%EB%8F%84%ED%8C%8C+%EB%9D%BC%EC%9A%B4%EC%A7%80&limit=25&cursor=current+page",
     );
+    expect(page).toMatchObject({ nextCursor: "next page", asOf: "2026-08-31T00:00:00.000Z" });
+    expect(page.items).toHaveLength(1);
   });
 
-  it("getBusiness can include deleted", async () => {
+  it("getBusiness reads the projected resource without ineffective query flags", async () => {
     vi.mocked(adminFetchJson).mockResolvedValue({ id: "b1" });
-    await getBusiness("b1", { includeDeleted: true });
+    await getBusiness("b1");
     expect(adminFetchJson).toHaveBeenCalledWith(
-      "/admin/v2/businesses/b1?includeDeleted=true",
+      "/admin/v2/businesses/b1",
     );
   });
 
@@ -74,9 +85,12 @@ describe("admin-business.api", () => {
       items: [],
       nextCursor: null,
     });
-    await searchBusinessAdminCandidates("민 정");
+    await searchBusinessAdminCandidates("민 정", {
+      cursor: "next page",
+      limit: 20,
+    });
     expect(adminFetchJson).toHaveBeenCalledWith(
-      "/admin/v2/business-operator-candidates?q=%EB%AF%BC+%EC%A0%95&limit=20",
+      "/admin/v2/business-operator-candidates?q=%EB%AF%BC+%EC%A0%95&limit=20&cursor=next+page",
     );
 
     vi.mocked(adminFetchJson).mockResolvedValue({

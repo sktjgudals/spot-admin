@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/app/insights",
@@ -50,10 +50,21 @@ describe("BusinessInsightsPage", () => {
     vi.mocked(getBusinessInsights).mockReset();
   });
 
+  afterEach(cleanup);
+
   it("shows the error surface when the API fails", async () => {
     vi.mocked(getBusinessInsights).mockRejectedValue(new Error("down"));
     renderPage();
     expect(await screen.findByText("인사이트를 불러오지 못했어요.")).toBeInTheDocument();
+  });
+
+  it("gives the party selector a stable form identity", async () => {
+    vi.mocked(getBusinessInsights).mockRejectedValue(new Error("down"));
+    renderPage();
+
+    const selector = await screen.findByRole("combobox", { name: "파티" });
+    expect(selector).toHaveAttribute("id", "insights-party");
+    expect(selector).toHaveAttribute("name", "partyId");
   });
 
   it("feeds API counts into the charts", async () => {

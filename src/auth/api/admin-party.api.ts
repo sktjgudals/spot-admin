@@ -33,7 +33,7 @@ export type AdminPartyFaq = {
 export type PartyCategory = {
   id: string;
   name: string;
-  status: "FIXED" | "NORMAL";
+  status: "FIXED" | "ACTIVE" | "HIDDEN";
   sortOrder: number;
   iconUrl: string | null;
 };
@@ -129,6 +129,14 @@ export type PartyStatusTransition = {
   createdAt: string;
 };
 
+export type OperatorPartyLifecycle = "ALL" | "PENDING" | "OPEN" | "CLOSED";
+
+export type AdminPartyPage = {
+  items: AdminParty[];
+  /** Opaque backend cursor. Pass it back verbatim and never parse it. */
+  nextCursor: string | null;
+};
+
 export type { PartyAdminScope };
 
 export async function listParties(
@@ -138,6 +146,38 @@ export async function listParties(
   const path = scope === "super" ? AdminApi.parties(businessId) : AdminApi.myParties();
   const rows = await adminFetchJson<Partial<AdminParty>[]>(path);
   return rows.map((row) => normalizeParty(row, businessId));
+}
+
+/**
+ * Cursor-paged BUSINESS_ADMIN home list.
+ *
+ * The legacy `/businesses/me/parties` response is a bare array capped at 200
+ * for shipped clients. The dedicated operator endpoint is the scalable list
+ * contract and keeps the precise status on each row while accepting a coarse
+ * lifecycle bucket for the home tabs.
+ */
+export async function listOperatorPartyPage(
+  businessId: string,
+  params: {
+    lifecycle?: OperatorPartyLifecycle;
+    limit?: number;
+    cursor?: string;
+  } = {},
+): Promise<AdminPartyPage> {
+  const query = new URLSearchParams();
+  query.set("lifecycle", params.lifecycle ?? "ALL");
+  query.set("limit", String(params.limit ?? 50));
+  if (params.cursor) query.set("cursor", params.cursor);
+
+  const page = await adminFetchJson<{
+    items: Partial<AdminParty>[];
+    nextCursor: string | null;
+  }>(`/businesses/me/operator-parties?${query.toString()}`);
+
+  return {
+    items: page.items.map((row) => normalizeParty(row, businessId)),
+    nextCursor: page.nextCursor,
+  };
 }
 
 export async function listPartyCategories(): Promise<PartyCategory[]> {

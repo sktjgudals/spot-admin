@@ -1,1 +1,8 @@
-import "./../sentry.client.config";
+import {
+  captureClientRouterTransition,
+  preloadClientObservability,
+} from "@/lib/client-observability";
+
+preloadClientObservability();
+
+export const onRouterTransitionStart = captureClientRouterTransition;

@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import { adminQueryKeys } from "./admin-query-keys";
 
 describe("adminQueryKeys", () => {
+  it("keeps mail list queries under a dedicated cache prefix", () => {
+    const params = { folder: "INBOX", unread: true };
+
+    expect(adminQueryKeys.mail.list(params)).toEqual([
+      ...adminQueryKeys.mail.lists,
+      params,
+    ]);
+  });
+
   it("uses one party list key for the operator scope", () => {
     expect(adminQueryKeys.parties.list("biz-1")).toEqual(
       adminQueryKeys.parties.list("biz-1", "business"),

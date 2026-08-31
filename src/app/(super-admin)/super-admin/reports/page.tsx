@@ -51,6 +51,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { useCursorAppendFocus } from "@/hooks/use-cursor-append-focus";
 
 /**
  * 신고 처리 큐.
@@ -88,6 +89,16 @@ export default function SuperAdminReportsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  // Poll a single bounded page for queue counters. TanStack Query refreshes
+  // every retained page of an infinite query in sequence; attaching the timer
+  // there turns N loaded pages into N requests every minute.
+  const queueSummary = useQuery({
+    queryKey: adminQueryKeys.reports.summary,
+    queryFn: () => listAdminReports({ status: "PENDING", limit: 1 }),
+    staleTime: 15_000,
+    refetchInterval: 60_000,
+  });
+
   // 무한 스크롤이 아니라 "더 보기"다. 큐가 50건을 넘으면 나머지는 화면에서
   // 사라지는데, 상단 카드에는 전체 건수가 그대로 떠 있다 — 지킬 수 없는
   // 마감을 지키라고 말하는 화면이 된다.
@@ -100,14 +111,29 @@ export default function SuperAdminReportsPage() {
     // 큐를 처리하는 동안 목록이 줄어들면 offset이 가리키는 위치가 밀려서
     // 마감이 가장 임박한 신고가 조용히 건너뛰어졌다.
     getNextPageParam: (last) => last.nextCursor ?? undefined,
-    // 처리 대기 목록은 오래 두면 남이 이미 처리한 건을 보게 된다.
     staleTime: 15_000,
-    refetchInterval: status === "PENDING" ? 60_000 : false,
   });
 
   const pages = reports.data?.pages ?? [];
-  const summary = pages[0];
+  const summary = queueSummary.data ?? pages[0];
   const items = pages.flatMap((page) => page.items);
+  const isRefreshing = reports.isFetching || queueSummary.isFetching;
+  const {
+    beginAppend,
+    setFallbackRef,
+    setItemRef,
+    setRetryButtonRef,
+  } = useCursorAppendFocus<HTMLTableRowElement>({
+    scopeKey: status,
+    itemKeys: items.map((report) => report.reportId),
+    isFetchingNextPage: reports.isFetchingNextPage,
+    isFetchNextPageError: reports.isFetchNextPageError,
+    hasNextPage: Boolean(reports.hasNextPage),
+  });
+  const loadNextReportPage = () => {
+    beginAppend();
+    void reports.fetchNextPage();
+  };
 
   const alertTest = useMutation({
     mutationFn: testModerationAlert,
@@ -145,11 +171,13 @@ export default function SuperAdminReportsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => reports.refetch()}
-            disabled={reports.isFetching}
+            onClick={() =>
+              void Promise.all([queueSummary.refetch(), reports.refetch()])
+            }
+            disabled={isRefreshing}
           >
             <RefreshCw
-              className={`mr-2 h-4 w-4 ${reports.isFetching ? "animate-spin" : ""}`}
+              className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
             />
             새로고침
           </Button>
@@ -205,12 +233,16 @@ export default function SuperAdminReportsPage() {
 
       <Card>
         <CardContent className="p-0">
-          {reports.isError ? (
+          {reports.isError && items.length === 0 ? (
             <p className="p-8 text-sm text-destructive">
               신고 목록을 불러오지 못했습니다.
             </p>
           ) : items.length === 0 ? (
-            <p className="p-8 text-sm text-muted-foreground">
+            <p
+              ref={setFallbackRef}
+              tabIndex={-1}
+              className="p-8 text-sm text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring"
+            >
               {reports.isLoading ? "불러오는 중…" : "표시할 신고가 없습니다."}
             </p>
           ) : (
@@ -229,7 +261,9 @@ export default function SuperAdminReportsPage() {
                 {items.map((report) => (
                   <TableRow
                     key={report.reportId}
-                    className={report.overdue ? "bg-destructive/5" : ""}
+                    ref={(node) => setItemRef(report.reportId, node)}
+                    tabIndex={-1}
+                    className={`${report.overdue ? "bg-destructive/5" : ""} outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring`}
                   >
                     <TableCell>
                       <div className="flex flex-col">
@@ -280,12 +314,33 @@ export default function SuperAdminReportsPage() {
               </TableBody>
             </Table>
           )}
-          {reports.hasNextPage ? (
+          {reports.isFetchNextPageError ? (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-3 border-t border-destructive/20 bg-destructive/5 p-4"
+            >
+              <p className="text-sm text-destructive">
+                다음 신고를 불러오지 못했습니다. 이미 불러온 신고는 그대로
+                유지했습니다.
+              </p>
+              <Button
+                ref={setRetryButtonRef}
+                variant="outline"
+                size="sm"
+                onClick={loadNextReportPage}
+                disabled={reports.isFetchingNextPage}
+              >
+                {reports.isFetchingNextPage
+                  ? "다시 불러오는 중…"
+                  : "다음 페이지 다시 시도"}
+              </Button>
+            </div>
+          ) : reports.hasNextPage ? (
             <div className="flex justify-center border-t p-4">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => reports.fetchNextPage()}
+                onClick={loadNextReportPage}
                 disabled={reports.isFetchingNextPage}
               >
                 {reports.isFetchingNextPage
@@ -415,7 +470,7 @@ function ReportDialog({
             ) : null}
 
             {report.targetHistory.length > 1 ? (
-              <p className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+              <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-warning-foreground">
                 이 대상에 대한 신고가 {report.targetHistory.length}건 있습니다.
               </p>
             ) : null}

@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search, UserRoundCheck } from "lucide-react";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { LoaderCircle, Search, UserRoundCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
   assignBusinessAdmin,
@@ -16,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDateTime } from "@/lib/format-date";
+import { useCursorAppendFocus } from "@/hooks/use-cursor-append-focus";
 
 type Props = {
   businessId?: string;
@@ -39,12 +44,63 @@ export function BusinessAdminPicker({
   const queryClient = useQueryClient();
   const [input, setInput] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
-  const search = useQuery({
+  const [pageState, setPageState] = useState({ key: "", index: 0 });
+  const search = useInfiniteQuery({
     queryKey: businessQueryKeys.operatorCandidates(submittedQuery),
-    queryFn: () => searchBusinessAdminCandidates(submittedQuery),
+    queryFn: ({ pageParam }) =>
+      searchBusinessAdminCandidates(submittedQuery, {
+        cursor: pageParam,
+        limit: 20,
+      }),
     enabled: submittedQuery.length >= 2,
     staleTime: 30_000,
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
+  const pages = search.data?.pages ?? [];
+  const requestedPageIndex =
+    pageState.key === submittedQuery ? pageState.index : 0;
+  const currentPageIndex = Math.min(
+    requestedPageIndex,
+    Math.max(0, pages.length - 1),
+  );
+  const candidates = pages[currentPageIndex]?.items ?? [];
+  const latestAsOf = pages[currentPageIndex]?.asOf;
+  const hasLoadedNextPage = currentPageIndex < pages.length - 1;
+  const hasNextPage = hasLoadedNextPage || Boolean(search.hasNextPage);
+  const {
+    beginAppend,
+    setFallbackRef,
+    setItemRef,
+    setRetryButtonRef,
+  } = useCursorAppendFocus<HTMLDivElement>({
+    scopeKey: submittedQuery,
+    viewKey: String(currentPageIndex),
+    itemKeys: candidates.map((candidate) => candidate.id),
+    isFetchingNextPage: search.isFetchingNextPage,
+    isFetchNextPageError: search.isFetchNextPageError,
+    hasNextPage,
+    focusMode: "page",
+  });
+  const loadNextPage = async () => {
+    beginAppend();
+    if (hasLoadedNextPage) {
+      setPageState({ key: submittedQuery, index: currentPageIndex + 1 });
+      return;
+    }
+    const previousPageCount = pages.length;
+    const result = await search.fetchNextPage();
+    if (result.data && result.data.pages.length > previousPageCount) {
+      setPageState({ key: submittedQuery, index: previousPageCount });
+    }
+  };
+  const loadPreviousPage = () => {
+    beginAppend();
+    setPageState({
+      key: submittedQuery,
+      index: Math.max(0, currentPageIndex - 1),
+    });
+  };
   const assignment = useMutation({
     mutationFn: (userId: string) => {
       if (!businessId) throw new Error("업체가 먼저 생성되어야 합니다");
@@ -127,15 +183,19 @@ export function BusinessAdminPicker({
         </div>
       )}
 
-      {search.data && search.data.items.length === 0 && (
-        <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+      {search.data && candidates.length === 0 && (
+        <p
+          ref={setFallbackRef}
+          tabIndex={-1}
+          className="rounded-md border border-dashed p-4 text-sm text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring"
+        >
           일치하는 활성 사용자가 없습니다.
         </p>
       )}
 
-      {search.data && search.data.items.length > 0 && (
+      {candidates.length > 0 && (
         <div className="divide-y rounded-md border">
-          {search.data.items.map((candidate) => {
+          {candidates.map((candidate) => {
             const assignedHere =
               businessId !== undefined &&
               candidate.assignedBusinessId === businessId;
@@ -147,7 +207,9 @@ export function BusinessAdminPicker({
             return (
               <div
                 key={candidate.id}
-                className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
+                ref={(node) => setItemRef(candidate.id, node)}
+                tabIndex={-1}
+                className="flex flex-col gap-3 p-3 outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -196,9 +258,57 @@ export function BusinessAdminPicker({
         </div>
       )}
 
-      {search.data && (
+      {search.isFetchNextPageError && candidates.length > 0 && (
+        <div
+          className="grid gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3"
+          role="alert"
+        >
+          <p className="text-sm text-destructive">
+            다음 검색 결과를 불러오지 못했습니다.
+          </p>
+          <Button
+            ref={setRetryButtonRef}
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={loadNextPage}
+          >
+            다음 검색 결과 다시 시도
+          </Button>
+        </div>
+      )}
+
+      {search.data && !search.isFetchNextPageError &&
+      (currentPageIndex > 0 || hasNextPage) ? (
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled || currentPageIndex === 0}
+            onClick={loadPreviousPage}
+          >
+            이전 검색 결과
+          </Button>
+          <span className="px-2 text-xs text-muted-foreground" aria-live="polite">
+            {currentPageIndex + 1}페이지
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={disabled || search.isFetchingNextPage || !hasNextPage}
+            onClick={() => void loadNextPage()}
+          >
+            {search.isFetchingNextPage && (
+              <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+            )}
+            검색 결과 더 보기
+          </Button>
+        </div>
+      ) : null}
+
+      {latestAsOf && (
         <p className="text-xs text-muted-foreground">
-          사용자 목록 기준 시각: {formatDateTime(search.data.asOf)}
+          사용자 목록 기준 시각: {formatDateTime(latestAsOf)}
         </p>
       )}
     </div>

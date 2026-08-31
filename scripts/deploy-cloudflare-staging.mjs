@@ -13,6 +13,7 @@ import {
   runCloudflareOnlyCheck,
   validateWranglerConfig,
 } from "./check-cloudflare-only.mjs";
+import { requirePublicGa4Properties } from "./public-ga4-config.mjs";
 
 export const DEPLOY_ACK = "I_ACKNOWLEDGE_STAGING_ADMIN_DEPLOY";
 
@@ -55,6 +56,7 @@ function run(command, args, root, envOverrides = {}) {
 
 export function executeStagingDeploy({ root, ack }) {
   assertExecuteAuthorized(ack);
+  const analyticsProperties = requirePublicGa4Properties();
   const check = runCloudflareOnlyCheck(root);
   if (check.findings.length || check.configFailures.length) {
     throw new Error("Cloudflare-only release check failed");
@@ -66,6 +68,7 @@ export function executeStagingDeploy({ root, ack }) {
     NEXT_PUBLIC_CHAT_WS_URL: STAGING_CHAT_WS_URL,
     NEXT_PUBLIC_GOOGLE_CLIENT_ID: GOOGLE_WEB_CLIENT_ID,
     NEXT_PUBLIC_APPLE_CLIENT_ID: APPLE_WEB_CLIENT_ID,
+    NEXT_PUBLIC_GA4_PROPERTIES: analyticsProperties,
   });
   run(binary, ["deploy", "--config", "wrangler.jsonc"], root);
 }

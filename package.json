@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3001",
     "build": "next build",
+    "analyze": "next experimental-analyze",
     "start": "next start --port 3001",
     "lint": "eslint",
     "test": "vitest run",
@@ -18,7 +19,7 @@
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "cf:deploy:staging:plan": "node scripts/deploy-cloudflare-staging.mjs plan",
     "cf:deploy:staging": "node scripts/deploy-cloudflare-staging.mjs execute",
-    "cf:build:production": "ADMIN_ENVIRONMENT=production NEXT_PUBLIC_API_URL=https://api.dopa.ing NEXT_PUBLIC_API_FALLBACK_URL=https://dopa-backend.ceoofspot.workers.dev NEXT_PUBLIC_CHAT_WS_URL=wss://api.dopa.ing/v2/chat NEXT_PUBLIC_GOOGLE_CLIENT_ID=109162230288-9644lmdagmid6oc5bqttoq2q9asnigji.apps.googleusercontent.com NEXT_PUBLIC_APPLE_CLIENT_ID=ing.dopa.admin.web opennextjs-cloudflare build",
+    "cf:build:production": "node scripts/public-ga4-config.mjs && ADMIN_ENVIRONMENT=production NEXT_PUBLIC_API_URL=https://api.dopa.ing NEXT_PUBLIC_API_FALLBACK_URL=https://dopa-backend.ceoofspot.workers.dev NEXT_PUBLIC_CHAT_WS_URL=wss://api.dopa.ing/v2/chat NEXT_PUBLIC_GOOGLE_CLIENT_ID=109162230288-9644lmdagmid6oc5bqttoq2q9asnigji.apps.googleusercontent.com NEXT_PUBLIC_APPLE_CLIENT_ID=ing.dopa.admin.web opennextjs-cloudflare build",
     "cf:deploy:production": "npm run cf:build:production && wrangler deploy --config wrangler.production.jsonc",
     "verify": "npm run test && npm run test:release && npm run check:admin-runtime && npm run lint && npm run cf:build"
   },

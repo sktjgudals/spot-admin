@@ -53,3 +53,6 @@ scripts/seed-data/.seed-state.*.json
 
 # 시드 커버 이미지 (생성물 — generate-seed-images.mjs로 재생성)
 scripts/seed-data/images/
+
+# Claude Code 로컬 상태 (설정·중첩 워크트리) — 절대 커밋하지 않는다
+.claude/

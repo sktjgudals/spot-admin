@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { Building2, RefreshCw, UserRoundCog } from "lucide-react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { Building2, LoaderCircle, RefreshCw, UserRoundCog } from "lucide-react";
 import {
   businessQueryKeys,
-  listBusinesses,
+  listBusinessesPage,
   type BusinessAdminAssignment,
 } from "@/auth/api/admin-business.api";
 import { businessDetailPath } from "@/auth/model/admin-routes";
@@ -24,16 +24,47 @@ import { Label } from "@/components/ui/label";
 
 export function BusinessAdminAssignmentConsole() {
   const [businessId, setBusinessId] = useState("");
+  const [pageIndex, setPageIndex] = useState(0);
   const [lastAssignment, setLastAssignment] =
     useState<BusinessAdminAssignment | null>(null);
-  const businesses = useQuery({
-    queryKey: businessQueryKeys.list({ status: "ACTIVE" }),
-    queryFn: () => listBusinesses({ status: "ACTIVE" }),
+  const businessSelectRef = useRef<HTMLSelectElement>(null);
+  const pageFocusFallbackRef = useRef<HTMLParagraphElement>(null);
+  const nextPageRetryRef = useRef<HTMLButtonElement>(null);
+  const pendingCursorFocusRef = useRef<{ targetPageIndex: number } | null>(null);
+  const businesses = useInfiniteQuery({
+    queryKey: businessQueryKeys.list({ status: "ACTIVE", limit: 100 }),
+    queryFn: ({ pageParam }) =>
+      listBusinessesPage({
+        status: "ACTIVE",
+        limit: 100,
+        cursor: pageParam,
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
+  const pages = businesses.data?.pages ?? [];
+  const currentPageIndex = Math.min(pageIndex, Math.max(0, pages.length - 1));
+  const businessItems = useMemo(
+    () => businesses.data?.pages[currentPageIndex]?.items ?? [],
+    [businesses.data, currentPageIndex],
+  );
   const selectedBusiness = useMemo(
-    () => businesses.data?.find((business) => business.id === businessId),
+    () =>
+      businesses.data?.pages
+        .flatMap((page) => page.items)
+        .find((business) => business.id === businessId),
     [businessId, businesses.data],
   );
+  const visibleBusinessOptions = useMemo(
+    () =>
+      selectedBusiness &&
+      !businessItems.some((business) => business.id === selectedBusiness.id)
+        ? [selectedBusiness, ...businessItems]
+        : businessItems,
+    [businessItems, selectedBusiness],
+  );
+  const hasLoadedNextPage = currentPageIndex < pages.length - 1;
+  const hasNextPage = hasLoadedNextPage || Boolean(businesses.hasNextPage);
   const visibleAssignment =
     lastAssignment &&
     selectedBusiness &&
@@ -44,6 +75,45 @@ export function BusinessAdminAssignmentConsole() {
   const selectBusiness = (nextBusinessId: string) => {
     setBusinessId(nextBusinessId);
     setLastAssignment(null);
+  };
+
+  useEffect(() => {
+    const pending = pendingCursorFocusRef.current;
+    if (!pending) return;
+    if (businesses.isFetchNextPageError) {
+      nextPageRetryRef.current?.focus();
+      return;
+    }
+    if (
+      !businesses.isFetchingNextPage &&
+      currentPageIndex === pending.targetPageIndex
+    ) {
+      (businessSelectRef.current ?? pageFocusFallbackRef.current)?.focus();
+      pendingCursorFocusRef.current = null;
+    }
+  }, [
+    currentPageIndex,
+    businesses.isFetchNextPageError,
+    businesses.isFetchingNextPage,
+  ]);
+
+  const loadNextBusinessPage = async () => {
+    const targetPageIndex = currentPageIndex + 1;
+    pendingCursorFocusRef.current = { targetPageIndex };
+    if (hasLoadedNextPage) {
+      setPageIndex(targetPageIndex);
+      return;
+    }
+    const previousPageCount = pages.length;
+    const result = await businesses.fetchNextPage();
+    if (result.data && result.data.pages.length > previousPageCount) {
+      setPageIndex(previousPageCount);
+    }
+  };
+  const loadPreviousBusinessPage = () => {
+    const targetPageIndex = Math.max(0, currentPageIndex - 1);
+    pendingCursorFocusRef.current = { targetPageIndex };
+    setPageIndex(targetPageIndex);
   };
 
   return (
@@ -98,30 +168,86 @@ export function BusinessAdminAssignmentConsole() {
               </div>
             )}
 
-            {businesses.data?.length === 0 && (
-              <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+            {businesses.data && businessItems.length === 0 && (
+              <p
+                ref={pageFocusFallbackRef}
+                tabIndex={-1}
+                className="rounded-md border border-dashed p-4 text-sm text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring"
+              >
                 관리자를 배정할 활성 업체가 없습니다.
               </p>
             )}
 
-            {businesses.data && businesses.data.length > 0 && (
+            {visibleBusinessOptions.length > 0 && (
               <div className="space-y-2">
                 <Label htmlFor="business-admin-business">업체</Label>
                 <select
+                  ref={businessSelectRef}
                   id="business-admin-business"
                   className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                   value={businessId}
                   onChange={(event) => selectBusiness(event.target.value)}
                 >
                   <option value="">업체를 선택하세요</option>
-                  {businesses.data.map((business) => (
+                  {visibleBusinessOptions.map((business) => (
                     <option key={business.id} value={business.id}>
                       {business.name}
                     </option>
                   ))}
                 </select>
+                <p className="text-xs text-muted-foreground">
+                  이 페이지의 활성 업체 {businessItems.length}개를 불러왔습니다.
+                </p>
               </div>
             )}
+
+            {businesses.isFetchNextPageError && businessItems.length > 0 && (
+              <div
+                className="grid gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3"
+                role="alert"
+              >
+                <p className="text-sm text-destructive">
+                  다음 활성 업체 목록을 불러오지 못했습니다.
+                </p>
+                <Button
+                  ref={nextPageRetryRef}
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void loadNextBusinessPage()}
+                >
+                  다음 업체 다시 시도
+                </Button>
+              </div>
+            )}
+
+            {businesses.data && !businesses.isFetchNextPageError &&
+            (currentPageIndex > 0 || hasNextPage) ? (
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={currentPageIndex === 0}
+                  onClick={loadPreviousBusinessPage}
+                >
+                  이전 활성 업체
+                </Button>
+                <span className="px-2 text-xs text-muted-foreground" aria-live="polite">
+                  {currentPageIndex + 1}페이지
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={businesses.isFetchingNextPage || !hasNextPage}
+                  onClick={() => void loadNextBusinessPage()}
+                >
+                  {businesses.isFetchingNextPage && (
+                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  )}
+                  활성 업체 더 보기
+                </Button>
+              </div>
+            ) : null}
 
             {selectedBusiness && (
               <div className="space-y-3 rounded-md border bg-muted/30 p-4">
@@ -190,9 +316,9 @@ export function BusinessAdminAssignmentConsole() {
             {visibleAssignment && (
               <div
                 role="status"
-                className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm"
+                className="rounded-md border border-success/30 bg-success/10 p-4 text-sm"
               >
-                <p className="font-medium text-emerald-800">
+                <p className="font-medium text-foreground">
                   {visibleAssignment.nickname}님을 {visibleAssignment.businessName}{" "}
                   업체 관리자로 배정했습니다.
                 </p>

@@ -224,7 +224,7 @@ export function BusinessCommerceConsole({
 
       {profile?.status === "ACTIVE" && !runtime.newPaymentsEnabled && (
         <div
-          className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm"
+          className="rounded-md border border-warning/30 bg-warning/10 p-3 text-sm text-warning-foreground"
           role="status"
         >
           호스트 프로필은 활성화됐지만 신규 결제 전역 스위치가 OFF라 고객
@@ -280,7 +280,7 @@ export function BusinessCommerceConsole({
             <div key={label} className="flex items-center gap-2 text-sm">
               {ready ? (
                 <CheckCircle2
-                  className="size-4 text-emerald-600"
+                  className="size-4 text-success"
                   aria-hidden="true"
                 />
               ) : (
@@ -294,7 +294,7 @@ export function BusinessCommerceConsole({
           ))}
         </div>
         {activationBlockers.length > 0 && (
-          <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+          <div className="mt-3 rounded-md border border-warning/30 bg-warning/10 p-3 text-warning-foreground">
             <p className="text-sm font-medium">활성화 전 확인 필요</p>
             <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
               {activationBlockers.map((code) => (

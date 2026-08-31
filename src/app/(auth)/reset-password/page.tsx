@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { z } from "zod";
+import { z } from "zod/mini";
 import { Loader2 } from "lucide-react";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { homePathForRole } from "@/auth/model/admin-auth.types";
@@ -15,7 +15,7 @@ import {
 import { EmailCodeWizard, type EmailCodeWizardConfig } from "@/components/auth/EmailCodeWizard";
 
 const emailSchema = z.object({
-  email: z.string().email("올바른 이메일을 입력하세요"),
+  email: z.email("올바른 이메일을 입력하세요"),
 });
 
 function mapResetError(err: unknown): string {

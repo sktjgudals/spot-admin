@@ -19,7 +19,8 @@ import {
 import {
   clearAccessToken,
   getAccessToken,
-  setAccessToken,
+  setAuthenticatedAdminSession,
+  subscribeAccessToken,
 } from "@/auth/store/admin-auth.store";
 import {
   refreshAdminSession,
@@ -70,7 +71,11 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const applyAuthenticated = useCallback(
     (accessToken: string, admin: AdminProfile) => {
-      setAccessToken(accessToken);
+      setAuthenticatedAdminSession(accessToken, {
+        id: admin.id,
+        role: admin.role,
+        businessId: admin.businessId,
+      });
       setState({
         status: "authenticated",
         accessToken,
@@ -81,15 +86,30 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const applyUnauthenticated = useCallback(() => {
-    clearAccessToken();
+  const commitUnauthenticated = useCallback(() => {
+    // Clear both cached queries and mutations so another operator can never
+    // inherit data from an expired or logged-out administrator session.
+    queryClient.clear();
     setState({
       status: "unauthenticated",
       accessToken: null,
       admin: null,
       bootError: null,
     });
-  }, []);
+  }, [queryClient]);
+
+  const applyUnauthenticated = useCallback(() => {
+    clearAccessToken();
+    commitUnauthenticated();
+  }, [commitUnauthenticated]);
+
+  useEffect(() => {
+    return subscribeAccessToken(() => {
+      if (getAccessToken() === null) {
+        commitUnauthenticated();
+      }
+    });
+  }, [commitUnauthenticated]);
 
   const boot = useCallback(async () => {
     setState((s) => ({ ...s, status: "booting", bootError: null }));

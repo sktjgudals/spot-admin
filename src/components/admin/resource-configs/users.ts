@@ -6,6 +6,10 @@ export const usersConfig: ResourceConfig = {
   title: "사용자 관리",
   description: "계정 역할과 이용 상태를 관리합니다.",
   resource: "users",
+  statusOptions: [
+    { value: "ACTIVE", label: "정상" },
+    { value: "SUSPENDED", label: "정지" },
+  ],
   columns: [
     { key: "nickname", label: "이름" },
     { key: "email", label: "이메일" },

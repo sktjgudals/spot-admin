@@ -306,11 +306,11 @@ export function BusinessMobilePartyForm({
   }
 
   return (
-    <div className="font-pretendard min-h-dvh bg-white pb-10">
-      <header className="flex h-14 items-center gap-3 px-4">
+    <div className="min-h-dvh bg-background pb-10 font-pretendard">
+      <header className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4 sm:px-6 lg:px-8">
         <Link
           href={cancelHref}
-          className="grid size-8 place-items-center rounded-lg hover:bg-[#f5f5f5]"
+          className="grid size-11 place-items-center rounded-lg outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring"
           aria-label="뒤로"
         >
           <ArrowLeft className="size-5" />
@@ -320,37 +320,38 @@ export function BusinessMobilePartyForm({
         </h1>
       </header>
 
-      <form onSubmit={submit} className="space-y-6 px-4 py-2">
+      <form onSubmit={submit} className="mx-auto max-w-4xl space-y-7 px-4 py-2 sm:px-6 lg:px-8">
         <Fieldset label="파티 유형">
           {categories.isLoading && (
-            <p className="h-10 rounded-xl bg-[#f5f5f5] px-3 py-2.5 text-[13px] text-[#8f8f8f]">
+            <p className="min-h-11 animate-pulse rounded-xl bg-muted px-3 py-3 text-sm text-muted-foreground" role="status">
               파티 유형을 불러오는 중…
             </p>
           )}
           {categories.error && (
-            <div className="flex min-h-10 items-center justify-between gap-2 rounded-xl bg-red-50 px-3 py-2 text-[13px] text-red-600">
+            <div className="flex min-h-11 items-center justify-between gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" role="alert">
               <span>파티 유형을 불러오지 못했습니다.</span>
-              <button type="button" onClick={() => void categories.refetch()}>
+              <button type="button" className="min-h-11 rounded-lg px-2 font-medium underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring" onClick={() => void categories.refetch()}>
                 다시 시도
               </button>
             </div>
           )}
           {categories.data && categories.data.length === 0 && (
-            <p className="rounded-xl bg-red-50 px-3 py-2 text-[13px] text-red-600">
+            <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-3 text-sm text-destructive" role="alert">
               활성 파티 유형이 없습니다. 관리자에게 문의해주세요.
             </p>
           )}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {categories.data?.map((category) => (
               <button
                 key={category.id}
                 type="button"
+                aria-pressed={categoryId === category.id}
                 onClick={() => setSelectedCategoryId(category.id)}
                 className={cn(
-                  "h-10 rounded-xl border text-[14px] transition-colors",
+                  "min-h-11 rounded-xl border px-2 text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring",
                   categoryId === category.id
-                    ? "border-[#9c6cf2] bg-[#f0e9fc] text-[#7144c2]"
-                    : "border-[#dedede] bg-white text-[#686868]",
+                    ? "border-primary bg-secondary font-medium text-secondary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 {category.name}
@@ -382,7 +383,7 @@ export function BusinessMobilePartyForm({
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="시작">
             <input
               type="datetime-local"
@@ -416,6 +417,7 @@ export function BusinessMobilePartyForm({
         <Fieldset label="장소 검색 (카카오맵)">
           <div className="flex gap-2">
             <input
+              aria-label="장소 검색어"
               value={placeQuery}
               onChange={(event) => setPlaceQuery(event.target.value)}
               placeholder="예: 강남역 카페"
@@ -431,18 +433,18 @@ export function BusinessMobilePartyForm({
               type="button"
               disabled={placeSearching}
               onClick={() => void searchPlaces()}
-              className="h-[46px] shrink-0 rounded-xl border border-[#dedede] px-3 text-[13px]"
+              className="min-h-11 shrink-0 rounded-xl border px-4 text-sm outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring disabled:opacity-50"
             >
               {placeSearching ? "검색 중…" : "검색"}
             </button>
           </div>
           {placeResults.length > 0 && (
-            <ul className="max-h-48 overflow-auto rounded-xl border border-[#dedede] bg-white text-sm">
+            <ul className="max-h-56 overflow-auto rounded-xl border bg-popover text-sm text-popover-foreground" aria-label="장소 검색 결과">
               {placeResults.map((item) => (
                 <li key={item.id}>
                   <button
                     type="button"
-                    className="w-full px-3 py-2 text-left hover:bg-[#f5f5f5]"
+                    className="min-h-11 w-full px-3 py-2 text-left outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring"
                     onClick={() => {
                       set("location", item.locationLabel);
                       set("placeName", item.placeName);
@@ -458,7 +460,7 @@ export function BusinessMobilePartyForm({
                     }}
                   >
                     <div className="font-medium">{item.placeName}</div>
-                    <div className="text-[12px] text-[#8f8f8f]">{item.address}</div>
+                    <div className="text-xs text-muted-foreground">{item.address}</div>
                   </button>
                 </li>
               ))}
@@ -491,13 +493,13 @@ export function BusinessMobilePartyForm({
           />
         </Field>
         {placeCoords && (
-          <p className="text-[12px] text-[#8f8f8f]">
+          <p className="text-xs text-muted-foreground">
             좌표: {placeCoords.latitude.toFixed(5)}, {placeCoords.longitude.toFixed(5)}
           </p>
         )}
 
         <Fieldset label="모집인원">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <NumberInput label="전체" value={form.maxCapacity} onChange={(value) => set("maxCapacity", value)} />
             <NumberInput label="남자 (선택)" value={form.maxMale} onChange={(value) => set("maxMale", value)} />
             <NumberInput label="여자 (선택)" value={form.maxFemale} onChange={(value) => set("maxFemale", value)} />
@@ -505,20 +507,20 @@ export function BusinessMobilePartyForm({
         </Fieldset>
 
         <Fieldset label="나이 제한">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <NumberInput label="최소 나이" value={form.minAge} onChange={(value) => set("minAge", value)} suffix="세 이상" />
             <NumberInput label="최대 나이" value={form.maxAge} onChange={(value) => set("maxAge", value)} suffix="세 이하" />
           </div>
         </Fieldset>
 
         <Fieldset label="참가비 (원)">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <NumberInput label="남자 참가비" value={form.priceMale} onChange={(value) => set("priceMale", value)} suffix="원" />
             <NumberInput label="여자 참가비" value={form.priceFemale} onChange={(value) => set("priceFemale", value)} suffix="원" />
           </div>
         </Fieldset>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <NumberInput
             label="호감 선택 상한"
             value={form.interestLimit}
@@ -536,17 +538,18 @@ export function BusinessMobilePartyForm({
         </div>
 
         <Fieldset label="참여방식">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {(["APPROVAL", "INSTANT"] as const).map((modeValue) => (
               <button
                 key={modeValue}
                 type="button"
+                aria-pressed={form.admissionMode === modeValue}
                 onClick={() => set("admissionMode", modeValue)}
                 className={cn(
-                  "h-[46px] rounded-xl border text-[14px]",
+                  "min-h-11 rounded-xl border px-2 text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring",
                   form.admissionMode === modeValue
-                    ? "border-[#9c6cf2] bg-[#f0e9fc] text-[#7144c2]"
-                    : "border-[#dedede] text-[#686868]",
+                    ? "border-primary bg-secondary font-medium text-secondary-foreground"
+                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 {modeValue === "APPROVAL" ? "승인제" : "신청 즉시 참여"}
@@ -570,7 +573,7 @@ export function BusinessMobilePartyForm({
             type="button"
             disabled={inclusions.length >= 20}
             onClick={() => setInclusions((items) => [...items, { id: newRowId(), label: "" }])}
-            className="inline-flex items-center gap-1 text-[13px] text-[#7144c2]"
+            className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-primary outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring disabled:opacity-50"
           >
             <Plus className="size-4" />
             추가
@@ -594,11 +597,12 @@ export function BusinessMobilePartyForm({
               <button
                 type="button"
                 aria-label={`포함 사항 ${index + 1} 삭제`}
+                className="grid size-11 shrink-0 place-items-center rounded-lg text-destructive outline-none hover:bg-destructive/10 focus-visible:ring-3 focus-visible:ring-ring"
                 onClick={() =>
                   setInclusions((items) => items.filter((item) => item.id !== row.id))
                 }
               >
-                <Trash2 className="size-4 text-red-500" />
+                <Trash2 className="size-4" />
               </button>
             </div>
           ))}
@@ -611,13 +615,13 @@ export function BusinessMobilePartyForm({
             onClick={() =>
               setFaqs((items) => [...items, { id: newRowId(), question: "", answer: "" }])
             }
-            className="inline-flex items-center gap-1 text-[13px] text-[#7144c2]"
+            className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-primary outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring disabled:opacity-50"
           >
             <Plus className="size-4" />
             질문 추가
           </button>
           {faqs.map((faq, index) => (
-            <div key={faq.id} className="space-y-2 rounded-xl border border-[#dedede] p-3">
+            <div key={faq.id} className="space-y-2 rounded-xl border bg-card p-3 text-card-foreground">
               <div className="flex items-start gap-2">
                 <div className="flex-1 space-y-2">
                   <input
@@ -653,11 +657,12 @@ export function BusinessMobilePartyForm({
                 <button
                   type="button"
                   aria-label={`FAQ ${index + 1} 삭제`}
+                  className="grid size-11 shrink-0 place-items-center rounded-lg text-destructive outline-none hover:bg-destructive/10 focus-visible:ring-3 focus-visible:ring-ring"
                   onClick={() =>
                     setFaqs((items) => items.filter((item) => item.id !== faq.id))
                   }
                 >
-                  <Trash2 className="size-4 text-red-500" />
+                  <Trash2 className="size-4" />
                 </button>
               </div>
             </div>
@@ -667,7 +672,7 @@ export function BusinessMobilePartyForm({
         <button
           type="submit"
           disabled={!valid || save.isPending}
-          className="h-12 w-full rounded-xl bg-[#9c6cf2] text-[14px] text-white transition-colors disabled:bg-[#c8c8c8]"
+          className="min-h-12 w-full rounded-xl bg-primary text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
         >
           {save.isPending ? "저장 중…" : mode === "create" ? "완료" : "저장"}
         </button>
@@ -679,7 +684,7 @@ export function BusinessMobilePartyForm({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-2">
-      <span className="block text-[12px] leading-[1.5] text-[#8f8f8f]">{label}</span>
+      <span className="block text-xs font-medium leading-normal text-muted-foreground">{label}</span>
       {children}
     </label>
   );
@@ -688,7 +693,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Fieldset({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-[12px] leading-[1.5] text-[#8f8f8f]">{label}</legend>
+      <legend className="text-xs font-medium leading-normal text-muted-foreground">{label}</legend>
       {children}
     </fieldset>
   );
@@ -707,7 +712,7 @@ function NumberInput({
 }) {
   return (
     <label className="space-y-1">
-      <span className="block text-[12px] text-[#8f8f8f]">{label}</span>
+      <span className="block text-xs font-medium text-muted-foreground">{label}</span>
       <div className="relative">
         <input
           type="number"
@@ -718,7 +723,7 @@ function NumberInput({
           placeholder="0"
           className="mobile-input h-[46px] pr-10"
         />
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-[#8f8f8f]">
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
           {suffix}
         </span>
       </div>

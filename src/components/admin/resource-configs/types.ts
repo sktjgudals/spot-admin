@@ -36,6 +36,7 @@ export type ResourceConfig = {
   description: string;
   resource: string;
   columns: readonly { key: string; label: string }[];
+  statusOptions?: readonly { value: string; label: string }[];
   create?: {
     label: string;
     path: string | ((values: Record<string, unknown>) => string);

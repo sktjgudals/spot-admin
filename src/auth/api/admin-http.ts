@@ -1,4 +1,7 @@
-import { getAccessToken } from "@/auth/store/admin-auth.store";
+import {
+  getAccessToken,
+  getAdminSessionGeneration,
+} from "@/auth/store/admin-auth.store";
 import { refreshAccessToken } from "@/auth/refresh/refresh-single-flight";
 import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 import { getAdminApiBaseUrl } from "@/auth/api/admin-api-origin";
@@ -34,6 +37,7 @@ export async function adminFetch(
   path: string,
   init: AdminFetchInit = {},
 ): Promise<Response> {
+  const requestGeneration = getAdminSessionGeneration();
   const url = path.startsWith("http") ? path : `${getAdminApiBaseUrl()}${path}`;
   const headers = new Headers(init.headers);
 
@@ -57,12 +61,14 @@ export async function adminFetch(
       signal: requestSignal(init.signal),
     });
   } catch {
+    assertAdminSessionGeneration(requestGeneration);
     throw new AdminAuthError(
       "NETWORK_ERROR",
       "인증 서버와 연결이 끊겼습니다. 잠시 후 다시 시도해 주세요.",
       { permanent: false },
     );
   }
+  assertAdminSessionGeneration(requestGeneration);
 
   const skip =
     init.skipAuthRefresh === true ||
@@ -72,6 +78,7 @@ export async function adminFetch(
   if (res.status === 401 && !skip) {
     try {
       const newToken = await refreshAccessToken();
+      assertAdminSessionGeneration(requestGeneration);
       headers.set("Authorization", `Bearer ${newToken}`);
       return adminFetch(path, {
         ...init,
@@ -95,6 +102,7 @@ export async function adminFetchJson<T>(
   path: string,
   init: AdminFetchInit = {},
 ): Promise<T> {
+  const requestGeneration = getAdminSessionGeneration();
   const res = await adminFetch(path, init);
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as {
@@ -102,6 +110,7 @@ export async function adminFetchJson<T>(
       code?: string;
       errorCode?: string;
     };
+    assertAdminSessionGeneration(requestGeneration);
     const msg = Array.isArray(body.message)
       ? body.message.join(", ")
       : (body.message ?? `Request failed (${res.status})`);
@@ -110,6 +119,20 @@ export async function adminFetchJson<T>(
       permanent: res.status === 401 || res.status === 403,
     });
   }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  if (res.status === 204) {
+    assertAdminSessionGeneration(requestGeneration);
+    return undefined as T;
+  }
+  const body = (await res.json()) as T;
+  assertAdminSessionGeneration(requestGeneration);
+  return body;
+}
+
+export function assertAdminSessionGeneration(expected: number): void {
+  if (getAdminSessionGeneration() === expected) return;
+  throw new AdminAuthError(
+    "SESSION_CHANGED_DURING_REQUEST",
+    "관리자 세션이 변경되어 이전 요청 결과를 안전하게 폐기했습니다.",
+    { status: 409, permanent: true },
+  );
 }

@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type MailRichTextEditorProps = {
+export type MailRichTextEditorProps = {
   initialHtml?: string;
   onChange: (value: { html: string; text: string }) => void;
 };
@@ -188,7 +188,7 @@ export function MailRichTextEditor({
         >
           <Redo2 />
         </ToolbarButton>
-        <span className={cn("ml-auto px-2 text-[11px] text-muted-foreground", !editor && "animate-pulse")}>
+        <span className={cn("ml-auto px-2 text-xs text-muted-foreground", !editor && "animate-pulse")}>
           {editor ? "서식 본문" : "에디터 준비 중"}
         </span>
       </div>

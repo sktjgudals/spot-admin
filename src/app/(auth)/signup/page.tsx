@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { z } from "zod";
+import { z } from "zod/mini";
 import { Loader2 } from "lucide-react";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { homePathForRole } from "@/auth/model/admin-auth.types";
@@ -18,12 +18,11 @@ import {
 import { EmailCodeWizard, type EmailCodeWizardConfig } from "@/components/auth/EmailCodeWizard";
 
 const emailSchema = z.object({
-  email: z
-    .string()
-    .email("올바른 이메일을 입력하세요")
-    .refine((v) => v.trim().toLowerCase().endsWith("@dopa.ing"), {
+  email: z.email("올바른 이메일을 입력하세요").check(
+    z.refine((value) => value.trim().toLowerCase().endsWith("@dopa.ing"), {
       message: "내부 도메인(@dopa.ing) 이메일만 사용할 수 있습니다",
     }),
+  ),
 });
 
 function mapBootstrapError(err: unknown): string {

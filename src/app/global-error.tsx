@@ -1,9 +1,9 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import "./globals.css";
 import { Button } from "@/components/ui/button";
+import { captureClientException } from "@/lib/client-observability";
 
 export default function GlobalError({
   error,
@@ -13,7 +13,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    captureClientException(error);
     void fetch("/api/observability/error", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -28,14 +28,16 @@ export default function GlobalError({
   return (
     <html lang="ko" className="h-full antialiased">
       <body className="min-h-full bg-background text-foreground">
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-          <div className="w-full max-w-md text-center space-y-6">
+        <div className="flex min-h-dvh items-center justify-center bg-background px-4">
+          <div className="w-full max-w-md space-y-6 text-center">
             <div className="space-y-2">
               <p className="text-sm font-medium tracking-wide text-muted-foreground">
                 Dopa Admin
               </p>
-              <p className="text-6xl font-bold tabular-nums text-slate-900">오류</p>
-              <h1 className="text-xl font-semibold text-slate-900">
+              <p className="tabular-data text-6xl font-semibold tracking-[-0.05em] text-foreground">
+                오류
+              </p>
+              <h1 className="text-xl font-semibold text-foreground">
                 문제가 발생했습니다
               </h1>
               <p className="text-sm text-muted-foreground leading-relaxed">

@@ -26,7 +26,9 @@ function Form() {
   });
   if ("error" in scope) {
     return (
-      <p className="text-sm text-destructive">businessId 없음</p>
+      <p className="mx-auto my-8 max-w-2xl rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center text-sm text-destructive" role="alert">
+        업체 연결 정보를 찾을 수 없습니다. 초대 상태를 확인해 주세요.
+      </p>
     );
   }
 

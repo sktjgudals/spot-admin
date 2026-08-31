@@ -4,7 +4,7 @@ import { useId, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { z } from "zod/mini";
 import { formResolver } from "@/lib/form-resolver";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
@@ -17,25 +17,32 @@ import { AdminAuthError } from "@/auth/model/admin-auth.errors";
 export type EmailCodeStep = "email" | "code" | "password" | "done";
 
 export const emailCodeSchema = z.object({
-  code: z
-    .string()
-    .min(6, "인증 코드 6자리를 입력하세요")
-    .max(6, "인증 코드 6자리를 입력하세요")
-    .regex(/^\d{6}$/, "숫자 6자리 코드를 입력하세요"),
+  code: z.string().check(
+    z.minLength(6, "인증 코드 6자리를 입력하세요"),
+    z.maxLength(6, "인증 코드 6자리를 입력하세요"),
+    z.regex(/^\d{6}$/, "숫자 6자리 코드를 입력하세요"),
+  ),
 });
 
 export function passwordSchema(includeName: boolean) {
   const base = z.object({
     name: includeName
-      ? z.string().min(1, "이름을 입력하세요").max(80)
-      : z.string().optional(),
-    password: z.string().min(10, "비밀번호는 10자 이상이어야 합니다"),
+      ? z.string().check(
+          z.minLength(1, "이름을 입력하세요"),
+          z.maxLength(80),
+        )
+      : z.optional(z.string()),
+    password: z.string().check(
+      z.minLength(10, "비밀번호는 10자 이상이어야 합니다"),
+    ),
     passwordConfirm: z.string(),
   });
-  return base.refine((d) => d.password === d.passwordConfirm, {
-    message: "비밀번호가 일치하지 않습니다",
-    path: ["passwordConfirm"],
-  });
+  return base.check(
+    z.refine((data) => data.password === data.passwordConfirm, {
+      message: "비밀번호가 일치하지 않습니다",
+      path: ["passwordConfirm"],
+    }),
+  );
 }
 
 type EmailValues = { email: string };
@@ -48,7 +55,7 @@ type PasswordValues = {
 
 export type EmailCodeWizardConfig = {
   copy: Record<EmailCodeStep, { title: string; description: string }>;
-  emailSchema: z.ZodType<EmailValues>;
+  emailSchema: z.ZodMiniType<EmailValues>;
   includeName?: boolean;
   showBrand?: boolean;
   showDone?: boolean;
@@ -198,16 +205,16 @@ export function EmailCodeWizard({ config }: { config: EmailCodeWizardConfig }) {
               className="object-contain"
               priority
             />
-            <span className="text-base font-semibold tracking-wide text-slate-800">
+            <span className="text-base font-semibold tracking-wide text-foreground">
               DOPA
             </span>
           </div>
         )}
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-[28px]">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[28px]">
             {copy.title}
           </h1>
-          <p className="text-sm leading-relaxed text-slate-500">{copy.description}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground">{copy.description}</p>
         </div>
       </div>
 
@@ -277,7 +284,7 @@ export function EmailCodeWizard({ config }: { config: EmailCodeWizardConfig }) {
             )}
             {devCode && (
               <p
-                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+                className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground"
                 role="status"
               >
                 개발 모드 코드:{" "}
@@ -311,7 +318,7 @@ export function EmailCodeWizard({ config }: { config: EmailCodeWizardConfig }) {
                 setDevCode(null);
                 setStep("email");
               }}
-              className="text-slate-500 underline-offset-4 hover:underline disabled:opacity-50 cursor-pointer"
+              className="cursor-pointer text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
             >
               이메일 변경
             </button>
@@ -393,8 +400,8 @@ export function EmailCodeWizard({ config }: { config: EmailCodeWizardConfig }) {
             <div className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
               <CheckCircle2 className="size-7" strokeWidth={2} aria-hidden />
             </div>
-            <p className="text-center text-sm leading-relaxed text-slate-500">
-              <span className="font-medium text-slate-900">{email}</span>
+            <p className="text-center text-sm leading-relaxed text-muted-foreground">
+              <span className="font-medium text-foreground">{email}</span>
               <br />
               계정의 비밀번호가 업데이트되었습니다.
             </p>
@@ -410,7 +417,7 @@ export function EmailCodeWizard({ config }: { config: EmailCodeWizardConfig }) {
       )}
 
       {step !== "done" && (
-        <p className="text-center text-sm text-slate-500">
+        <p className="text-center text-sm text-muted-foreground">
           <Link
             href="/login"
             className="font-medium text-primary underline-offset-4 hover:underline"
@@ -437,7 +444,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5 text-left">
-      <Label htmlFor={id} className="text-slate-700">
+      <Label htmlFor={id} className="text-foreground">
         {label} <span className="text-destructive">*</span>
       </Label>
       {children}

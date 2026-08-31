@@ -20,9 +20,9 @@ type Props = {
 export function AudienceCharts({ title, breakdown, emptyLabel }: Props) {
   if (breakdown.totalUsers === 0) {
     return (
-      <section className="rounded-2xl border border-[#ededed] bg-white px-4 py-5">
-        <h2 className="text-[15px] font-semibold text-[#1f1f1f]">{title}</h2>
-        <p className="mt-3 text-[13px] leading-6 text-[#8a8a8a]">{emptyLabel}</p>
+      <section className="rounded-2xl border bg-card px-5 py-6 text-card-foreground">
+        <h2 className="text-base font-semibold">{title}</h2>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{emptyLabel}</p>
       </section>
     );
   }
@@ -32,10 +32,10 @@ export function AudienceCharts({ title, breakdown, emptyLabel }: Props) {
     breakdown.gender.male + breakdown.gender.female + breakdown.gender.unknown || 1;
 
   return (
-    <section className="rounded-2xl border border-[#ededed] bg-white px-4 py-5">
+    <section className="rounded-2xl border bg-card px-5 py-6 text-card-foreground" aria-label={`${title} 분석`}>
       <div className="flex items-end justify-between gap-3">
-        <h2 className="text-[15px] font-semibold text-[#1f1f1f]">{title}</h2>
-        <p className="text-[13px] font-medium tabular-nums text-[#9c6cf2]">
+        <h2 className="text-base font-semibold">{title}</h2>
+        <p className="text-sm font-medium tabular-nums text-primary">
           {breakdown.totalUsers}명
         </p>
       </div>
@@ -47,17 +47,17 @@ export function AudienceCharts({ title, breakdown, emptyLabel }: Props) {
           unknown={breakdown.gender.unknown}
           total={genderTotal}
         />
-        <ul className="space-y-1 text-[13px] text-[#3d3d3d]">
+        <ul className="space-y-1.5 text-sm text-foreground">
           <li className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-[#5b8def]" />
+            <span className="size-2 rounded-full bg-chart-1" aria-hidden />
             남성 {breakdown.gender.male}
           </li>
           <li className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-[#f07aa8]" />
+            <span className="size-2 rounded-full bg-chart-2" aria-hidden />
             여성 {breakdown.gender.female}
           </li>
           <li className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-[#c8c8c8]" />
+            <span className="size-2 rounded-full bg-muted-foreground" aria-hidden />
             미입력 {breakdown.gender.unknown}
           </li>
         </ul>
@@ -69,14 +69,14 @@ export function AudienceCharts({ title, breakdown, emptyLabel }: Props) {
           const width = Math.round((count / maxAge) * 100);
           return (
             <li key={band} className="grid grid-cols-[52px_1fr_28px] items-center gap-2">
-              <span className="text-[12px] text-[#8a8a8a]">{AGE_LABEL[band]}</span>
-              <div className="h-2 overflow-hidden rounded-full bg-[#f3f0fa]">
+              <span className="text-xs text-muted-foreground">{AGE_LABEL[band]}</span>
+              <div className="h-2 overflow-hidden rounded-full bg-secondary">
                 <div
-                  className="h-full rounded-full bg-[#9c6cf2]"
+                  className="h-full rounded-full bg-primary"
                   style={{ width: `${width}%` }}
                 />
               </div>
-              <span className="text-right text-[12px] tabular-nums text-[#3d3d3d]">
+              <span className="text-right text-xs tabular-nums text-foreground">
                 {count}
               </span>
             </li>
@@ -105,13 +105,13 @@ function Donut({
   const unknownLen = (unknown / total) * c;
   return (
     <svg viewBox="0 0 72 72" className="size-[72px]" aria-hidden>
-      <circle cx="36" cy="36" r={r} fill="none" stroke="#f0f0f0" strokeWidth="10" />
+      <circle cx="36" cy="36" r={r} fill="none" strokeWidth="10" className="stroke-muted" />
       <circle
         cx="36"
         cy="36"
         r={r}
         fill="none"
-        stroke="#5b8def"
+        className="stroke-chart-1"
         strokeWidth="10"
         strokeDasharray={`${maleLen} ${c - maleLen}`}
         strokeDashoffset="0"
@@ -122,7 +122,7 @@ function Donut({
         cy="36"
         r={r}
         fill="none"
-        stroke="#f07aa8"
+        className="stroke-chart-2"
         strokeWidth="10"
         strokeDasharray={`${femaleLen} ${c - femaleLen}`}
         strokeDashoffset={-maleLen}
@@ -133,7 +133,7 @@ function Donut({
         cy="36"
         r={r}
         fill="none"
-        stroke="#c8c8c8"
+        className="stroke-muted-foreground"
         strokeWidth="10"
         strokeDasharray={`${unknownLen} ${c - unknownLen}`}
         strokeDashoffset={-(maleLen + femaleLen)}

@@ -1,20 +1,37 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/auth/api/admin-http", () => ({
-  adminFetch: vi.fn(),
-  adminFetchJson: vi.fn(),
-}));
+vi.mock("@/auth/api/admin-http", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/auth/api/admin-http")>();
+  return {
+    ...actual,
+    adminFetch: vi.fn(),
+    adminFetchJson: vi.fn(),
+  };
+});
 
-import { adminFetchJson } from "@/auth/api/admin-http";
+import { adminFetch, adminFetchJson } from "@/auth/api/admin-http";
+import {
+  __resetAccessTokenForTests,
+  setAuthenticatedAdminSession,
+} from "@/auth/store/admin-auth.store";
 import {
   composeMail,
+  downloadMailAttachment,
   listMailMessages,
   patchMailMessage,
   retryMailMessage,
 } from "@/auth/api/admin-mail.api";
 
 describe("admin mail API", () => {
-  beforeEach(() => vi.mocked(adminFetchJson).mockReset());
+  beforeEach(() => {
+    vi.mocked(adminFetch).mockReset();
+    vi.mocked(adminFetchJson).mockReset();
+    __resetAccessTokenForTests();
+  });
+
+  afterEach(() => {
+    __resetAccessTokenForTests();
+  });
 
   it("encodes folder, search, unread, and cursor filters", async () => {
     vi.mocked(adminFetchJson).mockResolvedValue({ items: [], nextCursor: null, asOf: "now" });
@@ -51,5 +68,38 @@ describe("admin mail API", () => {
       "/admin/v2/mail/messages/mail%2Fa/retry",
       { method: "POST" },
     );
+  });
+
+  it("does not materialize an attachment after the administrator session changes", async () => {
+    let resolveBlob!: (blob: Blob) => void;
+    const response = new Response("attachment");
+    vi.spyOn(response, "blob").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveBlob = resolve;
+        }),
+    );
+    vi.mocked(adminFetch).mockResolvedValue(response);
+    setAuthenticatedAdminSession("admin-a-token", {
+      id: "admin-a",
+      role: "BUSINESS_ADMIN",
+      businessId: "business-a",
+    });
+
+    const download = downloadMailAttachment("message-a", {
+      id: "attachment-a",
+      filename: "private.pdf",
+    });
+    await vi.waitFor(() => expect(response.blob).toHaveBeenCalledTimes(1));
+    setAuthenticatedAdminSession("admin-b-token", {
+      id: "admin-b",
+      role: "BUSINESS_ADMIN",
+      businessId: "business-b",
+    });
+    resolveBlob(new Blob(["attachment"]));
+
+    await expect(download).rejects.toMatchObject({
+      code: "SESSION_CHANGED_DURING_REQUEST",
+    });
   });
 });

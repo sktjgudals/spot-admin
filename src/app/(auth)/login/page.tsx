@@ -4,14 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { z } from "zod/mini";
 import { toast } from "sonner";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -25,9 +24,9 @@ import { GoogleSignInButton } from "@/auth/oidc/google-gis";
 import { publicAppleClientId, publicGoogleClientId } from "@/auth/oidc/public-clients";
 
 const schema = z.object({
-  email: z.string().email("올바른 이메일을 입력하세요"),
-  password: z.string().min(1, "비밀번호를 입력하세요"),
-  rememberMe: z.boolean().optional(),
+  email: z.email("올바른 이메일을 입력하세요"),
+  password: z.string().check(z.minLength(1, "비밀번호를 입력하세요")),
+  rememberMe: z.optional(z.boolean()),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -122,7 +121,7 @@ export default function LoginPage() {
   if (status === "booting") {
     return (
       <div className="flex flex-col items-center gap-3 py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800" />
+        <div className="size-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
         <p className="text-sm text-muted-foreground">세션 확인 중…</p>
       </div>
     );
@@ -135,9 +134,15 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-md border-border/80 shadow-(--elevation-1)">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Dopa Admin</CardTitle>
+        <p className="data-kicker">Secure workspace</p>
+        <h1
+          className="font-heading text-2xl font-semibold leading-snug tracking-[-0.03em]"
+          data-slot="card-title"
+        >
+          Dopa Admin
+        </h1>
         <CardDescription>
           앱에서 쓰는 Google/Apple 계정, 또는 초대 비밀번호로 로그인하세요
         </CardDescription>
@@ -176,10 +181,14 @@ export default function LoginPage() {
               type="email"
               autoComplete="username"
               placeholder="admin@example.com"
+              aria-invalid={errors.email ? true : undefined}
+              aria-describedby={errors.email ? "email-error" : undefined}
               {...register("email")}
             />
             {errors.email && (
-              <p className="text-xs text-destructive">{errors.email.message}</p>
+              <p id="email-error" role="alert" className="text-xs text-destructive">
+                {errors.email.message}
+              </p>
             )}
           </div>
           <div className="space-y-1.5">
@@ -196,10 +205,12 @@ export default function LoginPage() {
               id="password"
               placeholder="••••••••"
               autoComplete="current-password"
+              aria-invalid={errors.password ? true : undefined}
+              aria-describedby={errors.password ? "password-error" : undefined}
               {...register("password")}
             />
             {errors.password && (
-              <p className="text-xs text-destructive">
+              <p id="password-error" role="alert" className="text-xs text-destructive">
                 {errors.password.message}
               </p>
             )}

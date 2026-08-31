@@ -24,6 +24,9 @@ describe("admin middleware", () => {
   it("sends a signed-out /app request to /login", () => {
     const res = middleware(request("/app/parties"));
     expect(res.headers.get("location")).toBe("https://admin.dopa.ing/login");
+    expect(res.headers.get("strict-transport-security")).toBe(
+      "max-age=31536000; includeSubDomains",
+    );
   });
 
   it("lets a signed-in operator reach /app/parties", () => {

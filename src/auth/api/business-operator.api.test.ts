@@ -13,6 +13,7 @@ import {
   checkInByQr,
   checkInManually,
   getCheckInStatus,
+  getOperatorPartyApplicants,
   getOperatorPartyDetail,
   reviewPartyApplication,
 } from "@/auth/api/business-operator.api";
@@ -55,6 +56,33 @@ describe("business-operator.api", () => {
           reason: "정원이 마감되었습니다.",
         }),
       },
+    );
+  });
+
+  it("loads the complete applicant contract through the dedicated endpoint", async () => {
+    const response = {
+      truncated: true,
+      formQuestions: [],
+      applicants: [
+        {
+          applicationId: "application-1",
+          userId: "user-1",
+          nickname: "민지",
+          profileImage: "https://cdn.example.test/profile.jpg",
+          gender: "FEMALE",
+          birthYear: 1998,
+          status: "PENDING",
+          appliedAt: "2026-08-31T01:00:00.000Z",
+          formAnswers: [],
+          sharedReviews: [],
+        },
+      ],
+    };
+    vi.mocked(adminFetchJson).mockResolvedValue(response);
+
+    await expect(getOperatorPartyApplicants("party/a")).resolves.toEqual(response);
+    expect(adminFetchJson).toHaveBeenCalledWith(
+      "/parties/applicants?partyId=party%2Fa",
     );
   });
 

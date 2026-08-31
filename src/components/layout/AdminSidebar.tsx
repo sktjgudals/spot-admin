@@ -1,73 +1,108 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentType } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import {
+  BarChart3,
   BellRing,
   Building2,
+  ChevronRight,
   ClipboardCheck,
   CreditCard,
   Flag,
   ImageIcon,
   LayoutDashboard,
   LogOut,
-  ChevronRight,
-  Menu,
   Mail,
+  Menu,
   MessageSquareText,
   Settings,
   ShieldAlert,
   Star,
   Tags,
   TicketPercent,
-  UserCog,
   Undo2,
+  UserCog,
 } from "lucide-react";
-import Image from "next/image";
-import { cn } from "@/lib/utils";
-import { clearSessionAndRedirect } from "@/lib/auth-session";
-import { Button } from "@/components/ui/button";
+import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { clearSessionAndRedirect } from "@/lib/auth-session";
+import { cn } from "@/lib/utils";
+import { ThemeToggle } from "./ThemeToggle";
 
-interface NavItem {
+type NavItem = {
   href: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
+};
+
+const navGroups: ReadonlyArray<{ label: string; items: readonly NavItem[] }> = [
+  {
+    label: "개요",
+    items: [
+      { href: "/super-admin/dashboard", label: "대시보드", icon: LayoutDashboard },
+      { href: "/super-admin/analytics", label: "제품 분석", icon: BarChart3 },
+      { href: "/super-admin/mail", label: "메일", icon: Mail },
+    ],
+  },
+  {
+    label: "운영 큐",
+    items: [
+      { href: "/super-admin/reports", label: "신고 처리", icon: ShieldAlert },
+      { href: "/super-admin/inquiries", label: "문의", icon: MessageSquareText },
+      { href: "/super-admin/refund-policy-requests", label: "환불 정책", icon: Undo2 },
+      { href: "/super-admin/business-role-requests", label: "업체 권한 신청", icon: ClipboardCheck },
+    ],
+  },
+  {
+    label: "고객과 업체",
+    items: [
+      { href: "/super-admin/users", label: "사용자", icon: UserCog },
+      { href: "/app/businesses", label: "업체 · 파티 · 초대", icon: Building2 },
+      { href: "/super-admin/business-admins", label: "업체 관리자 배정", icon: ClipboardCheck },
+      { href: "/super-admin/payments", label: "결제 · 환불", icon: CreditCard },
+    ],
+  },
+  {
+    label: "성장과 콘텐츠",
+    items: [
+      { href: "/super-admin/coupons", label: "쿠폰", icon: TicketPercent },
+      { href: "/super-admin/notifications", label: "알림 캠페인", icon: BellRing },
+      { href: "/super-admin/banners", label: "배너", icon: ImageIcon },
+      { href: "/super-admin/categories", label: "파티 카테고리", icon: Tags },
+      { href: "/super-admin/review-tags", label: "리뷰 태그", icon: Star },
+    ],
+  },
+  {
+    label: "시스템",
+    items: [
+      { href: "/super-admin/report-reasons", label: "신고 사유", icon: Flag },
+      { href: "/super-admin/config", label: "런타임 설정", icon: Settings },
+    ],
+  },
+] as const;
+
+const allNavItems = navGroups.flatMap((group) => group.items);
+
+export function adminRouteLabel(pathname: string): string {
+  return (
+    allNavItems.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+      ?.label ?? "운영 콘솔"
+  );
 }
 
-const navItems: NavItem[] = [
-  { href: "/super-admin/dashboard", label: "대시보드", icon: LayoutDashboard },
-  { href: "/super-admin/mail", label: "메일", icon: Mail },
-  { href: "/super-admin/users", label: "사용자", icon: UserCog },
-  { href: "/super-admin/reports", label: "신고 처리", icon: ShieldAlert },
-  { href: "/app/businesses", label: "업체 · 파티 · 초대", icon: Building2 },
-  { href: "/super-admin/business-admins", label: "업체 관리자 배정", icon: ClipboardCheck },
-  { href: "/super-admin/business-role-requests", label: "업체 권한 신청", icon: ClipboardCheck },
-  { href: "/super-admin/refund-policy-requests", label: "환불 정책", icon: Undo2 },
-  { href: "/super-admin/coupons", label: "쿠폰", icon: TicketPercent },
-  { href: "/super-admin/inquiries", label: "문의", icon: MessageSquareText },
-  { href: "/super-admin/payments", label: "결제 · 환불", icon: CreditCard },
-  { href: "/super-admin/notifications", label: "알림", icon: BellRing },
-  { href: "/super-admin/banners", label: "배너", icon: ImageIcon },
-  { href: "/super-admin/categories", label: "파티 카테고리", icon: Tags },
-  { href: "/super-admin/review-tags", label: "리뷰 태그", icon: Star },
-  { href: "/super-admin/report-reasons", label: "신고 사유", icon: Flag },
-  { href: "/super-admin/config", label: "런타임 설정", icon: Settings },
-];
-
-interface Props {
-  name: string;
-  email: string;
+function isActiveRoute(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-interface InnerProps extends Props {
-  onClose?: () => void;
-}
+type Props = { name: string; email: string };
+type InnerProps = Props & { onClose?: () => void };
 
 function SidebarInner({ name, email, onClose }: InnerProps) {
   const pathname = usePathname();
@@ -85,107 +120,121 @@ function SidebarInner({ name, email, onClose }: InnerProps) {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* 로고 */}
-      <div className="px-4 py-5 border-b shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
-            <Image src="/dopa-logo.png" alt="Dopa" width={32} height={32} className="object-contain" />
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-sidebar text-sidebar-foreground">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-sidebar-border px-4">
+        <div className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-lg border border-sidebar-border bg-white shadow-xs">
+          <Image src="/dopa-logo.png" alt="" width={30} height={30} priority />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold tracking-[-0.01em]">Dopa Admin</p>
+            <Badge variant="outline" className="h-5 rounded px-1.5 text-xs tracking-wide">
+              OPS
+            </Badge>
           </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-sm leading-none">Dopa Admin</p>
-          </div>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">Platform operations</p>
         </div>
       </div>
 
-      {/* 네비게이션 */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {navItems.map((item) => {
-          const active = pathname.startsWith(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
-                active
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
-              )}
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              {item.label}
-              {active && <ChevronRight className="w-3 h-3 ml-auto" />}
-            </Link>
-          );
-        })}
+      <nav className="scrollbar-thin flex-1 overflow-y-auto px-3 py-4" aria-label="슈퍼 관리자 메뉴">
+        {navGroups.map((group, groupIndex) => (
+          <div key={group.label} className={cn(groupIndex > 0 && "mt-5")}>
+            <p className="mb-1.5 px-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              {group.label}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const active = isActiveRoute(pathname, item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    prefetch={false}
+                    aria-current={active ? "page" : undefined}
+                    onClick={onClose}
+                    className={cn(
+                      "group relative flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute inset-y-2 left-0 w-0.5 rounded-r bg-transparent",
+                        active && "bg-sidebar-primary",
+                      )}
+                      aria-hidden
+                    />
+                    <item.icon className="size-4 shrink-0" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {active ? <ChevronRight className="size-3.5 shrink-0 opacity-60" aria-hidden /> : null}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      {/* 유저 정보 */}
-      <Separator className="shrink-0" />
-      <div className="px-3 py-3 shrink-0">
-        <div className="flex items-center gap-2 px-3 py-2 mb-1">
-          <Avatar className="w-7 h-7 shrink-0">
-            <AvatarFallback className="text-xs">
+      <div className="shrink-0 border-t border-sidebar-border p-3">
+        <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
+          <Avatar className="size-8 shrink-0 border border-sidebar-border">
+            <AvatarFallback className="text-xs font-semibold">
               {name.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{name}</p>
-            <p className="text-xs text-muted-foreground truncate">{email}</p>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium">{name}</p>
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
           </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={handleLogout}
+            aria-label="로그아웃"
+            title="로그아웃"
+          >
+            <LogOut aria-hidden />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-muted-foreground hover:text-destructive px-3"
-          onClick={handleLogout}
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          로그아웃
-        </Button>
       </div>
     </div>
   );
 }
 
-/* 데스크톱 사이드바 (md 이상) */
 export default function AdminSidebar(props: Props) {
   return (
-    <aside className="hidden md:flex flex-col w-60 border-r bg-background h-screen sticky top-0 shrink-0">
+    <aside className="hidden h-dvh w-(--shell-sidebar-width) shrink-0 border-r border-sidebar-border md:block">
       <SidebarInner {...props} />
     </aside>
   );
 }
 
-/* 모바일/태블릿 헤더 (md 미만) */
 export function MobileHeader(props: Props) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 flex items-center h-14 border-b bg-background/95 backdrop-blur supports-backdrop-filter:backdrop-blur-sm px-3 md:hidden">
+    <header className="sticky top-0 z-40 flex h-(--shell-header-height) shrink-0 items-center border-b bg-background/92 px-3 backdrop-blur-xl md:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger
-          className={cn(
-            "inline-flex items-center justify-center rounded-md w-9 h-9",
-            "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors -ml-1"
-          )}
+          className="-ml-1 inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="size-5" aria-hidden />
           <span className="sr-only">메뉴 열기</span>
         </SheetTrigger>
-        <SheetContent side="left" className="p-0 gap-0" showCloseButton={false}>
+        <SheetContent side="left" className="w-[min(88vw,19rem)] gap-0 p-0" showCloseButton={false}>
+          <SheetTitle className="sr-only">슈퍼 관리자 메뉴</SheetTitle>
           <SidebarInner {...props} onClose={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
-
-      <div className="ml-3 flex items-center gap-2 min-w-0">
-        <div className="w-6 h-6 rounded-md overflow-hidden bg-primary/10 flex items-center justify-center shrink-0">
-          <Image src="/dopa-logo.png" alt="Dopa" width={24} height={24} className="object-contain" />
-        </div>
-        <span className="font-semibold text-sm shrink-0">Dopa Admin</span>
+      <div className="ml-2 min-w-0 flex-1">
+        <p className="data-kicker">Dopa Admin</p>
+        <p className="truncate text-sm font-semibold leading-4">{adminRouteLabel(pathname)}</p>
       </div>
+      <ThemeToggle compact />
     </header>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import * as Sentry from "@sentry/nextjs";
 import { StatusPage } from "@/components/error/StatusPage";
+import { captureClientException } from "@/lib/client-observability";
 
 export default function ErrorPage({
   error,
@@ -12,7 +12,7 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    captureClientException(error);
     void fetch("/api/observability/error", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

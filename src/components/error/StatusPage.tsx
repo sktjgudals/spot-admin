@@ -24,14 +24,14 @@ export function StatusPage({
   secondaryLabel,
 }: StatusPageProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="w-full max-w-md text-center space-y-6">
         <div className="space-y-2">
           <p className="text-sm font-medium tracking-wide text-muted-foreground">
             Dopa Admin
           </p>
-          <p className="text-6xl font-bold tabular-nums text-slate-900">{code}</p>
-          <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+          <p className="tabular-data text-6xl font-semibold tracking-[-0.05em] text-foreground">{code}</p>
+          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
           <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
             {description}
           </p>

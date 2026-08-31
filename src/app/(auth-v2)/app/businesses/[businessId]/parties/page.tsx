@@ -10,7 +10,7 @@ import {
   businessPartyDetailPath,
   resolveBusinessScope,
 } from "@/auth/model/admin-routes";
-import { PartyListPanel } from "../../../_components/PartyListPanel";
+import { DesktopPartyListPanel } from "../../../_components/DesktopPartyListPanel";
 
 /**
  * SUPER_ADMIN — businessId from URL → scoped Cloudflare API path.
@@ -48,7 +48,7 @@ function ScopedList() {
   const { businessId } = scope;
 
   return (
-    <PartyListPanel
+    <DesktopPartyListPanel
       businessId={businessId}
       title="파티 (SUPER_ADMIN)"
       description="URL businessId → GET /admin/v2/businesses/:businessId/parties"

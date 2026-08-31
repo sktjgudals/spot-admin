@@ -1,15 +1,22 @@
 "use client";
 
 import {
+  memo,
+  useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
+  type Ref,
 } from "react";
 import {
   useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
+  type InfiniteData,
+  type QueryClient,
 } from "@tanstack/react-query";
 import {
   Archive,
@@ -22,7 +29,6 @@ import {
   Mail,
   MailOpen,
   Menu,
-  MoreHorizontal,
   Paperclip,
   Pencil,
   RefreshCw,
@@ -46,11 +52,12 @@ import {
   type MailAddress,
   type MailDeliveryStatus,
   type MailFolder,
+  type MailListPage,
+  type MailboxSummary,
   type MailMessage,
   type MailMessageDetail,
 } from "@/auth/api/admin-mail.api";
 import { adminQueryKeys } from "@/auth/model/admin-query-keys";
-import { MailRichTextEditor } from "@/components/mail/MailRichTextEditor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,9 +69,32 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { createRetryableLazyComponent } from "@/components/performance/RetryableLazyComponent";
+import type { MailRichTextEditorProps } from "@/components/mail/MailRichTextEditor";
 import { cn } from "@/lib/utils";
+import { useCursorAppendFocus } from "@/hooks/use-cursor-append-focus";
 
 const MAX_ATTACHMENT_BYTES = 3 * 1024 * 1024;
+
+const MailRichTextEditor = createRetryableLazyComponent<MailRichTextEditorProps>(
+  () =>
+    import("@/components/mail/MailRichTextEditor").then(
+      (module) => ({ default: module.MailRichTextEditor }),
+    ),
+  {
+    loading: (
+      <div
+        className="min-h-48 animate-pulse rounded-lg border bg-muted/40"
+        role="status"
+        aria-label="메일 에디터 불러오는 중"
+      />
+    ),
+    errorTitle: "메일 에디터를 불러오지 못했습니다.",
+    errorDescription:
+      "작성 내용은 그대로 유지됩니다. 연결을 확인한 뒤 에디터만 다시 불러와 주세요.",
+    retryLabel: "에디터 다시 시도",
+  },
+);
 
 const folders: readonly {
   id: MailFolder;
@@ -92,6 +122,121 @@ const fullDateFormatter = new Intl.DateTimeFormat("ko-KR", {
   hour: "2-digit",
   minute: "2-digit",
 });
+
+type MailListQueryParams = {
+  folder?: unknown;
+  query?: unknown;
+  unread?: unknown;
+};
+
+function findCachedMailMessage(
+  queryClient: QueryClient,
+  messageId: string,
+): MailMessage | undefined {
+  for (const [, data] of queryClient.getQueriesData<InfiniteData<MailListPage>>({
+    queryKey: adminQueryKeys.mail.lists,
+  })) {
+    const message = data?.pages
+      .flatMap((page) => page.items)
+      .find((item) => item.id === messageId);
+    if (message) return message;
+  }
+  return undefined;
+}
+
+function messageMatchesList(
+  message: MailMessage,
+  params: MailListQueryParams,
+): boolean {
+  if (params.folder !== message.folder) return false;
+  if (params.unread === true && message.isRead) return false;
+  if (typeof params.query !== "string" || params.query.trim().length === 0) {
+    return true;
+  }
+
+  const query = params.query.trim().toLocaleLowerCase("ko-KR");
+  const addresses = [...message.from, ...message.to, ...message.cc, ...message.bcc]
+    .flatMap((address) => [address.name, address.address])
+    .join(" ");
+  return `${message.subject} ${message.snippet} ${addresses}`
+    .toLocaleLowerCase("ko-KR")
+    .includes(query);
+}
+
+function updateCachedMailLists(
+  queryClient: QueryClient,
+  message: MailMessage,
+): void {
+  for (const [queryKey, data] of queryClient.getQueriesData<
+    InfiniteData<MailListPage>
+  >({ queryKey: adminQueryKeys.mail.lists })) {
+    if (!data) continue;
+    const params = (queryKey[3] ?? {}) as MailListQueryParams;
+    let changed = false;
+    const nextPages = data.pages.map((page) => {
+      const hasMessage = page.items.some((item) => item.id === message.id);
+      if (!hasMessage) return page;
+      changed = true;
+      return {
+        ...page,
+        items: messageMatchesList(message, params)
+          ? page.items.map((item) => (item.id === message.id ? message : item))
+          : page.items.filter((item) => item.id !== message.id),
+      };
+    });
+    if (changed) {
+      queryClient.setQueryData<InfiniteData<MailListPage>>(queryKey, {
+        ...data,
+        pages: nextPages,
+      });
+    }
+  }
+}
+
+function updateCachedMailbox(
+  queryClient: QueryClient,
+  previous: MailMessage | undefined,
+  next: MailMessage,
+): void {
+  if (!previous) return;
+
+  queryClient.setQueryData<MailboxSummary>(
+    adminQueryKeys.mail.mailbox,
+    (current) => {
+      if (!current) return current;
+      const unreadDelta = Number(!next.isRead) - Number(!previous.isRead);
+      const folders = current.folders.map((entry) => {
+        let total = entry.total;
+        let unread = entry.unread;
+
+        if (previous.folder === next.folder && entry.folder === next.folder) {
+          unread += unreadDelta;
+        } else {
+          if (entry.folder === previous.folder) {
+            total -= 1;
+            if (!previous.isRead) unread -= 1;
+          }
+          if (entry.folder === next.folder) {
+            total += 1;
+            if (!next.isRead) unread += 1;
+          }
+        }
+
+        return {
+          ...entry,
+          total: Math.max(0, total),
+          unread: Math.max(0, unread),
+        };
+      });
+
+      return {
+        ...current,
+        folders,
+        unreadTotal: Math.max(0, current.unreadTotal + unreadDelta),
+      };
+    },
+  );
+}
 
 function displayAddress(address: MailAddress | undefined): string {
   if (!address) return "알 수 없는 발신자";
@@ -129,7 +274,10 @@ function DeliveryBadge({ status }: { status: MailDeliveryStatus }) {
   return (
     <Badge
       variant={variant}
-      className={cn(status === "UNKNOWN" && "bg-amber-100 text-amber-900")}
+      className={cn(
+        status === "UNKNOWN" &&
+          "border-warning/30 bg-warning/10 text-warning-foreground",
+      )}
     >
       {statusLabels[status]}
     </Badge>
@@ -354,7 +502,7 @@ function ComposeDialog({
               <select
                 value={effectiveFromAddress}
                 onChange={(event) => setFromAddress(event.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={senders.length <= 1}
                 required
               >
@@ -397,7 +545,7 @@ function ComposeDialog({
             <div className="grid gap-1 text-xs font-medium">
               <span>메일 본문</span>
               <MailRichTextEditor
-                initialHtml={initialHtml}
+                initialHtml={html}
                 onChange={(value) => {
                   setHtml(value.html);
                   setText(value.text);
@@ -480,32 +628,88 @@ function ComposeDialog({
   );
 }
 
-function MailListItem({
+const MailSearchForm = memo(function MailSearchForm({
+  initialValue,
+  onSubmit,
+  onReset,
+}: {
+  initialValue: string;
+  onSubmit: (value: string) => void;
+  onReset: () => void;
+}) {
+  const [draft, setDraft] = useState(initialValue);
+
+  return (
+    <form
+      className="relative"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit(draft.trim());
+      }}
+    >
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        className="pl-8 pr-8"
+        placeholder="제목, 주소, 본문 검색"
+        aria-label="메일 검색"
+      />
+      {draft ? (
+        <button
+          type="button"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
+          onClick={() => {
+            setDraft("");
+            onReset();
+          }}
+          aria-label="검색 지우기"
+        >
+          <X className="size-4" />
+        </button>
+      ) : null}
+    </form>
+  );
+});
+
+const MailListItem = memo(function MailListItem({
   message,
   selected,
+  buttonRef,
   onSelect,
 }: {
   message: MailMessage;
   selected: boolean;
-  onSelect: () => void;
+  buttonRef?: Ref<HTMLButtonElement>;
+  onSelect: (message: MailMessage) => void;
 }) {
   const counterpart = message.direction === "INBOUND" ? message.from.at(0) : message.to.at(0);
   return (
     <button
+      ref={buttonRef}
       type="button"
-      onClick={onSelect}
+      onClick={() => onSelect(message)}
+      aria-current={selected ? "true" : undefined}
       className={cn(
         "grid w-full gap-1 border-b px-4 py-3 text-left transition-colors hover:bg-muted/60",
         selected && "bg-primary/8",
-        !message.isRead && "bg-blue-50/70 dark:bg-blue-950/20",
+        !message.isRead && "bg-info/10",
       )}
     >
       <div className="flex min-w-0 items-center gap-2">
-        {!message.isRead ? <span className="size-2 shrink-0 rounded-full bg-blue-500" /> : null}
+        {!message.isRead ? (
+          <>
+            <span
+              className="size-2 shrink-0 rounded-full bg-info"
+              aria-hidden="true"
+            />
+            <span className="sr-only">읽지 않음</span>
+          </>
+        ) : null}
         <span className={cn("truncate text-sm", !message.isRead && "font-semibold")}>
           {displayAddress(counterpart)}
         </span>
-        <time className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+        <time className="ml-auto shrink-0 text-xs text-muted-foreground">
           {dateFormatter.format(message.activityAt)}
         </time>
       </div>
@@ -526,18 +730,31 @@ function MailListItem({
       ) : null}
     </button>
   );
-}
+});
 
-export function MailConsole({ compact = false }: { compact?: boolean }) {
+export function MailConsole({
+  compact = false,
+  responsiveCompact = false,
+}: {
+  compact?: boolean;
+  responsiveCompact?: boolean;
+}) {
+  const desktopPanes = !compact || responsiveCompact;
   const queryClient = useQueryClient();
   const [folder, setFolder] = useState<MailFolder>("INBOX");
-  const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobilePane, setMobilePane] = useState<"folders" | "list" | "detail">("list");
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeMode, setComposeMode] = useState<ComposeMode>("new");
+  const pendingFocusRef = useRef<
+    "current-folder" | "list-heading" | "selected-message" | "detail-heading" | null
+  >(null);
+  const currentFolderRef = useRef<HTMLButtonElement>(null);
+  const listHeadingRef = useRef<HTMLHeadingElement>(null);
+  const selectedMessageRef = useRef<HTMLButtonElement>(null);
+  const detailHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const mailbox = useQuery({
     queryKey: adminQueryKeys.mail.mailbox,
@@ -556,29 +773,85 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
     getNextPageParam: (page) => page.nextCursor ?? undefined,
   });
   const items = messages.data?.pages.flatMap((page) => page.items) ?? [];
+  const {
+    beginAppend: beginMessageAppend,
+    setItemRef: setMessageItemRef,
+    setRetryButtonRef: setMessageRetryButtonRef,
+  } = useCursorAppendFocus<HTMLButtonElement>({
+    scopeKey: `${folder}\u0000${search}\u0000${unreadOnly ? "unread" : "all"}`,
+    itemKeys: items.map((message) => message.id),
+    isFetchingNextPage: messages.isFetchingNextPage,
+    isFetchNextPageError: messages.isFetchNextPageError,
+    hasNextPage: Boolean(messages.hasNextPage),
+  });
+  const loadNextMessagePage = () => {
+    beginMessageAppend();
+    void messages.fetchNextPage();
+  };
   const detail = useQuery({
     queryKey: adminQueryKeys.mail.detail(selectedId ?? "none"),
     queryFn: () => fetchMailMessage(selectedId as string),
     enabled: selectedId !== null,
   });
 
-  const invalidateMail = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.mail.mailbox }),
-      queryClient.invalidateQueries({ queryKey: adminQueryKeys.mail.all }),
-    ]);
+  useEffect(() => {
+    const target = pendingFocusRef.current;
+    let anchor: HTMLElement | null = null;
+    if (target === "current-folder" && mobilePane === "folders") {
+      anchor = currentFolderRef.current;
+    } else if (target === "list-heading" && mobilePane === "list") {
+      anchor = listHeadingRef.current;
+    } else if (target === "selected-message" && mobilePane === "list") {
+      anchor = selectedMessageRef.current?.isConnected
+        ? selectedMessageRef.current
+        : listHeadingRef.current;
+    } else if (
+      target === "detail-heading" &&
+      mobilePane === "detail" &&
+      detail.data !== undefined
+    ) {
+      anchor = detailHeadingRef.current;
+    }
+    if (anchor) {
+      anchor.focus();
+      pendingFocusRef.current = null;
+    }
+  }, [detail.data, folder, mobilePane, selectedId]);
+
+  const reconcileMailboxAndStaleLists = () => {
+    void queryClient.invalidateQueries({ queryKey: adminQueryKeys.mail.mailbox });
+    void queryClient.invalidateQueries({
+      queryKey: adminQueryKeys.mail.lists,
+      refetchType: "none",
+    });
   };
 
   const stateMutation = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: { isRead?: boolean; folder?: MailFolder } }) =>
       patchMailMessage(id, patch),
-    onSuccess: async (result, variables) => {
+    onMutate: ({ id }) => ({ previous: findCachedMailMessage(queryClient, id) }),
+    onSuccess: (result, variables, context) => {
       queryClient.setQueryData<MailMessageDetail>(
         adminQueryKeys.mail.detail(result.message.id),
-        (current) => (current ? { ...current, message: result.message } : current),
+        (current) =>
+          current
+            ? {
+                ...current,
+                message: {
+                  ...current.message,
+                  folder: result.message.folder,
+                  isRead: result.message.isRead,
+                  activityAt: result.message.activityAt,
+                  updatedAt: result.message.updatedAt,
+                },
+              }
+            : current,
       );
-      await invalidateMail();
+      updateCachedMailLists(queryClient, result.message);
+      updateCachedMailbox(queryClient, context?.previous, result.message);
+      reconcileMailboxAndStaleLists();
       if (variables.patch.folder !== undefined && variables.patch.folder !== folder) {
+        pendingFocusRef.current = "list-heading";
         setSelectedId(null);
         setMobilePane("list");
       }
@@ -589,24 +862,43 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
 
   const retryMutation = useMutation({
     mutationFn: (id: string) => retryMailMessage(id),
-    onSuccess: async () => {
+    onMutate: (id) => ({ previous: findCachedMailMessage(queryClient, id) }),
+    onSuccess: (result, id, context) => {
       toast.success("메일을 다시 전송 대기열에 넣었습니다.");
-      await invalidateMail();
-      if (selectedId) {
-        await queryClient.invalidateQueries({ queryKey: adminQueryKeys.mail.detail(selectedId) });
+      if (result.message) {
+        queryClient.setQueryData<MailMessageDetail>(
+          adminQueryKeys.mail.detail(id),
+          (current) =>
+            current ? { ...current, message: result.message as MailMessage } : current,
+        );
+        updateCachedMailLists(queryClient, result.message);
+        updateCachedMailbox(queryClient, context?.previous, result.message);
+      } else {
+        void queryClient.invalidateQueries({
+          queryKey: adminQueryKeys.mail.detail(id),
+        });
       }
+      reconcileMailboxAndStaleLists();
     },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : "재시도하지 못했습니다."),
   });
 
-  const selectMessage = (message: MailMessage) => {
-    setSelectedId(message.id);
-    setMobilePane("detail");
-    if (!message.isRead) stateMutation.mutate({ id: message.id, patch: { isRead: true } });
-  };
+  const mutateMailState = stateMutation.mutate;
+  const selectMessage = useCallback(
+    (message: MailMessage) => {
+      pendingFocusRef.current = "detail-heading";
+      setSelectedId(message.id);
+      setMobilePane("detail");
+      if (!message.isRead) {
+        mutateMailState({ id: message.id, patch: { isRead: true } });
+      }
+    },
+    [mutateMailState],
+  );
 
   const selectFolder = (next: MailFolder) => {
+    pendingFocusRef.current = "list-heading";
     setFolder(next);
     setSelectedId(null);
     setMobilePane("list");
@@ -617,6 +909,14 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
     setComposeOpen(true);
   };
 
+  const submitSearch = useCallback((value: string) => {
+    setSearch(value);
+    setSelectedId(null);
+  }, []);
+  const resetSearch = useCallback(() => {
+    setSearch("");
+  }, []);
+
   const folderCounts = new Map(
     mailbox.data?.folders.map((entry) => [entry.folder, entry]) ?? [],
   );
@@ -625,23 +925,25 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
       className={cn(
         "min-h-0 bg-background",
         compact
-          ? "h-[calc(100dvh-4rem)]"
+          ? "h-[calc(100dvh-4rem)] md:h-full"
           : "h-[calc(100dvh-3.5rem)] md:h-full",
       )}
-      data-mail-layout={compact ? "compact" : "responsive"}
+      data-mail-layout={
+        responsiveCompact ? "responsive-compact" : compact ? "compact" : "responsive"
+      }
     >
       <div
         className={cn(
           "grid h-full min-h-0",
-          !compact &&
-            "md:grid-cols-[210px_360px_minmax(0,1fr)] xl:grid-cols-[230px_400px_minmax(0,1fr)]",
+          desktopPanes &&
+            "xl:grid-cols-[230px_400px_minmax(0,1fr)]",
         )}
       >
         <aside
           className={cn(
-            "min-h-0 flex-col border-r bg-muted/20",
+            "min-h-0 min-w-0 flex-col border-r bg-muted/20",
             mobilePane === "folders" ? "flex" : "hidden",
-            !compact && "md:flex",
+            desktopPanes && "xl:flex",
           )}
         >
           <div className="border-b p-4">
@@ -664,9 +966,11 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
               const count = folderCounts.get(entry.id);
               return (
                 <button
+                  ref={folder === entry.id ? currentFolderRef : undefined}
                   key={entry.id}
                   type="button"
                   onClick={() => selectFolder(entry.id)}
+                  aria-current={folder === entry.id ? "page" : undefined}
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm transition-colors",
                     folder === entry.id
@@ -694,9 +998,9 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
 
         <section
           className={cn(
-            "min-h-0 flex-col border-r bg-background",
+            "min-h-0 min-w-0 flex-col border-r bg-background",
             mobilePane === "list" ? "flex" : "hidden",
-            !compact && "md:flex",
+            desktopPanes && "xl:flex",
           )}
         >
           <div className="grid gap-3 border-b p-3">
@@ -705,13 +1009,20 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className={cn(!compact && "md:hidden")}
-                onClick={() => setMobilePane("folders")}
+                className={cn(desktopPanes && "xl:hidden")}
+                onClick={() => {
+                  pendingFocusRef.current = "current-folder";
+                  setMobilePane("folders");
+                }}
                 aria-label="폴더 목록"
               >
                 <Menu />
               </Button>
-              <h1 className="truncate font-semibold">
+              <h1
+                ref={listHeadingRef}
+                tabIndex={-1}
+                className="truncate rounded-sm font-semibold focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
                 {folders.find((entry) => entry.id === folder)?.label}
               </h1>
               <Button
@@ -720,6 +1031,7 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
                 size="sm"
                 className="ml-auto"
                 onClick={() => setUnreadOnly((value) => !value)}
+                aria-pressed={unreadOnly}
               >
                 {unreadOnly ? <MailOpen /> : <Mail />} 안읽음
               </Button>
@@ -733,36 +1045,11 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
                 <RefreshCw className={cn(messages.isFetching && "animate-spin")} />
               </Button>
             </div>
-            <form
-              className="relative"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setSearch(searchDraft.trim());
-                setSelectedId(null);
-              }}
-            >
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchDraft}
-                onChange={(event) => setSearchDraft(event.target.value)}
-                className="pl-8 pr-8"
-                placeholder="제목, 주소, 본문 검색"
-                aria-label="메일 검색"
-              />
-              {searchDraft ? (
-                <button
-                  type="button"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-                  onClick={() => {
-                    setSearchDraft("");
-                    setSearch("");
-                  }}
-                  aria-label="검색 지우기"
-                >
-                  <X className="size-4" />
-                </button>
-              ) : null}
-            </form>
+            <MailSearchForm
+              initialValue=""
+              onSubmit={submitSearch}
+              onReset={resetSearch}
+            />
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -770,7 +1057,7 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
               <div className="grid place-items-center p-12 text-muted-foreground">
                 <LoaderCircle className="animate-spin" />
               </div>
-            ) : messages.isError ? (
+            ) : messages.isError && items.length === 0 ? (
               <div className="grid gap-3 p-8 text-center">
                 <p className="text-sm">메일 목록을 불러오지 못했습니다.</p>
                 <Button variant="outline" onClick={() => void messages.refetch()}>
@@ -788,17 +1075,38 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
                   key={message.id}
                   message={message}
                   selected={message.id === selectedId}
-                  onSelect={() => selectMessage(message)}
+                  buttonRef={(node) => {
+                    setMessageItemRef(message.id, node);
+                    if (message.id === selectedId) {
+                      selectedMessageRef.current = node;
+                    }
+                  }}
+                  onSelect={selectMessage}
                 />
               ))
             )}
-            {messages.hasNextPage ? (
+            {messages.isFetchNextPageError && items.length > 0 ? (
+              <div className="grid gap-2 border-t p-3" role="alert">
+                <p className="text-sm text-destructive">
+                  다음 메일을 불러오지 못했습니다.
+                </p>
+                <Button
+                  ref={setMessageRetryButtonRef}
+                  variant="outline"
+                  className="w-full"
+                  onClick={loadNextMessagePage}
+                >
+                  다음 메일 다시 시도
+                </Button>
+              </div>
+            ) : null}
+            {messages.hasNextPage && !messages.isFetchNextPageError ? (
               <div className="p-3">
                 <Button
                   variant="outline"
                   className="w-full"
                   disabled={messages.isFetchingNextPage}
-                  onClick={() => void messages.fetchNextPage()}
+                  onClick={loadNextMessagePage}
                 >
                   {messages.isFetchingNextPage ? <LoaderCircle className="animate-spin" /> : null}
                   더 보기
@@ -810,9 +1118,9 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
 
         <section
           className={cn(
-            "min-h-0 flex-col bg-background",
+            "min-h-0 min-w-0 flex-col bg-background",
             mobilePane === "detail" ? "flex" : "hidden",
-            !compact && "md:flex",
+            desktopPanes && "xl:flex",
           )}
         >
           {selectedId === null ? (
@@ -835,12 +1143,15 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-1 border-b px-2 py-2 sm:px-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-1 border-b px-2 py-2 sm:px-3">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={cn(!compact && "md:hidden")}
-                  onClick={() => setMobilePane("list")}
+                  className={cn(desktopPanes && "xl:hidden")}
+                  onClick={() => {
+                    pendingFocusRef.current = "selected-message";
+                    setMobilePane("list");
+                  }}
                   aria-label="메일 목록으로"
                 >
                   <ArrowLeft />
@@ -889,7 +1200,7 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
                 >
                   <Trash2 />
                 </Button>
-                <div className="ml-auto flex items-center gap-1">
+                <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
                   <Button variant="ghost" size="sm" onClick={() => openComposer("reply")}>
                     <Reply /> 답장
                   </Button>
@@ -899,9 +1210,6 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
                   <Button variant="ghost" size="sm" onClick={() => openComposer("attach")}>
                     <Paperclip /> 메일 첨부
                   </Button>
-                  <Button variant="ghost" size="icon" disabled aria-label="추가 작업">
-                    <MoreHorizontal />
-                  </Button>
                 </div>
               </div>
 
@@ -909,7 +1217,11 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
                 <article className="mx-auto max-w-4xl p-4 sm:p-6 lg:p-8">
                   <div className="flex flex-wrap items-start gap-3">
                     <div className="min-w-0 flex-1">
-                      <h2 className="break-words text-xl font-semibold sm:text-2xl">
+                      <h2
+                        ref={detailHeadingRef}
+                        tabIndex={-1}
+                        className="break-words rounded-sm text-xl font-semibold focus:ring-2 focus:ring-ring focus:ring-offset-2 sm:text-2xl"
+                      >
                         {detail.data.message.subject || "(제목 없음)"}
                       </h2>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1053,7 +1365,7 @@ export function MailConsole({ compact = false }: { compact?: boolean }) {
           senders={mailbox.data?.senders ?? []}
           onOpenChange={setComposeOpen}
           onSent={(message) => {
-            void invalidateMail();
+            reconcileMailboxAndStaleLists();
             if (message) {
               setFolder("SENT");
               setSelectedId(message.id);
