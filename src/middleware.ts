@@ -18,6 +18,12 @@ function withSecurityHeaders(response: NextResponse) {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // The client sets this when its own session check came back unauthenticated.
+  // A cookie the API refused is still a cookie, so without this the two layers
+  // disagree forever: /login bounces to /app, /app fails to refresh and asks
+  // for /login again, and the operator only ever sees the redirect screen.
+  const signedOut = req.nextUrl.searchParams.get("signedOut") === "1";
+
   const hasSession =
     !!req.cookies.get("spot_admin_rt")?.value ||
     !!req.cookies.get("spot_admin_sid")?.value;
@@ -30,6 +36,7 @@ export function middleware(req: NextRequest) {
   ) {
     if (
       hasSession &&
+      !signedOut &&
       (pathname.startsWith("/login") || pathname.startsWith("/signup"))
     ) {
       return withSecurityHeaders(NextResponse.redirect(new URL("/app", req.url)));

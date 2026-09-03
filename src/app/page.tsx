@@ -3,7 +3,10 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
-import { homePathForRole } from "@/auth/model/admin-routes";
+import {
+  homePathForRole,
+  SIGNED_OUT_LOGIN_PATH,
+} from "@/auth/model/admin-routes";
 
 /**
  * Root — restore the Cloudflare Admin API session and open the role home.
@@ -16,7 +19,7 @@ export default function HomePage() {
     if (status === "authenticated" && admin) {
       router.replace(homePath ?? homePathForRole(admin.role));
     } else if (status === "unauthenticated") {
-      router.replace("/login");
+      router.replace(SIGNED_OUT_LOGIN_PATH);
     }
   }, [status, admin, homePath, router]);
 

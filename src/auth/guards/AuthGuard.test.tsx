@@ -32,7 +32,9 @@ describe("AuthGuard", () => {
       </AuthGuard>,
     );
     expect(screen.getByText("로그인 페이지로 이동 중…")).toBeInTheDocument();
-    expect(replace).toHaveBeenCalledWith("/login");
+    // The marker tells the edge middleware not to bounce this back to /app on
+    // the strength of a cookie the API has already refused.
+    expect(replace).toHaveBeenCalledWith("/login?signedOut=1");
   });
 
   it("renders children once authenticated", () => {
