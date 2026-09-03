@@ -100,7 +100,7 @@ describe("AdminAuthProvider session expiry", () => {
       );
     });
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
-    expect(mocks.replace).toHaveBeenCalledWith("/login");
+    expect(mocks.replace).toHaveBeenCalledWith("/login?signedOut=1");
     expect(screen.queryByText("민감한 관리자 화면")).not.toBeInTheDocument();
   });
 });

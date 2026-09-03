@@ -21,6 +21,16 @@ describe("admin middleware", () => {
     expect(res.headers.get("location")).not.toContain("/super-admin/dashboard");
   });
 
+  it("lets a signed-out operator reach /login even while a stale cookie lingers", () => {
+    // The API leaves a rejected refresh cookie behind on older deployments, and
+    // the browser keeps it until it expires. Without this escape hatch the
+    // bounce is endless: the app says "signed out", the edge says "signed in".
+    const res = middleware(
+      request("/login?signedOut=1", { spot_admin_rt: "stale", spot_admin_sid: "stale" }),
+    );
+    expect(res.headers.get("location")).toBeNull();
+  });
+
   it("sends a signed-out /app request to /login", () => {
     const res = middleware(request("/app/parties"));
     expect(res.headers.get("location")).toBe("https://admin.dopa.ing/login");

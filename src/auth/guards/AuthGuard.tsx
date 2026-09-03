@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/auth/hooks/useAdminAuth";
+import { SIGNED_OUT_LOGIN_PATH } from "@/auth/model/admin-routes";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -14,7 +15,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.replace("/login");
+      router.replace(SIGNED_OUT_LOGIN_PATH);
     }
   }, [status, router]);
 

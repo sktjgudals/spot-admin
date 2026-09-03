@@ -9,6 +9,16 @@
 
 import type { AdminWebRole } from "@/auth/model/admin-auth.types";
 
+/**
+ * Where a session that just came back unauthenticated goes.
+ *
+ * The marker matters as much as the path: edge middleware treats a session
+ * cookie as proof of sign-in and sends /login to /app, so a cookie the API
+ * has already refused would otherwise bounce the operator between the two
+ * forever, showing nothing but the redirect screen.
+ */
+export const SIGNED_OUT_LOGIN_PATH = "/login?signedOut=1";
+
 /** SUPER_ADMIN home — full admin chrome (banners, notifications, …) */
 export const ROUTE_SUPER_ADMIN_HOME = "/super-admin/dashboard";
 
