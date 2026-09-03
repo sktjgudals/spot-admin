@@ -31,6 +31,43 @@ function configuredOrigins(): string[] {
   return fallback && fallback !== primary ? [primary, fallback] : [primary];
 }
 
+/**
+ * Only a host that shares the app's site can carry the admin session cookie
+ * (`Domain=.dopa.ing`, SameSite=Lax). The workers.dev fallback is fine for a
+ * bearer call, but a login sent there sets no cookie the browser will keep,
+ * and a refresh sent there carries none — the operator is "logged in" until
+ * the next reload. On a slow mobile network the 4s health probe on the
+ * primary host is exactly what pushed logins onto the fallback, and the
+ * choice was then remembered in localStorage, so it kept happening.
+ */
+export function cookieCapableOrigins(
+  origins: string[],
+  appHostname: string | undefined = typeof window === "undefined"
+    ? undefined
+    : window.location.hostname,
+): string[] {
+  const site = registrableSite(appHostname);
+  if (!site) return origins;
+  const capable = origins.filter((origin) => {
+    try {
+      return registrableSite(new URL(origin).hostname) === site;
+    } catch {
+      return false;
+    }
+  });
+  return capable.length > 0 ? capable : origins;
+}
+
+function registrableSite(hostname: string | undefined): string | null {
+  if (!hostname) return null;
+  const parts = hostname.toLowerCase().split(".").filter(Boolean);
+  if (parts.length < 2) return null; // localhost, bare hosts
+  if (hostname.endsWith("workers.dev") || hostname.endsWith("pages.dev")) {
+    return null;
+  }
+  return parts.slice(-2).join(".");
+}
+
 function storedOrigin(origins: string[]): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -38,6 +75,18 @@ function storedOrigin(origins: string[]): string | null {
     return stored && origins.includes(stored) ? stored : null;
   } catch {
     return null;
+  }
+}
+
+function forgetOriginIfNotIn(origins: string[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const stored = window.localStorage.getItem(ACTIVE_ORIGIN_STORAGE_KEY);
+    if (stored && !origins.includes(stored)) {
+      window.localStorage.removeItem(ACTIVE_ORIGIN_STORAGE_KEY);
+    }
+  } catch {
+    // ignore
   }
 }
 
@@ -52,7 +101,7 @@ function rememberOrigin(origin: string): void {
 
 /** Current direct Cloudflare API origin; never routes through an Admin BFF. */
 export function getAdminApiBaseUrl(): string {
-  const origins = configuredOrigins();
+  const origins = cookieCapableOrigins(configuredOrigins());
   return storedOrigin(origins) ?? origins[0];
 }
 
@@ -64,8 +113,9 @@ export function getAdminApiBaseUrl(): string {
  * hostname.
  */
 export async function selectReachableAdminApiBaseUrl(): Promise<string> {
-  const origins = configuredOrigins();
+  const origins = cookieCapableOrigins(configuredOrigins());
   const active = storedOrigin(origins);
+  if (active === null) forgetOriginIfNotIn(origins);
   const candidates = active
     ? [active, ...origins.filter((origin) => origin !== active)]
     : origins;
