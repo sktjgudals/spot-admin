@@ -36,8 +36,8 @@ import { useUserDetailQuery, useUserSummaryQuery } from "./use-user-detail-query
  * "21:13 /payment"를 같은 스크롤에서 볼 수 있어야 조사가 끝나기 때문에 탭으로
  * 나누지 않았다.
  *
- * GA 코드는 lazy 청크로만 들어온다. 이 파일이 analytics-data-api나
- * google-analytics-oauth를 정적으로 import하면 릴리스 계약 테스트가 막는다.
+ * GA 코드는 lazy 청크로만 들어온다. 이 파일이 GA Data API 클라이언트 모듈이나
+ * Google 애널리틱스 OAuth 모듈을 정적으로 import하면 릴리스 계약 테스트가 막는다.
  */
 
 function UserBehaviorSkeleton() {

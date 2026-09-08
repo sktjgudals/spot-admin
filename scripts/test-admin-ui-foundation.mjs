@@ -444,3 +444,33 @@ test("the admin shell exposes one page heading and one visible theme control", a
   assert.doesNotMatch(chrome, /<h1/);
   assert.equal(sidebar.match(/<ThemeToggle/g)?.length, 1);
 });
+
+test("user detail keeps GA reporting lazy and documents the dopa_uid dimension", async () => {
+  const [page, operations, tokenStore] = await Promise.all([
+    readFile(
+      new URL("src/features/users/UserDetailPage.tsx", root),
+      "utf8",
+    ),
+    readFile(new URL("docs/OPERATIONS.md", root), "utf8"),
+    readFile(
+      new URL("src/features/analytics/analytics-token-store.ts", root),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(
+    page,
+    /createRetryableLazyComponent<[\s\S]*import\("@\/features\/analytics\/UserBehaviorPanel"\)/,
+  );
+  assert.doesNotMatch(page, /analytics-data-api/);
+  assert.doesNotMatch(page, /google-analytics-oauth/);
+  assert.doesNotMatch(page, /from\s+["']@\/features\/analytics\/AnalyticsDashboard["']/);
+
+  assert.match(operations, /\/super-admin\/users\/:id/);
+  assert.match(operations, /dopa_uid/);
+  assert.match(operations, /customUser:dopa_uid/);
+
+  // The Google grant outlives a route change now; it must not outlive the
+  // admin session that authorized it.
+  assert.match(tokenStore, /getAdminSessionGeneration/);
+});
