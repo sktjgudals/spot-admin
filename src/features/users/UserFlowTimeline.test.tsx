@@ -27,7 +27,9 @@ function item(overrides: Partial<UserTimelineItem>): UserTimelineItem {
     status: null,
     amount: null,
     meta: {},
-    source: "db",
+    // A real wire value ("identity" | "domain" | "notification" | "admin"),
+    // not the old db/audit/projection vocabulary.
+    source: "domain",
     ...overrides,
   };
 }
@@ -162,7 +164,7 @@ describe("UserFlowTimeline", () => {
       page([item({ id: "e1" })], null, [
         {
           category: "SESSION",
-          source: "audit",
+          source: "identity",
           retainedFrom: "2026-06-10T00:00:00.000Z",
           note: "접속 기록은 90일만 보관합니다.",
         },

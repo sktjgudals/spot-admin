@@ -213,10 +213,17 @@ export const TIMELINE_KIND_ICONS: Record<string, LucideIcon> = {
   NOTIFICATION_SENT: Bell,
 };
 
+/**
+ * 실제로 서버가 보내는 값(`identity | domain | notification | admin`)으로 키를
+ * 잡는다. identity 프로젝션은 `source`만으로는 구분할 수 없어서 별도 키가
+ * 없다 — 화면 쪽 `TIMELINE_SOURCE_LABELS[item.source] ?? item.source`가
+ * 처리하지 못한 값을 원문 그대로 보여주는 안전망이다.
+ */
 export const TIMELINE_SOURCE_LABELS: Record<string, string> = {
-  db: "DB",
-  audit: "감사 로그",
-  projection: "프로젝션",
+  identity: "DB",
+  domain: "DB",
+  notification: "DB",
+  admin: "감사 로그",
 };
 
 export const TIMELINE_PERIODS = [
@@ -313,25 +320,33 @@ export function filterTimelineItems(
  *
  * 날짜 경계는 Asia/Seoul이다. UTC로 자르면 밤 9시 이후의 활동이 전부 "내일"로
  * 넘어가서, 어젯밤 사건을 찾는 운영자가 오늘 칸을 뒤지게 된다.
+ *
+ * 같은 날짜의 행은 시간순으로 떨어져 있어도 한 그룹으로 합친다 — 시각을 읽을
+ * 수 없는 행 하나가 같은 날짜의 두 행 사이에 끼면, 마지막 그룹하고만 비교해서는
+ * "9월 8일" 섹션이 서로 떨어진 채 두 번 생기고, 렌더링 쪽의 `key={group.day}`가
+ * 그 두 섹션을 구분하지 못한다.
  */
 export function groupTimelineByDay(
   items: readonly UserTimelineItem[],
 ): TimelineDayGroup[] {
   const groups: TimelineDayGroup[] = [];
+  const byDay = new Map<string, TimelineDayGroup>();
   for (const item of items) {
     const parsed = new Date(item.at);
     const valid = !Number.isNaN(parsed.getTime());
     const day = valid ? seoulDayKey.format(parsed) : "unknown";
-    const current = groups.at(-1);
-    if (current && current.day === day) {
-      current.items.push(item);
+    const existing = byDay.get(day);
+    if (existing) {
+      existing.items.push(item);
       continue;
     }
-    groups.push({
+    const group: TimelineDayGroup = {
       day,
       label: valid ? formatDayLabel(parsed) : "시각을 알 수 없는 활동",
       items: [item],
-    });
+    };
+    groups.push(group);
+    byDay.set(day, group);
   }
   return groups;
 }

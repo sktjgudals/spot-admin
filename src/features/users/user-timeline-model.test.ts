@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { UserTimelineItem } from "@/auth/api/admin-users.api";
 import {
   TIMELINE_CATEGORIES,
+  TIMELINE_KIND_ICONS,
+  TIMELINE_KIND_LABELS,
+  TIMELINE_SOURCE_LABELS,
   coverageSummaryText,
   filterTimelineItems,
   groupTimelineByDay,
@@ -24,7 +27,9 @@ function item(overrides: Partial<UserTimelineItem>): UserTimelineItem {
     status: null,
     amount: null,
     meta: {},
-    source: "db",
+    // A real wire value ("identity" | "domain" | "notification" | "admin"),
+    // not the old db/audit/projection vocabulary.
+    source: "domain",
     ...overrides,
   };
 }
@@ -59,6 +64,22 @@ describe("groupTimelineByDay", () => {
 
     expect(groups[0]?.day).toBe("unknown");
     expect(groups[0]?.label).toBe("시각을 알 수 없는 활동");
+  });
+
+  it("merges a day's rows into one group even when an unparseable row splits them", () => {
+    // Two 9/8 rows separated by a row whose timestamp cannot be read. Grouping
+    // only against the previous group would render "9월 8일" as two separate,
+    // non-adjacent sections sharing one React key.
+    const groups = groupTimelineByDay([
+      item({ id: "a", at: "2026-09-08T05:00:00.000Z" }),
+      item({ id: "b", at: "" }),
+      item({ id: "c", at: "2026-09-08T03:00:00.000Z" }),
+    ]);
+
+    expect(groups.map((entry) => entry.day)).toEqual(["2026-09-08", "unknown"]);
+    expect(new Set(groups.map((entry) => entry.day)).size).toBe(groups.length);
+    expect(groups[0]?.items.map((entry) => entry.id)).toEqual(["a", "c"]);
+    expect(groups[1]?.items.map((entry) => entry.id)).toEqual(["b"]);
   });
 });
 
@@ -150,13 +171,13 @@ describe("coverageSummaryText", () => {
       coverage: [
         {
           category: "SESSION",
-          source: "audit",
+          source: "identity",
           retainedFrom: null,
           note: "접속 기록은 90일만 보관합니다.",
         },
         {
           category: "PAYMENT",
-          source: "db",
+          source: "domain",
           retainedFrom: null,
           note: "정산 확정 전 금액입니다.",
         },
@@ -183,5 +204,63 @@ describe("timelineKindLabel", () => {
   it("falls back to the raw kind so a new backend event is still readable", () => {
     expect(timelineKindLabel("PAYMENT_APPROVED")).toBe("결제 완료");
     expect(timelineKindLabel("SOMETHING_NEW")).toBe("SOMETHING_NEW");
+  });
+});
+
+describe("TIMELINE_SOURCE_LABELS", () => {
+  it("labels every source the backend actually sends, and nothing else", () => {
+    // identity | domain | notification | admin is the wire vocabulary — not
+    // the plan's illustrative db/audit/projection.
+    expect(TIMELINE_SOURCE_LABELS).toEqual({
+      identity: "DB",
+      domain: "DB",
+      notification: "DB",
+      admin: "감사 로그",
+    });
+    // The identity projection cannot be told apart by `source`, so there is
+    // no `projection` key — an unrecognized source falls back to itself via
+    // `TIMELINE_SOURCE_LABELS[item.source] ?? item.source` at the call site.
+    expect(TIMELINE_SOURCE_LABELS.projection).toBeUndefined();
+  });
+});
+
+describe("TIMELINE_CATEGORIES", () => {
+  it("pins the reconciled 39-kind, 8-category vocabulary", () => {
+    const expectedKindCounts: Record<string, number> = {
+      ACCOUNT: 8,
+      SESSION: 2,
+      PARTY: 9,
+      PAYMENT: 9,
+      SOCIAL: 4,
+      MODERATION: 5,
+      ADMIN: 1,
+      NOTIFICATION: 1,
+    };
+
+    expect(TIMELINE_CATEGORIES).toHaveLength(8);
+    expect(
+      Object.fromEntries(
+        TIMELINE_CATEGORIES.map((category) => [category.value, category.kinds.length]),
+      ),
+    ).toEqual(expectedKindCounts);
+
+    const allKinds = TIMELINE_CATEGORIES.flatMap((category) => category.kinds);
+    expect(allKinds).toHaveLength(39);
+    expect(new Set(allKinds).size).toBe(39);
+
+    for (const representative of [
+      "ACCOUNT_CREATED",
+      "APPLICATION_SUBMITTED",
+      "PAYMENT_APPROVED",
+      "REPORT_RECEIVED",
+      "NOTIFICATION_SENT",
+    ]) {
+      expect(allKinds).toContain(representative);
+    }
+
+    for (const kind of allKinds) {
+      expect(TIMELINE_KIND_LABELS[kind]).toBeTruthy();
+      expect(TIMELINE_KIND_ICONS[kind]).toBeTruthy();
+    }
   });
 });
