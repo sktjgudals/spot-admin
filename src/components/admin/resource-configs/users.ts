@@ -1,3 +1,4 @@
+import { superAdminUserDetailPath } from "@/auth/model/admin-routes";
 import type { ResourceConfig } from "./types";
 import { statusAction, text } from "./helpers";
 
@@ -6,6 +7,7 @@ export const usersConfig: ResourceConfig = {
   title: "사용자 관리",
   description: "계정 역할과 이용 상태를 관리합니다.",
   resource: "users",
+  detailHref: (row) => superAdminUserDetailPath(String(row.id)),
   statusOptions: [
     { value: "ACTIVE", label: "정상" },
     { value: "SUSPENDED", label: "정지" },

@@ -39,6 +39,13 @@ export type ResourceConfig = {
   resource: string;
   columns: readonly { key: string; label: string }[];
   statusOptions?: readonly { value: string; label: string }[];
+  /**
+   * Full-screen destination for one row.
+   *
+   * Optional: a resource without a detail page keeps the sheet as its only
+   * detail view, and nothing about those consoles changes.
+   */
+  detailHref?: (row: AdminResource) => string;
   create?: {
     label: string;
     path: string | ((values: Record<string, unknown>) => string);

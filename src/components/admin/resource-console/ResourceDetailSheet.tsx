@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 import type { AdminResource } from "@/auth/api/admin-resources.api";
 import type { ResourceConfig } from "@/components/admin/resource-configs";
 import { Button } from "@/components/ui/button";
@@ -67,6 +69,15 @@ export function ResourceDetailSheet({
           </dl>
         </div>
         <SheetFooter className="border-t bg-muted/30 px-5 py-3">
+          {row && config.detailHref ? (
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={config.detailHref(row)} prefetch={false} />}
+            >
+              <ExternalLink /> 상세 페이지 열기
+            </Button>
+          ) : null}
           <SheetClose render={<Button variant="outline" />}>닫기</SheetClose>
         </SheetFooter>
       </SheetContent>

@@ -343,14 +343,16 @@ describe("AnalyticsDashboard", () => {
     ).toBeInTheDocument();
   });
 
-  it("clears the Google token when the protected analytics route unmounts", () => {
-    setAnalyticsAccessToken({ accessToken: "route-scoped", expiresInSeconds: 3600 });
+  it("keeps the Google token when the analytics route unmounts so a sibling screen can reuse it", () => {
+    setAnalyticsAccessToken({ accessToken: "session-scoped", expiresInSeconds: 3600 });
     vi.mocked(fetchAnalyticsReport).mockResolvedValue(emptyOverview());
     const { unmount } = renderDashboard();
 
     unmount();
 
-    expect(getAnalyticsAccessToken()).toBeNull();
+    // Route-scoped clearing meant every screen that shows GA data re-opened the
+    // Google consent popup. The token's life is the admin session's now.
+    expect(getAnalyticsAccessToken()).toBe("session-scoped");
   });
 
   it("discards an OAuth grant that arrives after the analytics route unmounts", async () => {

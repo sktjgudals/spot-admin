@@ -36,6 +36,16 @@ describe("business role request resource config", () => {
     ]);
   });
 
+  it("gives only the users console a detail page", () => {
+    expect(resourceConfigs.users.detailHref?.({ id: "user 1" })).toBe(
+      "/super-admin/users/user%201",
+    );
+    for (const [key, config] of Object.entries(resourceConfigs)) {
+      if (key === "users") continue;
+      expect(config.detailHref).toBeUndefined();
+    }
+  });
+
   it("uploads banner images, exposes the schedule and keeps action options in sync", () => {
     const banners = resourceConfigs.banners;
     const create = banners.create?.fields ?? [];
