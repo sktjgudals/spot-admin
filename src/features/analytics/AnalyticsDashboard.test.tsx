@@ -39,7 +39,9 @@ function emptyOverview(): AnalyticsReportResult {
   return {
     view: "overview",
     metrics: [],
-    trend: [],
+    series: { points: [] },
+    platforms: [],
+    insights: [],
     currencyCode: "KRW",
     quota: null,
     dataQualityNotices: [],
@@ -109,19 +111,21 @@ describe("AnalyticsDashboard", () => {
   it("fetches only the selected view and property", async () => {
     const user = userEvent.setup();
     setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
-    vi.mocked(fetchAnalyticsReport).mockImplementation(async ({ view }) =>
-      view === "overview"
-        ? emptyOverview()
-        : {
-            view,
-            tables: [],
-            metrics: [],
-            currencyCode: "KRW",
-            quota: null,
-            dataQualityNotices: [],
-            isEmpty: true,
-          },
-    );
+    vi.mocked(fetchAnalyticsReport).mockImplementation(async ({ view }) => {
+      if (view === "overview") return emptyOverview();
+      // This dashboard only ever requests a table-shaped view here
+      // (acquisition/engagement/conversion-revenue/realtime); funnel and
+      // retention are not yet wired to the view selector.
+      return {
+        view: view as "acquisition" | "engagement" | "conversion-revenue" | "realtime",
+        tables: [],
+        metrics: [],
+        currencyCode: "KRW",
+        quota: null,
+        dataQualityNotices: [],
+        isEmpty: true,
+      };
+    });
     renderDashboard();
 
     await screen.findByText("선택한 기간에 수집된 데이터가 없습니다.");
@@ -215,7 +219,18 @@ describe("AnalyticsDashboard", () => {
       metrics: [
         { key: "sessions", label: "세션", value: 15, previousValue: 12, format: "integer" },
       ],
-      trend: [{ date: "20260830", activeUsers: "12", sessions: "15", keyEvents: "2" }],
+      series: {
+        points: [
+          {
+            date: "20260830",
+            previousDate: null,
+            current: { activeUsers: 12, newUsers: 0, sessions: 15 },
+            previous: null,
+          },
+        ],
+      },
+      platforms: [],
+      insights: [],
       currencyCode: "KRW",
       quota: null,
       dataQualityNotices: [],

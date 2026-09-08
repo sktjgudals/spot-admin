@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { AnalyticsDataApiError } from "./analytics-data-api";
+import { EMPTY_FILTERS } from "./analytics-filters";
 import { formatGaDate, formatMetric, percentChange } from "./analytics-format";
 import { EVENT_LABELS } from "./analytics-labels";
 import { analyticsQueryKeys } from "./analytics-query-keys";
@@ -263,7 +264,14 @@ function AnalyticsQueryView({
           "Google Analytics 연결이 만료되었습니다.",
         );
       }
-      return fetchAnalyticsReport({ property, view, range, accessToken, signal });
+      return fetchAnalyticsReport({
+        property,
+        view,
+        range,
+        filters: EMPTY_FILTERS,
+        accessToken,
+        signal,
+      });
     },
     staleTime: view === "realtime" ? 60_000 : 5 * 60_000,
     gcTime: view === "realtime" ? 60_000 : 5 * 60_000,
@@ -357,7 +365,13 @@ function reportCompletionSummary(
 
   if (result.isEmpty) return `${prefix} 표시할 데이터가 없습니다.`;
   if (result.view === "overview") {
-    return `${prefix} 핵심 지표 ${result.metrics.length}개, 일별 데이터 ${result.trend.length}개가 표시됩니다.`;
+    return `${prefix} 핵심 지표 ${result.metrics.length}개, 일별 데이터 ${result.series.points.length}개가 표시됩니다.`;
+  }
+  // Funnel and retention are not yet offered from this dashboard's view
+  // selector (Task 4 adds their panels); this branch keeps the summary
+  // sentence well-typed for the widened result union in the meantime.
+  if (result.view === "funnel" || result.view === "retention") {
+    return prefix;
   }
 
   const rowCount = result.tables.reduce((total, table) => total + table.rows.length, 0);
@@ -396,6 +410,11 @@ function AnalyticsEmptyState({
 }
 
 function AnalyticsReportContent({ result }: { result: AnalyticsReportResult }) {
+  // Funnel and retention are not yet offered from this dashboard's view
+  // selector (Task 4 adds their dedicated panels); this guard keeps the
+  // component well-typed for the widened result union in the meantime.
+  if (result.view === "funnel" || result.view === "retention") return null;
+
   return (
     <div className="space-y-4">
       <DataQualityPanel notices={result.dataQualityNotices} />
@@ -403,7 +422,14 @@ function AnalyticsReportContent({ result }: { result: AnalyticsReportResult }) {
         <MetricGrid metrics={result.metrics} currencyCode={result.currencyCode} />
       ) : null}
       {result.view === "overview" ? (
-        <TrendPanel rows={result.trend} />
+        <TrendPanel
+          rows={result.series.points.map((point) => ({
+            date: point.date,
+            activeUsers: String(point.current.activeUsers),
+            sessions: String(point.current.sessions),
+            keyEvents: "0",
+          }))}
+        />
       ) : (
         result.tables.map((table) => (
           <AnalyticsTable key={table.key} table={table} currencyCode={result.currencyCode} />
