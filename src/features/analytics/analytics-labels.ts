@@ -33,3 +33,16 @@ export const EVENT_LABELS: Record<string, string> = {
   os_update: "OS 업데이트",
   app_update: "앱 업데이트",
 };
+
+/**
+ * Every event name this admin knows the Dopa app or web sends.
+ *
+ * Derived from `EVENT_LABELS` so the two can never drift. Funnel definitions
+ * assert against this list: a funnel step naming an event the app never emits
+ * renders a silent zero, and an operator reads that as "nobody applied".
+ */
+export const APP_EVENTS: readonly string[] = Object.keys(EVENT_LABELS);
+
+export function isKnownAppEvent(name: string): boolean {
+  return Object.hasOwn(EVENT_LABELS, name);
+}

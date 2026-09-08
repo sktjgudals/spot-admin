@@ -4,7 +4,11 @@ import {
   type AnalyticsReportResponse,
   type AnalyticsRunReportRequest,
 } from "./analytics-data-api";
-import { dataQualityNoticesForReport } from "./analytics-reports";
+import {
+  dataQualityNoticesForReport,
+  dedupeDataQualityNotices,
+  quotaFromReports,
+} from "./analytics-report-shaping";
 import type {
   AnalyticsDataQualityNotice,
   AnalyticsPropertyConfig,
@@ -339,39 +343,6 @@ function toUserBehaviorRows(report: AnalyticsReportResponse): UserBehaviorRow[] 
   });
 }
 
-function quotaFromResponses(
-  responses: readonly AnalyticsReportResponse[],
-): AnalyticsQuotaState | null {
-  const byKey = new Map<string, { consumed: number; remaining: number }>();
-  for (const response of responses) {
-    for (const [key, entry] of Object.entries(response.propertyQuota ?? {})) {
-      const existing = byKey.get(key);
-      byKey.set(key, {
-        consumed: Math.max(existing?.consumed ?? 0, entry.consumed),
-        remaining: Math.min(existing?.remaining ?? Number.MAX_SAFE_INTEGER, entry.remaining),
-      });
-    }
-  }
-  if (byKey.size === 0) return null;
-  return {
-    entries: [...byKey]
-      .map(([key, entry]) => ({ key, ...entry }))
-      .sort((a, b) => a.key.localeCompare(b.key)),
-  };
-}
-
-function dedupeNotices(
-  notices: readonly AnalyticsDataQualityNotice[],
-): AnalyticsDataQualityNotice[] {
-  const seen = new Set<string>();
-  return notices.filter((notice) => {
-    const key = JSON.stringify(notice);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 export async function fetchUserBehaviorFlow(input: {
   property: AnalyticsPropertyConfig;
   userId: string;
@@ -399,7 +370,7 @@ export async function fetchUserBehaviorFlow(input: {
     );
 
     responses.push(response);
-    notices.push(...dataQualityNoticesForReport(response, REPORT_DEFINITION));
+    notices.push(...dataQualityNoticesForReport(response.metadata, REPORT_DEFINITION));
     rows.push(...toUserBehaviorRows(response));
     rowCount = response.rowCount;
 
@@ -412,8 +383,8 @@ export async function fetchUserBehaviorFlow(input: {
 
   return shapeUserBehaviorRows(rows, {
     timeZone: responses.at(-1)?.metadata?.timeZone ?? null,
-    quota: quotaFromResponses(responses),
-    dataQualityNotices: dedupeNotices(notices),
+    quota: quotaFromReports(responses, "core"),
+    dataQualityNotices: dedupeDataQualityNotices(notices),
     rowCount,
     truncated,
   });

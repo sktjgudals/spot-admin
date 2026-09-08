@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { AnalyticsDataApiError } from "./analytics-data-api";
+import { formatGaDate, formatMetric, percentChange } from "./analytics-format";
 import { EVENT_LABELS } from "./analytics-labels";
 import { analyticsQueryKeys } from "./analytics-query-keys";
 import { fetchAnalyticsReport } from "./analytics-reports";
@@ -574,44 +575,6 @@ function formatCell(
   }
   if (column.key === "date") return formatGaDate(value);
   return value || "(not set)";
-}
-
-function formatMetric(
-  value: number,
-  format: AnalyticsMetricValue["format"],
-  currencyCode: string,
-): string {
-  const safeValue = Number.isFinite(value) ? value : 0;
-  if (format === "percent") {
-    return new Intl.NumberFormat("ko-KR", { style: "percent", maximumFractionDigits: 1 }).format(safeValue);
-  }
-  if (format === "currency") {
-    try {
-      return new Intl.NumberFormat("ko-KR", {
-        style: "currency",
-        currency: currencyCode,
-        maximumFractionDigits: 0,
-      }).format(safeValue);
-    } catch {
-      return `${safeValue.toLocaleString("ko-KR")} ${currencyCode}`;
-    }
-  }
-  if (format === "duration") {
-    if (safeValue >= 3600) return `${(safeValue / 3600).toFixed(1)}시간`;
-    if (safeValue >= 60) return `${(safeValue / 60).toFixed(1)}분`;
-    return `${Math.round(safeValue).toLocaleString("ko-KR")}초`;
-  }
-  return Math.round(safeValue).toLocaleString("ko-KR");
-}
-
-function percentChange(value: number, previous: number | undefined): number | null {
-  if (previous === undefined || previous === 0) return null;
-  return ((value - previous) / Math.abs(previous)) * 100;
-}
-
-function formatGaDate(value: string): string {
-  if (!/^\d{8}$/.test(value)) return value;
-  return `${value.slice(0, 4)}.${value.slice(4, 6)}.${value.slice(6, 8)}`;
 }
 
 function platformLabel(platform: AnalyticsPropertyConfig["platform"]): string {

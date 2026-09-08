@@ -1,5 +1,4 @@
 import {
-  AnalyticsDataApiError,
   batchRunAnalyticsReports,
   runAnalyticsRealtimeReport,
   type AnalyticsDataApiOptions,
@@ -7,12 +6,24 @@ import {
   type AnalyticsRunRealtimeReportRequest,
   type AnalyticsRunReportRequest,
 } from "./analytics-data-api";
+import {
+  RANGE_DAYS,
+  analyticsDateRange,
+  currencyFromReports,
+  dataQualityNoticesForReport,
+  emptyReport,
+  firstMetric,
+  numericValue,
+  quotaFromReports,
+  reportRows,
+  type AnalyticsReportScope,
+  type ReportQualityMetadata,
+} from "./analytics-report-shaping";
 import type {
   AnalyticsDateRange,
   AnalyticsDataQualityNotice,
   AnalyticsMetricValue,
   AnalyticsPropertyConfig,
-  AnalyticsQuotaState,
   AnalyticsReportColumn,
   AnalyticsReportResult,
   AnalyticsReportTable,
@@ -32,12 +43,6 @@ type ReportDefinition = {
   title: string;
   description: string;
   request: AnalyticsRunReportRequest;
-};
-
-const RANGE_DAYS: Record<AnalyticsDateRange, number> = {
-  "7d": 7,
-  "28d": 28,
-  "90d": 90,
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -83,59 +88,12 @@ const OVERVIEW_METRICS = [
   "totalRevenue",
 ] as const;
 
-function dateRange(range: AnalyticsDateRange, previous = false) {
-  const days = RANGE_DAYS[range];
-  return previous
-    ? { startDate: `${days * 2}daysAgo`, endDate: `${days + 1}daysAgo` }
-    : { startDate: `${days}daysAgo`, endDate: "yesterday" };
-}
-
 function metricRequests(names: readonly string[]) {
   return names.map((name) => ({ name }));
 }
 
 function dimensionRequests(names: readonly string[]) {
   return names.map((name) => ({ name }));
-}
-
-function assertFiniteNumericString(value: string | undefined): asserts value is string {
-  const parsed = typeof value === "string" && value.trim() !== "" ? Number(value) : NaN;
-  if (!Number.isFinite(parsed)) {
-    throw new AnalyticsDataApiError(
-      "invalid-response",
-      "Google Analytics 응답에 올바르지 않은 숫자 값이 포함되어 있습니다.",
-    );
-  }
-}
-
-function numericValue(value: string | undefined): number {
-  assertFiniteNumericString(value);
-  const parsed = Number(value);
-  return parsed;
-}
-
-function firstMetric(report: AnalyticsReportResponse | undefined, metricName: string): number {
-  if (!report) return 0;
-  const metricIndex = report.metricHeaders.findIndex(({ name }) => name === metricName);
-  if (metricIndex < 0) return 0;
-  const row = report.rows[0] ?? report.totals[0];
-  if (!row) return 0;
-  return numericValue(row.metricValues[metricIndex]?.value);
-}
-
-function reportRows(report: AnalyticsReportResponse): Array<Record<string, string>> {
-  return report.rows.map((row) => {
-    const output: Record<string, string> = {};
-    report.dimensionHeaders.forEach(({ name }, index) => {
-      output[name] = row.dimensionValues[index]?.value ?? "";
-    });
-    report.metricHeaders.forEach(({ name }, index) => {
-      const value = row.metricValues[index]?.value;
-      assertFiniteNumericString(value);
-      output[name] = value;
-    });
-    return output;
-  });
 }
 
 function reportColumns(report: AnalyticsReportResponse): AnalyticsReportColumn[] {
@@ -166,62 +124,16 @@ function toTable(
   };
 }
 
-export function dataQualityNoticesForReport(
-  report: AnalyticsReportResponse | undefined,
-  definition: Pick<ReportDefinition, "key" | "title">,
-): AnalyticsDataQualityNotice[] {
-  if (!report?.metadata) return [];
-  const scope = { reportKey: definition.key, reportTitle: definition.title };
-  const notices: AnalyticsDataQualityNotice[] = [];
-
-  if (report.metadata.subjectToThresholding === true) {
-    notices.push({ ...scope, kind: "thresholding" });
-  }
-  for (const sampling of report.metadata.samplingMetadatas ?? []) {
-    notices.push({
-      ...scope,
-      kind: "sampling",
-      samplesReadCount: sampling.samplesReadCount,
-      samplingSpaceSize: sampling.samplingSpaceSize,
-    });
-  }
-  if (report.metadata.dataLossFromOtherRow === true) {
-    notices.push({ ...scope, kind: "other-row" });
-  }
-  return notices;
-}
-
 function dataQualityNoticesFromReports(
-  reports: readonly AnalyticsReportResponse[],
-  definitions: ReadonlyArray<Pick<ReportDefinition, "key" | "title">>,
+  reports: readonly { metadata?: ReportQualityMetadata }[],
+  definitions: ReadonlyArray<AnalyticsReportScope>,
 ): AnalyticsDataQualityNotice[] {
   return reports.flatMap((report, index) => {
     const definition = definitions[index];
-    return definition ? dataQualityNoticesForReport(report, definition) : [];
+    return definition
+      ? dataQualityNoticesForReport(report.metadata, definition)
+      : [];
   });
-}
-
-function quotaFromReports(reports: AnalyticsReportResponse[]): AnalyticsQuotaState | null {
-  const byKey = new Map<string, { consumed: number; remaining: number }>();
-  reports.forEach((report) => {
-    Object.entries(report.propertyQuota ?? {}).forEach(([key, entry]) => {
-      const existing = byKey.get(key);
-      byKey.set(key, {
-        consumed: Math.max(existing?.consumed ?? 0, entry.consumed),
-        remaining: Math.min(existing?.remaining ?? Number.MAX_SAFE_INTEGER, entry.remaining),
-      });
-    });
-  });
-  if (byKey.size === 0) return null;
-  return {
-    entries: Array.from(byKey, ([key, entry]) => ({ key, ...entry })).sort((a, b) =>
-      a.key.localeCompare(b.key),
-    ),
-  };
-}
-
-function currencyFromReports(reports: AnalyticsReportResponse[]): string {
-  return reports.find((report) => report.metadata?.currencyCode)?.metadata?.currencyCode ?? "KRW";
 }
 
 function apiOptions(input: FetchAnalyticsReportInput): AnalyticsDataApiOptions {
@@ -233,17 +145,17 @@ async function fetchOverview(
 ): Promise<AnalyticsReportResult> {
   const requests: AnalyticsRunReportRequest[] = [
     {
-      dateRanges: [dateRange(input.range)],
+      dateRanges: [analyticsDateRange(input.range)],
       metrics: metricRequests(OVERVIEW_METRICS),
       returnPropertyQuota: true,
     },
     {
-      dateRanges: [dateRange(input.range, true)],
+      dateRanges: [analyticsDateRange(input.range, true)],
       metrics: metricRequests(OVERVIEW_METRICS),
       returnPropertyQuota: true,
     },
     {
-      dateRanges: [dateRange(input.range)],
+      dateRanges: [analyticsDateRange(input.range)],
       dimensions: dimensionRequests(["date"]),
       metrics: metricRequests(["sessions"]),
       orderBys: [{ dimension: { dimensionName: "date" } }],
@@ -278,7 +190,7 @@ async function fetchOverview(
     metrics,
     trend: trendRows,
     currencyCode: currencyFromReports(response.reports),
-    quota: quotaFromReports(response.reports),
+    quota: quotaFromReports(response.reports, "core"),
     dataQualityNotices: dataQualityNoticesFromReports(
       response.reports,
       qualityDefinitions,
@@ -294,7 +206,7 @@ function coreRequest(
   orderMetric: string,
 ): AnalyticsRunReportRequest {
   return {
-    dateRanges: [dateRange(range)],
+    dateRanges: [analyticsDateRange(range)],
     dimensions: dimensionRequests(dimensions),
     metrics: metricRequests(metrics),
     orderBys: [{ desc: true, metric: { metricName: orderMetric } }],
@@ -376,7 +288,7 @@ function definitionsForView(
       title: "구매·매출",
       description: "GA4 전자상거래 이벤트가 수집된 경우에만 표시됩니다.",
       request: {
-        dateRanges: [dateRange(range)],
+        dateRanges: [analyticsDateRange(range)],
         metrics: metricRequests(["ecommercePurchases", "purchaseRevenue", "totalRevenue"]),
         returnPropertyQuota: true,
       },
@@ -416,19 +328,9 @@ async function fetchCoreTables(
     tables,
     metrics,
     currencyCode: currencyFromReports(reports),
-    quota: quotaFromReports(reports),
+    quota: quotaFromReports(reports, "core"),
     dataQualityNotices: dataQualityNoticesFromReports(reports, definitions),
     isEmpty: tables.every(({ rows }) => rows.length === 0) && metrics.every(({ value }) => value === 0),
-  };
-}
-
-function emptyReport(): AnalyticsReportResponse {
-  return {
-    dimensionHeaders: [],
-    metricHeaders: [],
-    rows: [],
-    totals: [],
-    rowCount: 0,
   };
 }
 
@@ -510,7 +412,7 @@ async function fetchRealtime(
     tables,
     metrics,
     currencyCode: currencyFromReports(reports),
-    quota: quotaFromReports(reports),
+    quota: quotaFromReports(reports, "realtime"),
     dataQualityNotices: dataQualityNoticesFromReports(
       reports,
       requests.map(({ definition }) => definition),
