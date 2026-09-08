@@ -7,6 +7,7 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { AnalyticsDataApiError } from "./analytics-data-api";
+import { QUOTA_POOL_LABELS, quotaPressure } from "./analytics-quota";
 import type { AnalyticsDataQualityNotice, AnalyticsQuotaState } from "./types";
 
 export function StatusCard({
@@ -202,7 +203,9 @@ export function QuotaFooter({ quota }: { quota: AnalyticsQuotaState | null }) {
   if (!quota || quota.entries.length === 0) return null;
   return (
     <details className="rounded-lg border bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
-      <summary className="cursor-pointer font-medium text-foreground">GA API 할당량 상태</summary>
+      <summary className="cursor-pointer font-medium text-foreground">
+        GA API 할당량 상태 · {QUOTA_POOL_LABELS[quota.category]}
+      </summary>
       <ul className="mt-2 grid gap-1 sm:grid-cols-2">
         {quota.entries.map((entry) => (
           <li key={entry.key} className="flex justify-between gap-3">
@@ -212,5 +215,32 @@ export function QuotaFooter({ quota }: { quota: AnalyticsQuotaState | null }) {
         ))}
       </ul>
     </details>
+  );
+}
+
+/**
+ * Named on purpose: Core, Realtime and Funnel are separate pools. "할당량 소진"
+ * with no pool named makes an operator stop using a screen that still works.
+ */
+export function QuotaBanner({ quota }: { quota: AnalyticsQuotaState | null }) {
+  const pressure = quotaPressure(quota);
+  if (pressure.level === "ok") return null;
+  const scope = pressure.scope === "day" ? "일일" : "시간당";
+
+  return (
+    <div
+      role="status"
+      className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-foreground"
+    >
+      <TriangleAlert
+        className="mt-0.5 size-4 shrink-0 text-warning-foreground"
+        aria-hidden="true"
+      />
+      <p className="leading-6">
+        {pressure.level === "exhausted"
+          ? "GA API 할당량을 모두 사용했습니다. 퍼널·리텐션은 토큰을 많이 소비합니다."
+          : `GA API ${scope} 할당량이 10% 미만입니다. 퍼널·리텐션은 토큰을 많이 소비합니다.`}
+      </p>
+    </div>
   );
 }

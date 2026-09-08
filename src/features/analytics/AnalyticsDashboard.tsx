@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
   Clock3,
@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Unplug,
 } from "lucide-react";
+import { createRetryableLazyComponent } from "@/components/performance/RetryableLazyComponent";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,15 +31,39 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { AnalyticsDataApiError } from "./analytics-data-api";
-import { EMPTY_FILTERS } from "./analytics-filters";
-import { formatGaDate, formatMetric, percentChange } from "./analytics-format";
+import {
+  AnalyticsFilterBar,
+  type AccountTypeAvailability,
+} from "./AnalyticsFilterBar";
+import {
+  EMPTY_FILTERS,
+  availablePlatforms,
+  filtersKey,
+  type AnalyticsFilters,
+} from "./analytics-filters";
+import {
+  formatCount,
+  formatGaDate,
+  formatMetric,
+  percentChange,
+} from "./analytics-format";
 import { EVENT_LABELS } from "./analytics-labels";
 import { analyticsQueryKeys } from "./analytics-query-keys";
-import { fetchAnalyticsReport } from "./analytics-reports";
+import {
+  fetchAnalyticsCapabilities,
+  fetchAnalyticsReport,
+  type AnalyticsCapabilities,
+} from "./analytics-reports";
+import { FunnelPanel } from "./FunnelPanel";
+import { FUNNEL_IDS, type FunnelId } from "./funnel-definitions";
+import { InsightsPanel } from "./InsightsPanel";
+import { RetentionHeatmap } from "./RetentionHeatmap";
+import type { TrendChartProps } from "./charts/TrendChart";
 import {
   AnalyticsErrorState,
   ConnectionFact,
   DataQualityPanel,
+  QuotaBanner,
   QuotaFooter,
   StatusCard,
 } from "./AnalyticsStates";
@@ -50,10 +75,14 @@ import type {
   AnalyticsDateRange,
   AnalyticsMetricValue,
   AnalyticsPropertyConfig,
+  AnalyticsQuotaCategory,
+  AnalyticsQuotaState,
   AnalyticsReportColumn,
   AnalyticsReportResult,
   AnalyticsReportTable,
   AnalyticsReportView,
+  AnalyticsTrendMetric,
+  AnalyticsTrendSeries,
 } from "./types";
 import { useAnalyticsConnection } from "./use-analytics-connection";
 
@@ -68,14 +97,83 @@ const VIEW_OPTIONS: Array<{ value: AnalyticsReportView; label: string }> = [
   { value: "acquisition", label: "유입" },
   { value: "engagement", label: "참여" },
   { value: "conversion-revenue", label: "전환·매출" },
+  { value: "funnel", label: "퍼널" },
+  { value: "retention", label: "리텐션" },
   { value: "realtime", label: "실시간" },
 ];
+
+/** Which GA4 token pool each view spends. Exhausting one leaves the others alive. */
+const VIEW_POOLS: Record<AnalyticsReportView, AnalyticsQuotaCategory> = {
+  overview: "core",
+  acquisition: "core",
+  engagement: "core",
+  "conversion-revenue": "core",
+  funnel: "funnel",
+  retention: "core",
+  realtime: "realtime",
+};
+
+const STALE_TIMES: Record<AnalyticsReportView, number> = {
+  overview: 5 * 60_000,
+  acquisition: 5 * 60_000,
+  engagement: 5 * 60_000,
+  "conversion-revenue": 5 * 60_000,
+  // Funnel and cohort reports are the expensive ones; 15 minutes keeps a tab
+  // switch from spending the pool again.
+  funnel: 15 * 60_000,
+  retention: 15 * 60_000,
+  realtime: 60_000,
+};
+
+const TREND_METRIC_OPTIONS: Array<{
+  value: AnalyticsTrendMetric;
+  label: string;
+}> = [
+  { value: "activeUsers", label: "활성 사용자" },
+  { value: "newUsers", label: "신규 사용자" },
+  { value: "sessions", label: "세션" },
+];
+
+const EMPTY_DESCRIPTIONS: Record<AnalyticsReportView, string> = {
+  overview:
+    "속성, 기간과 GA4 데이터 수집 상태를 확인해 주세요. 값이 없을 때 임의의 0으로 보정하지 않습니다.",
+  acquisition:
+    "속성, 기간과 GA4 데이터 수집 상태를 확인해 주세요. 값이 없을 때 임의의 0으로 보정하지 않습니다.",
+  engagement:
+    "속성, 기간과 GA4 데이터 수집 상태를 확인해 주세요. 값이 없을 때 임의의 0으로 보정하지 않습니다.",
+  "conversion-revenue":
+    "GA4에서 구매·주요 이벤트 값이 확인되지 않습니다. 이벤트 수집과 주요 이벤트 정의 여부를 별도로 확인해 주세요.",
+  funnel:
+    "선택한 기간에 퍼널 1단계 이벤트가 없습니다. 앱 이벤트 수집과 라우트 템플릿을 확인해 주세요.",
+  retention:
+    "최근 6주 코호트에서 첫 세션 사용자가 확인되지 않습니다. 코호트 기간은 기간 선택과 무관하게 고정입니다.",
+  realtime:
+    "속성, 기간과 GA4 데이터 수집 상태를 확인해 주세요. 값이 없을 때 임의의 0으로 보정하지 않습니다.",
+};
 
 const DATE_RANGE_OPTIONS: Array<{ value: AnalyticsDateRange; label: string }> = [
   { value: "7d", label: "최근 7일" },
   { value: "28d", label: "최근 28일" },
   { value: "90d", label: "최근 90일" },
 ];
+
+/**
+ * The chart never enters the analytics route's first chunk. Asserted by
+ * scripts/test-admin-ui-foundation.mjs: the dashboard may name its props type,
+ * but the component itself arrives only through this dynamic import.
+ */
+const LazyTrendChart = createRetryableLazyComponent<TrendChartProps>(
+  () => import("./charts/TrendChart"),
+  {
+    loading: (
+      <div
+        className="h-64 animate-pulse rounded-lg bg-muted/50"
+        aria-hidden="true"
+      />
+    ),
+    errorTitle: "추세 차트를 불러오지 못했습니다.",
+  },
+);
 
 export function AnalyticsDashboard({
   properties,
@@ -88,9 +186,76 @@ export function AnalyticsDashboard({
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
   const [view, setView] = useState<AnalyticsReportView>("overview");
   const [range, setRange] = useState<AnalyticsDateRange>("28d");
+  const [filters, setFilters] = useState<AnalyticsFilters>(EMPTY_FILTERS);
+  const [funnelId, setFunnelId] = useState<FunnelId>(FUNNEL_IDS[0]);
+  const [funnelBreakdown, setFunnelBreakdown] = useState(false);
+  const [trendMetric, setTrendMetric] =
+    useState<AnalyticsTrendMetric>("activeUsers");
+  const [showPrevious, setShowPrevious] = useState(true);
+  const [latestQuota, setLatestQuota] = useState<AnalyticsQuotaState | null>(null);
+  const [exhaustedPools, setExhaustedPools] = useState<AnalyticsQuotaCategory[]>(
+    [],
+  );
 
   const selectedProperty =
     properties.find((property) => property.id === propertyId) ?? properties[0];
+
+  // A quota reading and a filter selection belong to one property. Carrying
+  // them across would put another property's numbers behind this one's banner.
+  //
+  // Adjusted during render rather than in an effect: an effect would paint the
+  // new property once with the old property's filters and banner first, and
+  // the repo's lint rule rejects that cascading render outright.
+  const [filteredPropertyId, setFilteredPropertyId] = useState(
+    selectedProperty?.id,
+  );
+  if (selectedProperty?.id !== filteredPropertyId) {
+    setFilteredPropertyId(selectedProperty?.id);
+    setFilters(EMPTY_FILTERS);
+    setLatestQuota(null);
+    setExhaustedPools([]);
+  }
+
+  const capabilities = useQuery<AnalyticsCapabilities, Error>({
+    queryKey: analyticsQueryKeys.capabilities(
+      token.generation,
+      selectedProperty?.id ?? "",
+    ),
+    queryFn: ({ signal }) => {
+      const accessToken = getAnalyticsAccessToken();
+      if (!accessToken || !selectedProperty) {
+        throw new AnalyticsDataApiError(
+          "expired",
+          "Google Analytics 연결이 만료되었습니다.",
+        );
+      }
+      return fetchAnalyticsCapabilities({
+        propertyId: selectedProperty.id,
+        accessToken,
+        signal,
+      });
+    },
+    enabled: token.status === "connected" && Boolean(selectedProperty),
+    // A property's custom definitions do not change while a tab is open, and a
+    // failed metadata read must never block the reports.
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  });
+
+  const handleQuotaError = useCallback((pool: AnalyticsQuotaCategory) => {
+    setExhaustedPools((current) =>
+      current.includes(pool) ? current : [...current, pool],
+    );
+  }, []);
+
+  const accountTypeAvailability: AccountTypeAvailability = capabilities.isPending
+    ? "pending"
+    : capabilities.isError
+      ? "unknown"
+      : capabilities.data?.accountTypeDimension
+        ? "available"
+        : "unavailable";
 
   if (configError || !selectedProperty) {
     return (
@@ -168,26 +333,43 @@ export function AnalyticsDashboard({
               ))}
             </select>
           </label>
-          <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
-            비교 기간
-            <select
-              className="h-9 min-w-0 rounded-lg border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring"
-              value={range}
-              onChange={(event) => setRange(event.target.value as AnalyticsDateRange)}
-              disabled={view === "realtime"}
-            >
-              {DATE_RANGE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid min-w-0 gap-1.5">
+            <label className="grid gap-1.5 text-xs font-medium text-muted-foreground">
+              비교 기간
+              <select
+                className="h-9 min-w-0 rounded-lg border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring disabled:opacity-60"
+                value={range}
+                onChange={(event) => setRange(event.target.value as AnalyticsDateRange)}
+                disabled={view === "realtime" || view === "retention"}
+              >
+                {DATE_RANGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {view === "retention" ? (
+              <p className="text-xs text-muted-foreground">
+                리텐션은 최근 6주 코호트 고정
+              </p>
+            ) : null}
+          </div>
         </div>
         <Button variant="outline" onClick={disconnect}>
           <Unplug /> 연결 끊기
         </Button>
       </div>
+
+      <AnalyticsFilterBar
+        filters={filters}
+        onChange={setFilters}
+        platforms={availablePlatforms(selectedProperty.platform)}
+        accountTypeAvailability={accountTypeAvailability}
+        disabled={view === "realtime"}
+      />
+
+      <QuotaBanner quota={latestQuota} />
 
       <div
         role="group"
@@ -199,8 +381,12 @@ export function AnalyticsDashboard({
             key={option.value}
             type="button"
             aria-pressed={view === option.value}
+            disabled={
+              view !== option.value &&
+              exhaustedPools.includes(VIEW_POOLS[option.value])
+            }
             className={cn(
-              "min-h-9 shrink-0 rounded-lg px-3 text-sm font-medium text-muted-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+              "min-h-9 shrink-0 rounded-lg px-3 text-sm font-medium text-muted-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
               view === option.value && "bg-background text-foreground shadow-sm",
             )}
             onClick={() => setView(option.value)}
@@ -216,6 +402,17 @@ export function AnalyticsDashboard({
         view={view}
         range={range}
         generation={token.generation}
+        filters={filters}
+        funnelId={funnelId}
+        funnelBreakdown={funnelBreakdown}
+        trendMetric={trendMetric}
+        showPrevious={showPrevious}
+        onFunnelIdChange={setFunnelId}
+        onFunnelBreakdownChange={setFunnelBreakdown}
+        onTrendMetricChange={setTrendMetric}
+        onShowPreviousChange={setShowPrevious}
+        onQuota={setLatestQuota}
+        onQuotaError={handleQuotaError}
       />
     </AnalyticsPageFrame>
   );
@@ -243,19 +440,46 @@ function AnalyticsPageFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
+type AnalyticsViewControls = {
+  funnelId: FunnelId;
+  funnelBreakdown: boolean;
+  trendMetric: AnalyticsTrendMetric;
+  showPrevious: boolean;
+  onFunnelIdChange: (funnelId: FunnelId) => void;
+  onFunnelBreakdownChange: (breakdown: boolean) => void;
+  onTrendMetricChange: (metric: AnalyticsTrendMetric) => void;
+  onShowPreviousChange: (showPrevious: boolean) => void;
+};
+
 function AnalyticsQueryView({
   property,
   view,
   range,
   generation,
-}: {
+  filters,
+  onQuota,
+  onQuotaError,
+  ...controls
+}: AnalyticsViewControls & {
   property: AnalyticsPropertyConfig;
   view: AnalyticsReportView;
   range: AnalyticsDateRange;
   generation: number;
+  filters: AnalyticsFilters;
+  onQuota: (quota: AnalyticsQuotaState | null) => void;
+  onQuotaError: (pool: AnalyticsQuotaCategory) => void;
 }) {
   const query = useQuery<AnalyticsReportResult, Error>({
-    queryKey: analyticsQueryKeys.report(generation, property.id, view, range),
+    queryKey: analyticsQueryKeys.report(
+      generation,
+      property.id,
+      view,
+      range,
+      filtersKey(filters),
+      view === "funnel"
+        ? `${controls.funnelId}:${controls.funnelBreakdown}`
+        : "",
+    ),
     queryFn: ({ signal }) => {
       const accessToken = getAnalyticsAccessToken();
       if (!accessToken) {
@@ -268,13 +492,17 @@ function AnalyticsQueryView({
         property,
         view,
         range,
-        filters: EMPTY_FILTERS,
+        filters,
+        funnelId: controls.funnelId,
+        funnelBreakdown: controls.funnelBreakdown,
         accessToken,
         signal,
       });
     },
-    staleTime: view === "realtime" ? 60_000 : 5 * 60_000,
-    gcTime: view === "realtime" ? 60_000 : 5 * 60_000,
+    // Keeps the table an operator is reading on screen while a filter applies.
+    placeholderData: keepPreviousData,
+    staleTime: STALE_TIMES[view],
+    gcTime: STALE_TIMES[view],
     refetchInterval: view === "realtime" ? 60_000 : false,
     refetchIntervalInBackground: false,
     retry: false,
@@ -283,36 +511,50 @@ function AnalyticsQueryView({
   const [completionAnnouncement, setCompletionAnnouncement] = useState("");
 
   useEffect(() => {
-    if (query.error instanceof AnalyticsDataApiError && query.error.kind === "expired") {
-      clearAnalyticsAccessToken("expired");
-    }
-  }, [query.error]);
+    if (!(query.error instanceof AnalyticsDataApiError)) return;
+    if (query.error.kind === "expired") clearAnalyticsAccessToken("expired");
+    // Only an actual refusal closes a tab — never a low reading.
+    if (query.error.kind === "quota") onQuotaError(VIEW_POOLS[view]);
+  }, [onQuotaError, query.error, view]);
 
   useEffect(() => {
-    if (!query.data || completionAnnouncedRef.current) return;
+    if (!query.data || query.isPlaceholderData) return;
+    onQuota(query.data.quota);
+  }, [onQuota, query.data, query.isPlaceholderData]);
 
+  useEffect(() => {
+    if (!query.data || query.isPlaceholderData || completionAnnouncedRef.current) {
+      return;
+    }
     completionAnnouncedRef.current = true;
     setCompletionAnnouncement(reportCompletionSummary(property.label, query.data));
-  }, [property.label, query.data]);
+  }, [property.label, query.data, query.isPlaceholderData]);
 
   let content: React.ReactNode;
   if (query.isPending) {
     content = <AnalyticsLoadingState />;
   } else if (query.isError) {
-    content = <AnalyticsErrorState error={query.error} retry={() => void query.refetch()} />;
-  } else if (query.data.isEmpty) {
+    content = (
+      <AnalyticsErrorState error={query.error} retry={() => void query.refetch()} />
+    );
+  } else if (query.data.isEmpty && query.data.view !== "funnel") {
+    // The funnel keeps its own panel even when empty: its preset selector is
+    // the only way back to a funnel that does have data.
     const subjectToThresholding = query.data.dataQualityNotices.some(
       (notice) => notice.kind === "thresholding",
     );
     content = (
       <div className="space-y-4">
         <DataQualityPanel notices={query.data.dataQualityNotices} />
-        <AnalyticsEmptyState view={view} subjectToThresholding={subjectToThresholding} />
+        <AnalyticsEmptyState
+          view={view}
+          subjectToThresholding={subjectToThresholding}
+        />
         <QuotaFooter quota={query.data.quota} />
       </div>
     );
   } else {
-    content = <AnalyticsReportContent result={query.data} />;
+    content = <AnalyticsReportContent result={query.data} {...controls} />;
   }
 
   return (
@@ -323,12 +565,22 @@ function AnalyticsQueryView({
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          aria-busy={query.isPending ? "true" : undefined}
-          aria-label={query.isPending ? "Google Analytics 보고서 로딩 중" : undefined}
+          aria-busy={
+            query.isPending || query.isPlaceholderData ? "true" : undefined
+          }
+          aria-label={
+            query.isPending
+              ? "Google Analytics 보고서 로딩 중"
+              : query.isPlaceholderData
+                ? "필터 적용 중"
+                : undefined
+          }
         >
           {query.isPending
             ? "Google Analytics 보고서를 불러오는 중입니다."
-            : completionAnnouncement}
+            : query.isPlaceholderData
+              ? "필터 적용 중입니다. 이전 결과를 표시하고 있습니다."
+              : completionAnnouncement}
         </p>
       ) : null}
       {content}
@@ -367,11 +619,13 @@ function reportCompletionSummary(
   if (result.view === "overview") {
     return `${prefix} 핵심 지표 ${result.metrics.length}개, 일별 데이터 ${result.series.points.length}개가 표시됩니다.`;
   }
-  // Funnel and retention are not yet offered from this dashboard's view
-  // selector (Task 4 adds their panels); this branch keeps the summary
-  // sentence well-typed for the widened result union in the meantime.
-  if (result.view === "funnel" || result.view === "retention") {
-    return prefix;
+  if (result.view === "funnel") {
+    return `${prefix} 단계 ${result.steps.length}개, 1단계 사용자 ${formatCount(
+      result.steps[0]?.users ?? 0,
+    )}명이 표시됩니다.`;
+  }
+  if (result.view === "retention") {
+    return `${prefix} 코호트 ${result.cohorts.length}개가 표시됩니다.`;
   }
 
   const rowCount = result.tables.reduce((total, table) => total + table.rows.length, 0);
@@ -385,7 +639,6 @@ function AnalyticsEmptyState({
   view: AnalyticsReportView;
   subjectToThresholding: boolean;
 }) {
-  const conversion = view === "conversion-revenue";
   return (
     <Card>
       <CardContent className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
@@ -400,40 +653,64 @@ function AnalyticsEmptyState({
         <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
           {subjectToThresholding
             ? "GA4 개인정보 보호 임계값으로 일부 데이터가 보고서에 표시되지 않을 수 있습니다. 위 데이터 품질 안내를 함께 확인해 주세요."
-            : conversion
-            ? "GA4에서 구매·주요 이벤트 값이 확인되지 않습니다. 이벤트 수집과 주요 이벤트 정의 여부를 별도로 확인해 주세요."
-            : "속성, 기간과 GA4 데이터 수집 상태를 확인해 주세요. 값이 없을 때 임의의 0으로 보정하지 않습니다."}
+            : EMPTY_DESCRIPTIONS[view]}
         </p>
       </CardContent>
     </Card>
   );
 }
 
-function AnalyticsReportContent({ result }: { result: AnalyticsReportResult }) {
-  // Funnel and retention are not yet offered from this dashboard's view
-  // selector (Task 4 adds their dedicated panels); this guard keeps the
-  // component well-typed for the widened result union in the meantime.
-  if (result.view === "funnel" || result.view === "retention") return null;
-
+function AnalyticsReportContent({
+  result,
+  funnelId,
+  funnelBreakdown,
+  trendMetric,
+  showPrevious,
+  onFunnelIdChange,
+  onFunnelBreakdownChange,
+  onTrendMetricChange,
+  onShowPreviousChange,
+}: AnalyticsViewControls & { result: AnalyticsReportResult }) {
   return (
     <div className="space-y-4">
       <DataQualityPanel notices={result.dataQualityNotices} />
-      {result.metrics.length > 0 ? (
-        <MetricGrid metrics={result.metrics} currencyCode={result.currencyCode} />
-      ) : null}
       {result.view === "overview" ? (
-        <TrendPanel
-          rows={result.series.points.map((point) => ({
-            date: point.date,
-            activeUsers: String(point.current.activeUsers),
-            sessions: String(point.current.sessions),
-            keyEvents: "0",
-          }))}
+        <>
+          {result.metrics.length > 0 ? (
+            <MetricGrid metrics={result.metrics} currencyCode={result.currencyCode} />
+          ) : null}
+          <InsightsPanel insights={result.insights} />
+          <TrendPanel
+            series={result.series}
+            metric={trendMetric}
+            onMetricChange={onTrendMetricChange}
+            showPrevious={showPrevious}
+            onShowPreviousChange={onShowPreviousChange}
+          />
+        </>
+      ) : result.view === "funnel" ? (
+        <FunnelPanel
+          result={result}
+          funnelId={funnelId}
+          onFunnelIdChange={onFunnelIdChange}
+          breakdown={funnelBreakdown}
+          onBreakdownChange={onFunnelBreakdownChange}
         />
+      ) : result.view === "retention" ? (
+        <RetentionHeatmap result={result} />
       ) : (
-        result.tables.map((table) => (
-          <AnalyticsTable key={table.key} table={table} currencyCode={result.currencyCode} />
-        ))
+        <>
+          {result.metrics.length > 0 ? (
+            <MetricGrid metrics={result.metrics} currencyCode={result.currencyCode} />
+          ) : null}
+          {result.tables.map((table) => (
+            <AnalyticsTable
+              key={table.key}
+              table={table}
+              currencyCode={result.currencyCode}
+            />
+          ))}
+        </>
       )}
       <QuotaFooter quota={result.quota} />
     </div>
@@ -476,42 +753,64 @@ function MetricGrid({
   );
 }
 
-function TrendPanel({ rows }: { rows: Array<Record<string, string>> }) {
-  const maxSessions = Math.max(...rows.map((row) => Number(row.sessions ?? 0)), 1);
+function TrendPanel({
+  series,
+  metric,
+  onMetricChange,
+  showPrevious,
+  onShowPreviousChange,
+}: {
+  series: AnalyticsTrendSeries;
+  metric: AnalyticsTrendMetric;
+  onMetricChange: (metric: AnalyticsTrendMetric) => void;
+  showPrevious: boolean;
+  onShowPreviousChange: (showPrevious: boolean) => void;
+}) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>일별 흐름</CardTitle>
-        <CardDescription>세션의 일별 변화입니다.</CardDescription>
+        <CardTitle>일별 추세</CardTitle>
+        <CardDescription>
+          선택한 지표의 일별 변화입니다. 이전 기간은 같은 길이의 직전 구간입니다.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        <figure
-          aria-label="일별 세션 추이"
-          className="overflow-x-auto rounded-lg bg-muted/30 p-4"
-        >
-          <div className="grid h-56 min-w-96 grid-flow-col auto-cols-fr items-end gap-1">
-            {rows.map((row) => {
-              const sessions = Number(row.sessions ?? 0);
-              const height = Math.max(3, (sessions / maxSessions) * 100);
-              return (
-                <div
-                  key={row.date}
-                  className="group relative h-full min-w-2"
-                  title={`${formatGaDate(row.date)} · 세션 ${sessions.toLocaleString("ko-KR")}`}
-                >
-                  <div
-                    aria-hidden
-                    className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-5 rounded-t-sm bg-primary/75 transition-colors group-hover:bg-primary"
-                    style={{ height: `${height}%` }}
-                  />
-                  <span className="sr-only">
-                    {formatGaDate(row.date)} 세션 {sessions}
-                  </span>
-                </div>
-              );
-            })}
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            role="group"
+            aria-label="추세 지표"
+            className="flex gap-1 rounded-lg border bg-muted/40 p-1"
+          >
+            {TREND_METRIC_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={metric === option.value}
+                onClick={() => onMetricChange(option.value)}
+                className={cn(
+                  "min-h-8 rounded-md px-2.5 text-sm font-medium text-muted-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
+                  metric === option.value && "bg-background text-foreground shadow-sm",
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
-        </figure>
+          <label className="flex min-h-9 items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4 accent-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              checked={showPrevious}
+              onChange={(event) => onShowPreviousChange(event.target.checked)}
+            />
+            이전 기간 비교
+          </label>
+        </div>
+        <LazyTrendChart
+          series={series}
+          metric={metric}
+          showPrevious={showPrevious}
+        />
       </CardContent>
     </Card>
   );

@@ -21,13 +21,33 @@ vi.mock("./google-analytics-oauth", async (importOriginal) => {
 
 vi.mock("./analytics-reports", () => ({
   fetchAnalyticsReport: vi.fn(),
+  fetchAnalyticsCapabilities: vi.fn(),
+}));
+
+vi.mock("./charts/TrendChart", () => ({
+  default: ({
+    metric,
+    showPrevious,
+  }: {
+    metric: string;
+    showPrevious: boolean;
+  }) => (
+    <div
+      data-testid="trend-chart"
+      data-metric={metric}
+      data-show-previous={String(showPrevious)}
+    />
+  ),
 }));
 
 import {
   loadGoogleAnalyticsIdentityServices,
   requestGoogleAnalyticsToken,
 } from "./google-analytics-oauth";
-import { fetchAnalyticsReport } from "./analytics-reports";
+import {
+  fetchAnalyticsCapabilities,
+  fetchAnalyticsReport,
+} from "./analytics-reports";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
 
 const properties = [
@@ -71,6 +91,11 @@ describe("AnalyticsDashboard", () => {
     vi.mocked(fetchAnalyticsReport).mockReset();
     vi.mocked(requestGoogleAnalyticsToken).mockReset();
     vi.mocked(loadGoogleAnalyticsIdentityServices).mockClear();
+    vi.mocked(fetchAnalyticsCapabilities).mockReset();
+    vi.mocked(fetchAnalyticsCapabilities).mockResolvedValue({
+      accountTypeDimension: true,
+      customDimensions: ["customUser:account_type"],
+    });
   });
 
   afterEach(() => {
@@ -113,9 +138,9 @@ describe("AnalyticsDashboard", () => {
     setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
     vi.mocked(fetchAnalyticsReport).mockImplementation(async ({ view }) => {
       if (view === "overview") return emptyOverview();
-      // This dashboard only ever requests a table-shaped view here
-      // (acquisition/engagement/conversion-revenue/realtime); funnel and
-      // retention are not yet wired to the view selector.
+      // This test only ever clicks a table-shaped view
+      // (acquisition/engagement/conversion-revenue/realtime); the funnel and
+      // retention tabs have their own test below.
       return {
         view: view as "acquisition" | "engagement" | "conversion-revenue" | "realtime",
         tables: [],
@@ -212,7 +237,8 @@ describe("AnalyticsDashboard", () => {
     expect(screen.getAllByRole("status")).toHaveLength(1);
   });
 
-  it("labels the overview visualization as a session-only daily trend", async () => {
+  it("draws the selected trend metric and compares the previous period on request", async () => {
+    const user = userEvent.setup();
     setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
     vi.mocked(fetchAnalyticsReport).mockResolvedValue({
       view: "overview",
@@ -223,14 +249,25 @@ describe("AnalyticsDashboard", () => {
         points: [
           {
             date: "20260830",
-            previousDate: null,
-            current: { activeUsers: 12, newUsers: 0, sessions: 15 },
-            previous: null,
+            previousDate: "20260802",
+            current: { activeUsers: 12, newUsers: 4, sessions: 15 },
+            previous: { activeUsers: 9, newUsers: 3, sessions: 11 },
           },
         ],
       },
       platforms: [],
-      insights: [],
+      insights: [
+        {
+          id: "total:sessions",
+          severity: "positive",
+          text: "세션 25% 증가 (12 → 15)",
+          metric: "sessions",
+          scope: "total",
+          delta: 25,
+          current: 15,
+          previous: 12,
+        },
+      ],
       currencyCode: "KRW",
       quota: null,
       dataQualityNotices: [],
@@ -238,8 +275,23 @@ describe("AnalyticsDashboard", () => {
     });
     renderDashboard();
 
-    expect(await screen.findByText("세션의 일별 변화입니다.")).toBeInTheDocument();
-    expect(screen.getByRole("figure", { name: "일별 세션 추이" })).toBeInTheDocument();
+    const chart = await screen.findByTestId("trend-chart");
+    expect(chart).toHaveAttribute("data-metric", "activeUsers");
+    expect(chart).toHaveAttribute("data-show-previous", "true");
+    expect(screen.getByRole("heading", { name: "인사이트 요약" })).toBeInTheDocument();
+    expect(screen.getByText("세션 25% 증가 (12 → 15)")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "신규 사용자" }));
+    expect(await screen.findByTestId("trend-chart")).toHaveAttribute(
+      "data-metric",
+      "newUsers",
+    );
+
+    await user.click(screen.getByLabelText("이전 기간 비교"));
+    expect(await screen.findByTestId("trend-chart")).toHaveAttribute(
+      "data-show-previous",
+      "false",
+    );
   });
 
   it("distinguishes displayed top rows from the GA4 total and surfaces data-quality limits", async () => {
@@ -390,5 +442,167 @@ describe("AnalyticsDashboard", () => {
     });
 
     expect(getAnalyticsAccessToken()).toBeNull();
+  });
+
+  it("adds funnel and retention tabs that fetch their own views", async () => {
+    const user = userEvent.setup();
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchAnalyticsReport).mockImplementation(async ({ view }) => {
+      if (view === "funnel") {
+        return {
+          view: "funnel",
+          funnelId: "party-apply",
+          title: "파티 신청",
+          description: "파티 상세에서 신청 완료까지의 단계별 이탈입니다.",
+          steps: [
+            {
+              index: 0,
+              name: "파티 상세",
+              users: 1000,
+              completionRate: 0.4,
+              abandonments: 600,
+              abandonmentRate: 0.6,
+              shareOfFirst: 1,
+            },
+            {
+              index: 1,
+              name: "신청 화면",
+              users: 400,
+              completionRate: null,
+              abandonments: null,
+              abandonmentRate: null,
+              shareOfFirst: 0.4,
+            },
+          ],
+          breakdown: null,
+          currencyCode: "KRW",
+          quota: null,
+          dataQualityNotices: [],
+          isEmpty: false,
+        };
+      }
+      if (view === "retention") {
+        return {
+          view: "retention",
+          granularity: "WEEKLY",
+          horizon: 4,
+          cohorts: [
+            {
+              name: "2026-08-30",
+              startDate: "2026-08-30",
+              endDate: "2026-09-05",
+              totalUsers: 120,
+              cells: [
+                { week: 0, activeUsers: 120, rate: 1, state: "complete" },
+                { week: 1, activeUsers: 30, rate: 0.25, state: "partial" },
+                { week: 2, activeUsers: 0, rate: 0, state: "future" },
+                { week: 3, activeUsers: 0, rate: 0, state: "future" },
+                { week: 4, activeUsers: 0, rate: 0, state: "future" },
+              ],
+            },
+          ],
+          currencyCode: "KRW",
+          quota: null,
+          dataQualityNotices: [],
+          isEmpty: false,
+        };
+      }
+      return emptyOverview();
+    });
+    renderDashboard();
+
+    await screen.findByText("선택한 기간에 수집된 데이터가 없습니다.");
+
+    await user.click(screen.getByRole("button", { name: "퍼널" }));
+    expect(await screen.findByLabelText("퍼널")).toBeInTheDocument();
+    expect(screen.getByText("1. 파티 상세")).toBeInTheDocument();
+    expect(fetchAnalyticsReport).toHaveBeenCalledWith(
+      expect.objectContaining({ view: "funnel", funnelId: "party-apply" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "리텐션" }));
+    expect(
+      await screen.findByRole("columnheader", { name: "코호트 시작일" }),
+    ).toBeInTheDocument();
+    expect(fetchAnalyticsReport).toHaveBeenCalledWith(
+      expect.objectContaining({ view: "retention" }),
+    );
+  });
+
+  it("fixes the retention window and says so instead of offering a dead selector", async () => {
+    const user = userEvent.setup();
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchAnalyticsReport).mockResolvedValue({
+      view: "retention",
+      granularity: "WEEKLY",
+      horizon: 4,
+      cohorts: [],
+      currencyCode: "KRW",
+      quota: null,
+      dataQualityNotices: [],
+      isEmpty: true,
+    });
+    renderDashboard();
+
+    await user.click(screen.getByRole("button", { name: "리텐션" }));
+
+    expect(await screen.findByText("리텐션은 최근 6주 코호트 고정")).toBeInTheDocument();
+    expect(screen.getByLabelText("비교 기간")).toBeDisabled();
+  });
+
+  it("threads a platform chip into the report request and keeps the old table visible", async () => {
+    const user = userEvent.setup();
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchAnalyticsReport).mockResolvedValue(emptyOverview());
+    renderDashboard();
+
+    // The first property is web-only, so it offers no platform chips.
+    await screen.findByText("선택한 기간에 수집된 데이터가 없습니다.");
+    expect(screen.queryByRole("button", { name: "iOS" })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("GA4 속성"), "5678");
+    await user.click(await screen.findByRole("button", { name: "iOS" }));
+
+    expect(fetchAnalyticsReport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        filters: { platforms: ["iOS"], accountType: "all" },
+      }),
+    );
+    expect(screen.getByText("필터 1개 적용 중")).toBeInTheDocument();
+  });
+
+  it("disables the account-type filter and names the missing custom definition", async () => {
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchAnalyticsCapabilities).mockResolvedValue({
+      accountTypeDimension: false,
+      customDimensions: [],
+    });
+    vi.mocked(fetchAnalyticsReport).mockResolvedValue(emptyOverview());
+    renderDashboard();
+
+    expect(
+      await screen.findByText(
+        "GA4 맞춤 정의에 사용자 속성 account_type을 등록하면 사용할 수 있습니다.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("계정 유형")).toBeDisabled();
+  });
+
+  it("warns above the tabs once the hourly pool drops below a tenth", async () => {
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchAnalyticsReport).mockResolvedValue({
+      ...emptyOverview(),
+      quota: {
+        category: "core",
+        entries: [{ key: "tokensPerHour", consumed: 39_000, remaining: 1_000 }],
+      },
+    });
+    renderDashboard();
+
+    expect(
+      await screen.findByText(
+        "GA API 시간당 할당량이 10% 미만입니다. 퍼널·리텐션은 토큰을 많이 소비합니다.",
+      ),
+    ).toBeInTheDocument();
   });
 });
