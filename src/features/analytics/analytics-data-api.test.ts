@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AnalyticsDataApiError,
   batchRunAnalyticsReports,
+  getAnalyticsMetadata,
+  runAnalyticsFunnelReport,
   runAnalyticsRealtimeReport,
   runAnalyticsReport,
 } from "./analytics-data-api";
@@ -289,5 +291,337 @@ describe("Google Analytics Data API client", () => {
     ).rejects.toEqual(
       expect.objectContaining<Partial<AnalyticsDataApiError>>({ kind: "request" }),
     );
+  });
+
+  it("routes runFunnelReport to v1alpha and round-trips the funnel body", async () => {
+    const funnelRequest = {
+      dateRanges: [{ startDate: "28daysAgo", endDate: "yesterday" }],
+      funnel: {
+        steps: [
+          {
+            name: "파티 상세",
+            filterExpression: {
+              funnelEventFilter: {
+                eventName: "screen_view",
+                funnelParameterFilterExpression: {
+                  funnelParameterFilter: {
+                    eventParameterName: "firebase_screen",
+                    stringFilter: { matchType: "EXACT" as const, value: "/parties/:id" },
+                  },
+                },
+              },
+            },
+          },
+          {
+            name: "신청 완료",
+            filterExpression: { funnelEventFilter: { eventName: "api_mutation" } },
+          },
+        ],
+      },
+      funnelBreakdown: { breakdownDimension: { name: "platform" }, limit: 5 },
+      returnPropertyQuota: true,
+    };
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          kind: "analyticsData#runFunnelReport",
+          funnelTable: {
+            dimensionHeaders: [{ name: "funnelStepName" }, { name: "platform" }],
+            metricHeaders: [
+              { name: "activeUsers", type: "TYPE_INTEGER" },
+              { name: "funnelStepCompletionRate", type: "TYPE_INTEGER" },
+              { name: "funnelStepAbandonments", type: "TYPE_INTEGER" },
+              { name: "funnelStepAbandonmentRate", type: "TYPE_INTEGER" },
+            ],
+            rows: [
+              {
+                dimensionValues: [{ value: "1. 파티 상세" }, { value: "RESERVED_TOTAL" }],
+                metricValues: [
+                  { value: "1000" },
+                  { value: "0.412" },
+                  { value: "588" },
+                  { value: "0.588" },
+                ],
+              },
+              {
+                dimensionValues: [{ value: "1. 파티 상세" }, { value: "iOS" }],
+                metricValues: [
+                  { value: "600" },
+                  { value: "0.5" },
+                  { value: "300" },
+                  { value: "0.5" },
+                ],
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const response = await runAnalyticsFunnelReport("1234", funnelRequest, {
+      accessToken: "secret-access-token",
+      fetchImpl,
+    });
+
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "https://analyticsdata.googleapis.com/v1alpha/properties/1234:runFunnelReport",
+    );
+    expect(new Headers(init.headers).get("Authorization")).toBe(
+      "Bearer secret-access-token",
+    );
+    expect(JSON.parse(String(init.body))).toEqual(funnelRequest);
+    expect(response.funnelTable?.rows[0]?.dimensionValues[1]?.value).toBe(
+      "RESERVED_TOTAL",
+    );
+  });
+
+  it.each([
+    [
+      "a missing funnel table",
+      { kind: "analyticsData#runFunnelReport" },
+    ],
+    [
+      "a first dimension header that is not funnelStepName",
+      {
+        funnelTable: {
+          dimensionHeaders: [{ name: "platform" }],
+          metricHeaders: [
+            { name: "activeUsers" },
+            { name: "funnelStepCompletionRate" },
+            { name: "funnelStepAbandonments" },
+            { name: "funnelStepAbandonmentRate" },
+          ],
+          rows: [],
+        },
+      },
+    ],
+    [
+      "a breakdown header the request never asked for",
+      {
+        funnelTable: {
+          dimensionHeaders: [{ name: "funnelStepName" }, { name: "platform" }],
+          metricHeaders: [
+            { name: "activeUsers" },
+            { name: "funnelStepCompletionRate" },
+            { name: "funnelStepAbandonments" },
+            { name: "funnelStepAbandonmentRate" },
+          ],
+          rows: [],
+        },
+      },
+    ],
+    [
+      "a dropped funnel metric",
+      {
+        funnelTable: {
+          dimensionHeaders: [{ name: "funnelStepName" }],
+          metricHeaders: [{ name: "activeUsers" }],
+          rows: [],
+        },
+      },
+    ],
+    [
+      "a row whose value count disagrees with the headers",
+      {
+        funnelTable: {
+          dimensionHeaders: [{ name: "funnelStepName" }],
+          metricHeaders: [
+            { name: "activeUsers" },
+            { name: "funnelStepCompletionRate" },
+            { name: "funnelStepAbandonments" },
+            { name: "funnelStepAbandonmentRate" },
+          ],
+          rows: [{ dimensionValues: [{ value: "1. a" }], metricValues: [{ value: "1" }] }],
+        },
+      },
+    ],
+  ] as const)("rejects a funnel response with %s", async (_case, payload) => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await expect(
+      runAnalyticsFunnelReport(
+        "1234",
+        {
+          dateRanges: [{ startDate: "7daysAgo", endDate: "yesterday" }],
+          funnel: {
+            steps: [
+              {
+                name: "a",
+                filterExpression: { funnelEventFilter: { eventName: "first_open" } },
+              },
+            ],
+          },
+        },
+        { accessToken: "secret-access-token", fetchImpl },
+      ),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AnalyticsDataApiError>>({
+        kind: "invalid-response",
+      }),
+    );
+  });
+
+  it("reads property metadata over GET on v1beta and reuses the error taxonomy", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            name: "properties/1234/metadata",
+            dimensions: [
+              { apiName: "platform", uiName: "Platform", customDefinition: false },
+              {
+                apiName: "customUser:account_type",
+                uiName: "계정 유형",
+                customDefinition: true,
+              },
+            ],
+            metrics: [{ apiName: "activeUsers", uiName: "Active users" }],
+            comparisons: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { status: "PERMISSION_DENIED" } }), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+
+    const metadata = await getAnalyticsMetadata("1234", {
+      accessToken: "secret-access-token",
+      fetchImpl,
+    });
+
+    const [url, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(
+      "https://analyticsdata.googleapis.com/v1beta/properties/1234/metadata",
+    );
+    expect(init.method).toBe("GET");
+    expect(init.body).toBeUndefined();
+    expect(metadata.dimensions.map(({ apiName }) => apiName)).toEqual([
+      "platform",
+      "customUser:account_type",
+    ]);
+
+    await expect(
+      getAnalyticsMetadata("1234", {
+        accessToken: "secret-access-token",
+        fetchImpl,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AnalyticsDataApiError>>({
+        kind: "permission",
+      }),
+    );
+  });
+
+  it("accepts the implicit trailing dateRange header only when two ranges were requested", async () => {
+    const payload = {
+      dimensionHeaders: [{ name: "date" }, { name: "dateRange" }],
+      metricHeaders: [{ name: "sessions" }],
+      rows: [
+        {
+          dimensionValues: [{ value: "20260901" }, { value: "current" }],
+          metricValues: [{ value: "12" }],
+        },
+      ],
+      rowCount: 1,
+    };
+    const twoRanges = {
+      dateRanges: [
+        { startDate: "28daysAgo", endDate: "yesterday", name: "current" },
+        { startDate: "56daysAgo", endDate: "29daysAgo", name: "previous" },
+      ],
+      dimensions: [{ name: "date" }],
+      metrics: [{ name: "sessions" }],
+    };
+    const oneRange = {
+      dateRanges: [{ startDate: "28daysAgo", endDate: "yesterday" }],
+      dimensions: [{ name: "date" }],
+      metrics: [{ name: "sessions" }],
+    };
+    const respond = () =>
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+
+    const accepted = await runAnalyticsReport("1234", twoRanges, {
+      accessToken: "secret-access-token",
+      fetchImpl: vi.fn().mockResolvedValue(respond()),
+    });
+    expect(accepted.dimensionHeaders.at(-1)?.name).toBe("dateRange");
+
+    await expect(
+      runAnalyticsReport("1234", oneRange, {
+        accessToken: "secret-access-token",
+        fetchImpl: vi.fn().mockResolvedValue(respond()),
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AnalyticsDataApiError>>({
+        kind: "invalid-response",
+      }),
+    );
+  });
+
+  it("serializes a cohort request that carries no top-level dateRanges", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          dimensionHeaders: [{ name: "cohort" }, { name: "cohortNthWeek" }],
+          metricHeaders: [
+            { name: "cohortActiveUsers" },
+            { name: "cohortTotalUsers" },
+          ],
+          rows: [
+            {
+              dimensionValues: [{ value: "2026-08-30" }, { value: "0000" }],
+              metricValues: [{ value: "120" }, { value: "120" }],
+            },
+          ],
+          rowCount: 1,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const request = {
+      dimensions: [{ name: "cohort" }, { name: "cohortNthWeek" }],
+      metrics: [{ name: "cohortActiveUsers" }, { name: "cohortTotalUsers" }],
+      cohortSpec: {
+        cohorts: [
+          {
+            name: "2026-08-30",
+            dimension: "firstSessionDate" as const,
+            dateRange: { startDate: "2026-08-30", endDate: "2026-09-05" },
+          },
+        ],
+        cohortsRange: {
+          granularity: "WEEKLY" as const,
+          startOffset: 0,
+          endOffset: 4,
+        },
+      },
+      limit: 100,
+      returnPropertyQuota: true,
+    };
+
+    await runAnalyticsReport("1234", request, {
+      accessToken: "secret-access-token",
+      fetchImpl,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(body).toEqual(request);
+    expect(body.dateRanges).toBeUndefined();
   });
 });

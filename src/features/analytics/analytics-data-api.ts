@@ -1,6 +1,44 @@
 import { z } from "zod/mini";
 
-const ANALYTICS_DATA_API_ROOT = "https://analyticsdata.googleapis.com/v1beta";
+/**
+ * Same host, two surfaces. `runFunnelReport` only exists on v1alpha; routing by
+ * method keeps that fact in one table instead of scattering a second base URL
+ * through the call sites — and keeps every method on one auth/retry path.
+ */
+const ANALYTICS_DATA_API_ROOTS = {
+  v1beta: "https://analyticsdata.googleapis.com/v1beta",
+  v1alpha: "https://analyticsdata.googleapis.com/v1alpha",
+} as const;
+
+const METHOD_VERSIONS = {
+  runReport: "v1beta",
+  batchRunReports: "v1beta",
+  runRealtimeReport: "v1beta",
+  runFunnelReport: "v1alpha",
+} as const satisfies Record<string, keyof typeof ANALYTICS_DATA_API_ROOTS>;
+
+type AnalyticsDataApiMethod = keyof typeof METHOD_VERSIONS;
+
+/** GA4 appends this dimension itself when a request carries two date ranges. */
+export const DATE_RANGE_DIMENSION = "dateRange";
+
+/** First dimension of every `funnelTable`. */
+export const FUNNEL_STEP_DIMENSION = "funnelStepName";
+
+/**
+ * The four metrics GA4 returns in a `funnelTable`.
+ *
+ * `funnelStepCompletionRate` and `funnelStepAbandonmentRate` are reported with
+ * `type: "TYPE_INTEGER"` but hold fractional strings ("0.412" = 41.2%). Read
+ * them as floats and never branch on the header's `type`.
+ */
+export const FUNNEL_METRICS = [
+  "activeUsers",
+  "funnelStepCompletionRate",
+  "funnelStepAbandonments",
+  "funnelStepAbandonmentRate",
+] as const;
+
 const MAX_RETRIES = 2;
 
 /**
@@ -55,11 +93,88 @@ export type AnalyticsFilterExpression =
   | { orGroup: { expressions: readonly AnalyticsFilterExpression[] } }
   | { notExpression: AnalyticsFilterExpression };
 
-export type AnalyticsRunReportRequest = {
+export type AnalyticsCohort = {
+  name: string;
+  /** GA4 supports no other cohort membership dimension. */
+  dimension: "firstSessionDate";
+  dateRange: { startDate: string; endDate: string };
+};
+
+export type AnalyticsCohortsRange = {
+  granularity: "DAILY" | "WEEKLY" | "MONTHLY";
+  startOffset: number;
+  endOffset: number;
+};
+
+export type AnalyticsCohortSpec = {
+  cohorts: readonly AnalyticsCohort[];
+  cohortsRange: AnalyticsCohortsRange;
+};
+
+export type AnalyticsFunnelParameterFilter = {
+  eventParameterName?: string;
+  itemParameterName?: string;
+  stringFilter?: AnalyticsStringFilter;
+  inListFilter?: AnalyticsInListFilter;
+};
+
+export type AnalyticsFunnelParameterFilterExpression =
+  | { funnelParameterFilter: AnalyticsFunnelParameterFilter }
+  | {
+      andGroup: {
+        expressions: readonly AnalyticsFunnelParameterFilterExpression[];
+      };
+    }
+  | {
+      orGroup: {
+        expressions: readonly AnalyticsFunnelParameterFilterExpression[];
+      };
+    }
+  | { notExpression: AnalyticsFunnelParameterFilterExpression };
+
+export type AnalyticsFunnelEventFilter = {
+  eventName: string;
+  funnelParameterFilterExpression?: AnalyticsFunnelParameterFilterExpression;
+};
+
+export type AnalyticsFunnelFilterExpression =
+  | { funnelEventFilter: AnalyticsFunnelEventFilter }
+  | { funnelFieldFilter: AnalyticsFieldFilter }
+  | { andGroup: { expressions: readonly AnalyticsFunnelFilterExpression[] } }
+  | { orGroup: { expressions: readonly AnalyticsFunnelFilterExpression[] } }
+  | { notExpression: AnalyticsFunnelFilterExpression };
+
+export type AnalyticsFunnelStep = {
+  name: string;
+  /**
+   * Never sent by this app's builders — an unverified request field would ride
+   * to production untested. Kept so a future step definition can opt in.
+   */
+  isDirectlyFollowedBy?: boolean;
+  filterExpression: AnalyticsFunnelFilterExpression;
+};
+
+export type AnalyticsRunFunnelReportRequest = {
   dateRanges: readonly AnalyticsDateRangeRequest[];
+  /** Omitting `isOpenFunnel` means a closed funnel, which is what we want. */
+  funnel: { isOpenFunnel?: boolean; steps: readonly AnalyticsFunnelStep[] };
+  funnelBreakdown?: {
+    breakdownDimension: AnalyticsDimensionRequest;
+    /** GA4 defaults to the first 5 distinct breakdown values. */
+    limit?: number;
+  };
+  dimensionFilter?: AnalyticsFilterExpression;
+  limit?: number;
+  returnPropertyQuota?: boolean;
+};
+
+export type AnalyticsRunReportRequest = {
+  /** Absent on cohort requests — GA4 rejects `dateRanges` beside a `cohortSpec`. */
+  dateRanges?: readonly AnalyticsDateRangeRequest[];
   dimensions?: readonly AnalyticsDimensionRequest[];
   metrics: readonly AnalyticsMetricRequest[];
   dimensionFilter?: AnalyticsFilterExpression;
+  cohortSpec?: AnalyticsCohortSpec;
   orderBys?: readonly AnalyticsOrderByRequest[];
   limit?: number;
   offset?: number;
@@ -117,6 +232,37 @@ const batchResponseSchema = z.looseObject({
   reports: z.prefault(z.array(reportResponseSchema), []),
 });
 
+const funnelSubReportSchema = z.looseObject({
+  dimensionHeaders: z.prefault(z.array(headerSchema), []),
+  metricHeaders: z.prefault(z.array(metricHeaderSchema), []),
+  rows: z.prefault(z.array(rowSchema), []),
+  metadata: z.optional(
+    z.looseObject({
+      samplingMetadatas: z.optional(z.array(samplingMetadataSchema)),
+    }),
+  ),
+});
+
+const funnelResponseSchema = z.looseObject({
+  funnelTable: z.optional(funnelSubReportSchema),
+  funnelVisualization: z.optional(funnelSubReportSchema),
+  /** Optional on purpose: `returnPropertyQuota` is not doc-confirmed for v1alpha. */
+  propertyQuota: z.optional(z.record(z.string(), quotaEntrySchema)),
+  kind: z.optional(z.string()),
+});
+
+const metadataFieldSchema = z.looseObject({
+  apiName: z.string(),
+  uiName: z.optional(z.string()),
+  customDefinition: z.optional(z.boolean()),
+});
+
+const metadataResponseSchema = z.looseObject({
+  name: z.optional(z.string()),
+  dimensions: z.prefault(z.array(metadataFieldSchema), []),
+  metrics: z.prefault(z.array(metadataFieldSchema), []),
+});
+
 const apiErrorBodySchema = z.looseObject({
   error: z.optional(
     z.looseObject({
@@ -129,6 +275,9 @@ const apiErrorBodySchema = z.looseObject({
 
 export type AnalyticsReportResponse = z.infer<typeof reportResponseSchema>;
 export type AnalyticsBatchReportResponse = z.infer<typeof batchResponseSchema>;
+export type AnalyticsFunnelSubReport = z.infer<typeof funnelSubReportSchema>;
+export type AnalyticsFunnelReportResponse = z.infer<typeof funnelResponseSchema>;
+export type AnalyticsMetadataResponse = z.infer<typeof metadataResponseSchema>;
 
 export type AnalyticsDataApiErrorKind =
   | "expired"
@@ -298,9 +447,16 @@ function hasOrderedNames(
 
 function assertReportContract(
   report: AnalyticsReportResponse,
-  request: Pick<AnalyticsRunReportRequest, "dimensions" | "metrics">,
+  request: Pick<AnalyticsRunReportRequest, "dimensions" | "metrics" | "dateRanges">,
 ): void {
-  const expectedDimensions = request.dimensions ?? [];
+  // Two date ranges make GA4 append its own trailing `dateRange` dimension.
+  // Accepting it unconditionally would hide a genuinely reordered response.
+  const expectedDimensions = [
+    ...(request.dimensions ?? []),
+    ...((request.dateRanges?.length ?? 0) > 1
+      ? [{ name: DATE_RANGE_DIMENSION }]
+      : []),
+  ];
   if (
     !hasOrderedNames(report.dimensionHeaders, expectedDimensions) ||
     !hasOrderedNames(report.metricHeaders, request.metrics)
@@ -324,14 +480,51 @@ function assertReportContract(
   }
 }
 
-async function requestAnalyticsData<T>(
-  propertyId: string,
-  method: "runReport" | "batchRunReports" | "runRealtimeReport",
-  body: object,
+function assertFunnelContract(
+  response: AnalyticsFunnelReportResponse,
+  request: Pick<AnalyticsRunFunnelReportRequest, "funnelBreakdown">,
+): asserts response is AnalyticsFunnelReportResponse & {
+  funnelTable: AnalyticsFunnelSubReport;
+} {
+  const table = response.funnelTable;
+  if (!table) invalidAnalyticsResponse();
+  if (table.dimensionHeaders[0]?.name !== FUNNEL_STEP_DIMENSION) {
+    invalidAnalyticsResponse();
+  }
+
+  const breakdownName = request.funnelBreakdown?.breakdownDimension.name;
+  const expectedDimensionCount = breakdownName ? 2 : 1;
+  if (
+    table.dimensionHeaders.length !== expectedDimensionCount ||
+    (breakdownName !== undefined &&
+      table.dimensionHeaders[1]?.name !== breakdownName)
+  ) {
+    invalidAnalyticsResponse();
+  }
+
+  // Looked up by name, never by position: the four funnel metrics are stable
+  // but their order is GA4's business, not ours.
+  const metricNames = new Set(table.metricHeaders.map(({ name }) => name));
+  for (const metric of FUNNEL_METRICS) {
+    if (!metricNames.has(metric)) invalidAnalyticsResponse();
+  }
+
+  for (const row of table.rows) {
+    if (
+      row.dimensionValues.length !== table.dimensionHeaders.length ||
+      row.metricValues.length !== table.metricHeaders.length
+    ) {
+      invalidAnalyticsResponse();
+    }
+  }
+}
+
+async function performAnalyticsRequest<T>(
+  url: string,
+  init: { method: "GET" | "POST"; body?: string },
   schema: z.ZodMiniType<T>,
   options: AnalyticsDataApiOptions,
 ): Promise<T> {
-  const normalizedPropertyId = assertPropertyId(propertyId);
   const accessToken = options.accessToken.trim();
   if (!accessToken) {
     throw new AnalyticsDataApiError(
@@ -341,18 +534,18 @@ async function requestAnalyticsData<T>(
   }
   const fetchImpl = options.fetchImpl ?? fetch;
   const wait = options.wait ?? defaultWait;
-  const url = `${ANALYTICS_DATA_API_ROOT}/properties/${normalizedPropertyId}:${method}`;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+  };
+  if (init.body !== undefined) headers["Content-Type"] = "application/json";
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     let response: Response;
     try {
       response = await fetchImpl(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
+        method: init.method,
+        headers,
+        ...(init.body === undefined ? {} : { body: init.body }),
         signal: options.signal,
       });
     } catch (reason) {
@@ -393,6 +586,23 @@ async function requestAnalyticsData<T>(
   throw new AnalyticsDataApiError(
     "service",
     "Google Analytics 보고서 요청을 완료하지 못했습니다.",
+  );
+}
+
+async function requestAnalyticsData<T>(
+  propertyId: string,
+  method: AnalyticsDataApiMethod,
+  body: object,
+  schema: z.ZodMiniType<T>,
+  options: AnalyticsDataApiOptions,
+): Promise<T> {
+  const normalizedPropertyId = assertPropertyId(propertyId);
+  const root = ANALYTICS_DATA_API_ROOTS[METHOD_VERSIONS[method]];
+  return performAnalyticsRequest(
+    `${root}/properties/${normalizedPropertyId}:${method}`,
+    { method: "POST", body: JSON.stringify(body) },
+    schema,
+    options,
   );
 }
 
@@ -449,4 +659,41 @@ export async function runAnalyticsRealtimeReport(
   );
   assertReportContract(response, request);
   return response;
+}
+
+export async function runAnalyticsFunnelReport(
+  propertyId: string,
+  request: AnalyticsRunFunnelReportRequest,
+  options: AnalyticsDataApiOptions,
+): Promise<AnalyticsFunnelReportResponse> {
+  const response = await requestAnalyticsData(
+    propertyId,
+    "runFunnelReport",
+    request,
+    funnelResponseSchema,
+    options,
+  );
+  assertFunnelContract(response, request);
+  return response;
+}
+
+/**
+ * The property's own dimension and metric catalogue.
+ *
+ * Used to answer one question honestly: has this property registered the
+ * `account_type` user-scoped custom dimension? Guessing "yes" and letting the
+ * report 400 would tell an operator their filter is broken instead of that a
+ * GA4 custom definition is missing.
+ */
+export async function getAnalyticsMetadata(
+  propertyId: string,
+  options: AnalyticsDataApiOptions,
+): Promise<AnalyticsMetadataResponse> {
+  const normalizedPropertyId = assertPropertyId(propertyId);
+  return performAnalyticsRequest(
+    `${ANALYTICS_DATA_API_ROOTS.v1beta}/properties/${normalizedPropertyId}/metadata`,
+    { method: "GET" },
+    metadataResponseSchema,
+    options,
+  );
 }
