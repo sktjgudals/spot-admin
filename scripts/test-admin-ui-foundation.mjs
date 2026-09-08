@@ -505,10 +505,11 @@ test("the analytics dashboard keeps the chart module out of its first chunk", as
   // import. A single-line negative pattern cannot do this: prettier wraps a
   // long import list over several lines, and `import TrendChart, {\n  x,\n}
   // from "./charts/TrendChart"` would then slip past it. The capture stops at
-  // any other `from` so it can never span the imports above it.
+  // any other `from` so it can never span the imports above it, and the
+  // statement must start a line so prose in a comment cannot trip the guard.
   const chartImports = [
     ...dashboard.matchAll(
-      /import\s+((?:(?!\bfrom\b)[\s\S])*?)from\s+["']\.\/charts\/TrendChart["']/g,
+      /^import\s+((?:(?!\bfrom\b)[\s\S])*?)from\s+["']\.\/charts\/TrendChart["']/gm,
     ),
   ];
   assert.ok(
