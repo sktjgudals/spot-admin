@@ -99,4 +99,34 @@ describe("analytics token store", () => {
     expect(getAnalyticsAccessToken()).toBe("ga-token");
     expect(getAnalyticsTokenSnapshot().status).toBe("connected");
   });
+
+  it("reports disconnected on the next snapshot after the admin session changed with no subscribers", () => {
+    setAuthenticatedAdminSession("admin-token", PRINCIPAL);
+    setAnalyticsAccessToken({ accessToken: "ga-token", expiresInSeconds: 3600 });
+    const generationBeforeChange = getAnalyticsTokenSnapshot().generation;
+
+    // No subscribers are attached, so the eager admin-session listener was
+    // never wired up. A component that mounts later must still see the
+    // session change on its very first snapshot read.
+    setAuthenticatedAdminSession("other-token", { ...PRINCIPAL, id: "admin-2" });
+
+    const snapshot = getAnalyticsTokenSnapshot();
+    expect(snapshot.status).toBe("disconnected");
+    expect(snapshot.generation).toBeGreaterThan(generationBeforeChange);
+  });
+
+  it("reconciles when the first subscriber attaches after a session change", () => {
+    setAuthenticatedAdminSession("admin-token", PRINCIPAL);
+    setAnalyticsAccessToken({ accessToken: "ga-token", expiresInSeconds: 3600 });
+
+    setAuthenticatedAdminSession("other-token", { ...PRINCIPAL, id: "admin-2" });
+
+    const listener = vi.fn();
+    const unsubscribe = subscribeAnalyticsToken(listener);
+
+    // The snapshot read below is the assertion, not a second reconciliation
+    // trigger: subscribing itself must already have cleared the stale token.
+    expect(getAnalyticsTokenSnapshot().status).toBe("disconnected");
+    unsubscribe();
+  });
 });
