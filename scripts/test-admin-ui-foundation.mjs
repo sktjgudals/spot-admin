@@ -71,6 +71,10 @@ test("portable design tokens mirror both runtime themes and density foundations"
   assert.equal(tokens.typography.size.data.$value, "12px");
   assert.equal(tokens.spacing.base.$value, "4px");
   assert.ok(tokens.shadow.raised.$value.length >= 1);
+  assert.equal(tokens.color.light.chart["1"].$value, "oklch(0.55 0.19 295)");
+  assert.equal(tokens.color.dark.chart["1"].$value, "oklch(0.72 0.145 295)");
+  assert.equal(Object.keys(tokens.color.light.chart).length, 5);
+  assert.equal(Object.keys(tokens.color.dark.chart).length, 5);
 });
 
 test("interactive tokens and focus indicators retain WCAG contrast in every theme", async () => {
@@ -314,6 +318,9 @@ test("GA4 reporting setup is documented as public build configuration", async ()
   assert.match(operations, /\/super-admin\/analytics/);
   assert.match(operations, /analytics\.readonly/);
   assert.match(operations, /브라우저 메모리/);
+  assert.match(operations, /runFunnelReport/);
+  assert.match(operations, /firstSessionDate/);
+  assert.match(operations, /account_type/);
 });
 
 test("the Next.js bundle can be inspected without a production deployment", async () => {
@@ -473,4 +480,40 @@ test("user detail keeps GA reporting lazy and documents the dopa_uid dimension",
   // The Google grant outlives a route change now; it must not outlive the
   // admin session that authorized it.
   assert.match(tokenStore, /getAdminSessionGeneration/);
+});
+
+test("the analytics dashboard keeps the chart module out of its first chunk", async () => {
+  const [dashboard, chart] = await Promise.all([
+    readFile(
+      new URL("src/features/analytics/AnalyticsDashboard.tsx", root),
+      "utf8",
+    ),
+    readFile(
+      new URL("src/features/analytics/charts/TrendChart.tsx", root),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(
+    dashboard,
+    /createRetryableLazyComponent<TrendChartProps>\(\s*\(\)\s*=>\s*import\("\.\/charts\/TrendChart"\)/,
+  );
+  // `import type` is erased at build time and pulls no chunk; a value import
+  // would drag the whole chart into the analytics route's first payload.
+  assert.doesNotMatch(
+    dashboard,
+    /^import\s+(?!type\b)[^\n]*from\s+["']\.\/charts\/TrendChart["']/m,
+  );
+  assert.match(
+    dashboard,
+    /import type \{ TrendChartProps \} from ["']\.\/charts\/TrendChart["']/,
+  );
+
+  // The chart is hand-written SVG. test-production-hardening.mjs keeps
+  // recharts out of dependencies; this keeps a substitute out too.
+  assert.match(chart, /<svg/);
+  assert.doesNotMatch(
+    chart,
+    /from\s+["'](?:recharts|d3|d3-[a-z]+|victory|@visx\/[a-z]+|chart\.js)["']/,
+  );
 });
