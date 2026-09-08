@@ -111,9 +111,18 @@ export function AnalyticsFilterBar({
         </Button>
       </div>
 
+      {/* A disabled control with no reason beside it reads as a broken screen.
+          "unknown" is a failed metadata read, not a missing definition: saying
+          "register account_type" there would send an operator to GA4 to add a
+          dimension the property may well already have. */}
       {accountTypeAvailability === "unavailable" ? (
         <p className="basis-full text-xs leading-5 text-muted-foreground">
           GA4 맞춤 정의에 사용자 속성 account_type을 등록하면 사용할 수 있습니다.
+        </p>
+      ) : null}
+      {accountTypeAvailability === "unknown" ? (
+        <p className="basis-full text-xs leading-5 text-muted-foreground">
+          GA4 속성 정보를 읽지 못해 계정 유형 필터를 사용할 수 없습니다.
         </p>
       ) : null}
       {disabled ? (

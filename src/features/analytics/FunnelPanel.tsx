@@ -29,17 +29,30 @@ export type FunnelPanelProps = {
   onFunnelIdChange: (funnelId: FunnelId) => void;
   breakdown: boolean;
   onBreakdownChange: (breakdown: boolean) => void;
+  /**
+   * The query is showing `keepPreviousData` while the newly selected preset or
+   * breakdown loads (`isPlaceholderData`).
+   */
+  isRefreshing?: boolean;
 };
 
+/**
+ * Two clocks run here: the controls hold what was just asked for, and
+ * `result` holds what is drawn. `keepPreviousData` means they disagree for a
+ * moment, so everything below the controls — title, description, steps,
+ * breakdown rows — is read from `result` (which belongs to `result.funnelId`)
+ * and the gap is named out loud rather than papered over.
+ */
 export function FunnelPanel({
   result,
   funnelId,
   onFunnelIdChange,
   breakdown,
   onBreakdownChange,
+  isRefreshing = false,
 }: FunnelPanelProps) {
   return (
-    <Card>
+    <Card aria-busy={isRefreshing ? "true" : undefined}>
       <CardHeader>
         <CardTitle>{result.title}</CardTitle>
         <CardDescription className="mt-1">{result.description}</CardDescription>
@@ -70,6 +83,16 @@ export function FunnelPanel({
             />
             플랫폼별 보기
           </label>
+          {/* `aria-hidden`: the dashboard's live region already announces the
+              refresh, and saying it twice is worse than saying it once. */}
+          {isRefreshing ? (
+            <p
+              aria-hidden="true"
+              className="min-h-9 animate-pulse content-center text-xs font-medium text-muted-foreground"
+            >
+              보고서 갱신 중…
+            </p>
+          ) : null}
         </div>
 
         {result.isEmpty ? (
@@ -82,7 +105,7 @@ export function FunnelPanel({
             {result.steps.map((step) => (
               <li key={step.index} className="space-y-2">
                 <FunnelStepRow step={step} color="var(--chart-1)" />
-                {breakdown && result.breakdown ? (
+                {result.breakdown ? (
                   <ul className="space-y-2 border-l pl-4">
                     {result.breakdown.rows.map((row, rowIndex) => {
                       const rowStep = row.steps[step.index];

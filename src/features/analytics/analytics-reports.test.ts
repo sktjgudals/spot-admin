@@ -66,11 +66,21 @@ function report({
   };
 }
 
+/**
+ * The trend series is anchored to the requested window, which ends at GA4's
+ * `yesterday` — so every series test has to say which day "yesterday" is.
+ * Built from local Y/M/D at midday, like `analytics-retention.test.ts`, so the
+ * suite reads the same day in every time zone.
+ */
+const SERIES_NOW = new Date(2026, 8, 4, 12, 0, 0);
+const ZERO_POINT = { activeUsers: 0, newUsers: 0, sessions: 0 };
+
 const baseInput = {
   property: { id: "1234", label: "Dopa", platform: "mixed" as const },
   range: "28d" as const,
   filters: EMPTY_FILTERS,
   accessToken: "memory-token",
+  now: SERIES_NOW,
 };
 
 const OVERVIEW_SUMMARY_METRICS = [
@@ -152,8 +162,16 @@ describe("fetchAnalyticsReport", () => {
     expect(requests?.[3]?.dimensions).toEqual([{ name: "platform" }]);
 
     // A day GA4 never returned is a zero, not a hole — and its previous-period
-    // partner still lines up by position.
-    expect(result.series.points).toEqual([
+    // partner is the same day one window earlier, not whatever row happened to
+    // land at the same index.
+    expect(result.series.points).toHaveLength(28);
+    expect(result.series.points[0]).toEqual({
+      date: "20260807",
+      previousDate: "20260710",
+      current: ZERO_POINT,
+      previous: ZERO_POINT,
+    });
+    expect(result.series.points.slice(-3)).toEqual([
       {
         date: "20260901",
         previousDate: "20260804",
@@ -163,7 +181,7 @@ describe("fetchAnalyticsReport", () => {
       {
         date: "20260902",
         previousDate: "20260805",
-        current: { activeUsers: 0, newUsers: 0, sessions: 0 },
+        current: ZERO_POINT,
         previous: { activeUsers: 9, newUsers: 3, sessions: 10 },
       },
       {
@@ -223,14 +241,122 @@ describe("fetchAnalyticsReport", () => {
     const result = await fetchAnalyticsReport({ ...baseInput, view: "overview" });
 
     if (result.view !== "overview") throw new Error("Expected overview result");
-    expect(result.series.points).toEqual([
-      {
-        date: "20260901",
-        previousDate: "20260804",
-        current: { activeUsers: 10, newUsers: 4, sessions: 12 },
-        previous: { activeUsers: 8, newUsers: 3, sessions: 9 },
-      },
+    const byDate = new Map(result.series.points.map((point) => [point.date, point]));
+    expect(byDate.get("20260901")).toEqual({
+      date: "20260901",
+      previousDate: "20260804",
+      current: { activeUsers: 10, newUsers: 4, sessions: 12 },
+      previous: { activeUsers: 8, newUsers: 3, sessions: 9 },
+    });
+    // The row in neither window is dropped, so 20260805 stays a zero rather
+    // than lending its counts to the day it is the previous partner of.
+    expect(byDate.get("20260902")).toEqual({
+      date: "20260902",
+      previousDate: "20260805",
+      current: ZERO_POINT,
+      previous: ZERO_POINT,
+    });
+  });
+
+  it("pairs every previous-period day by date even when GA4 omits the window's first days", async () => {
+    vi.mocked(batchRunAnalyticsReports).mockResolvedValue({
+      reports: [
+        report({ metrics: OVERVIEW_SUMMARY_METRICS, rows: [{ metrics: ["1", "1", "1", "0", "0", "0"] }] }),
+        report({ metrics: OVERVIEW_SUMMARY_METRICS, rows: [{ metrics: ["1", "1", "1", "0", "0", "0"] }] }),
+        report({
+          dimensions: ["date", "dateRange"],
+          metrics: ["activeUsers", "newUsers", "sessions"],
+          rows: [
+            { dimensions: ["20260828", "current"], metrics: ["10", "1", "11"] },
+            { dimensions: ["20260903", "current"], metrics: ["20", "2", "21"] },
+            // 20260821 and 20260822 had no events at all, so GA4 returns no
+            // row for them: the window starts two days in.
+            { dimensions: ["20260823", "previous"], metrics: ["3", "1", "3"] },
+            { dimensions: ["20260827", "previous"], metrics: ["7", "2", "7"] },
+          ],
+        }),
+        report({
+          dimensions: ["platform", "dateRange"],
+          metrics: ["activeUsers", "newUsers", "sessions"],
+          rows: [],
+        }),
+      ],
+    });
+
+    const result = await fetchAnalyticsReport({
+      ...baseInput,
+      range: "7d",
+      view: "overview",
+    });
+
+    if (result.view !== "overview") throw new Error("Expected overview result");
+    const points = result.series.points;
+    expect(points).toHaveLength(7);
+    // Day one of the current window keeps day one of the previous window,
+    // exactly RANGE_DAYS earlier — not the first day GA4 happened to return.
+    expect(points[0]).toEqual({
+      date: "20260828",
+      previousDate: "20260821",
+      current: { activeUsers: 10, newUsers: 1, sessions: 11 },
+      previous: ZERO_POINT,
+    });
+    expect(points[1]?.previousDate).toBe("20260822");
+    expect(points[1]?.previous).toEqual(ZERO_POINT);
+    expect(points[2]).toEqual({
+      date: "20260830",
+      previousDate: "20260823",
+      current: ZERO_POINT,
+      previous: { activeUsers: 3, newUsers: 1, sessions: 3 },
+    });
+    // No null tail: the last days of the window still carry their partner.
+    expect(points.at(-1)).toEqual({
+      date: "20260903",
+      previousDate: "20260827",
+      current: { activeUsers: 20, newUsers: 2, sessions: 21 },
+      previous: { activeUsers: 7, newUsers: 2, sessions: 7 },
+    });
+    expect(points.every((point) => point.previous !== null)).toBe(true);
+  });
+
+  it("spans the whole requested window when GA4 omits the current window's first days", async () => {
+    vi.mocked(batchRunAnalyticsReports).mockResolvedValue({
+      reports: [
+        report({ metrics: OVERVIEW_SUMMARY_METRICS, rows: [{ metrics: ["1", "1", "1", "0", "0", "0"] }] }),
+        report({ metrics: OVERVIEW_SUMMARY_METRICS, rows: [{ metrics: ["1", "1", "1", "0", "0", "0"] }] }),
+        report({
+          dimensions: ["date", "dateRange"],
+          metrics: ["activeUsers", "newUsers", "sessions"],
+          rows: [
+            { dimensions: ["20260902", "current"], metrics: ["5", "1", "6"] },
+            { dimensions: ["20260903", "current"], metrics: ["6", "2", "7"] },
+          ],
+        }),
+        report({
+          dimensions: ["platform", "dateRange"],
+          metrics: ["activeUsers", "newUsers", "sessions"],
+          rows: [],
+        }),
+      ],
+    });
+
+    const result = await fetchAnalyticsReport({
+      ...baseInput,
+      range: "7d",
+      view: "overview",
+    });
+
+    if (result.view !== "overview") throw new Error("Expected overview result");
+    expect(result.series.points).toHaveLength(7);
+    expect(result.series.points.map(({ date }) => date)).toEqual([
+      "20260828",
+      "20260829",
+      "20260830",
+      "20260831",
+      "20260901",
+      "20260902",
+      "20260903",
     ]);
+    expect(result.series.points[0]?.current).toEqual(ZERO_POINT);
   });
 
   it.each([

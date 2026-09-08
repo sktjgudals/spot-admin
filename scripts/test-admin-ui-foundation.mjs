@@ -500,10 +500,28 @@ test("the analytics dashboard keeps the chart module out of its first chunk", as
   );
   // `import type` is erased at build time and pulls no chunk; a value import
   // would drag the whole chart into the analytics route's first payload.
-  assert.doesNotMatch(
-    dashboard,
-    /^import\s+(?!type\b)[^\n]*from\s+["']\.\/charts\/TrendChart["']/m,
+  //
+  // Read every static import of the module and require each one to be a type
+  // import. A single-line negative pattern cannot do this: prettier wraps a
+  // long import list over several lines, and `import TrendChart, {\n  x,\n}
+  // from "./charts/TrendChart"` would then slip past it. The capture stops at
+  // any other `from` so it can never span the imports above it.
+  const chartImports = [
+    ...dashboard.matchAll(
+      /import\s+((?:(?!\bfrom\b)[\s\S])*?)from\s+["']\.\/charts\/TrendChart["']/g,
+    ),
+  ];
+  assert.ok(
+    chartImports.length > 0,
+    "AnalyticsDashboard.tsx no longer imports ./charts/TrendChart; this guard is watching nothing.",
   );
+  for (const match of chartImports) {
+    assert.match(
+      match[1].trim(),
+      /^type\b/,
+      "AnalyticsDashboard.tsx must import ./charts/TrendChart as a type only.",
+    );
+  }
   assert.match(
     dashboard,
     /import type \{ TrendChartProps \} from ["']\.\/charts\/TrendChart["']/,

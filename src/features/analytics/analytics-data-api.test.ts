@@ -275,7 +275,7 @@ describe("Google Analytics Data API client", () => {
     );
   });
 
-  it("leaves other 400 responses as generic request errors", async () => {
+  it("leaves other 400 responses as generic request errors but keeps Google's message", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({ error: { code: 400, message: "Invalid date range." } }),
@@ -283,13 +283,20 @@ describe("Google Analytics Data API client", () => {
       ),
     );
 
-    await expect(
-      runAnalyticsReport("1234", reportBody, {
-        accessToken: "secret-access-token",
-        fetchImpl,
-      }),
-    ).rejects.toEqual(
-      expect.objectContaining<Partial<AnalyticsDataApiError>>({ kind: "request" }),
+    const error = await runAnalyticsReport("1234", reportBody, {
+      accessToken: "secret-access-token",
+      fetchImpl,
+    }).catch((reason: unknown) => reason);
+
+    expect(error).toBeInstanceOf(AnalyticsDataApiError);
+    expect((error as AnalyticsDataApiError).kind).toBe("request");
+    // Two different funnel rejections share this kind; without the message the
+    // screen cannot say which one happened.
+    expect((error as AnalyticsDataApiError).apiMessage).toBe("Invalid date range.");
+    // The message comes from the response body alone — never from the request
+    // headers that carried the access token.
+    expect(JSON.stringify((error as AnalyticsDataApiError).options)).not.toContain(
+      "secret-access-token",
     );
   });
 

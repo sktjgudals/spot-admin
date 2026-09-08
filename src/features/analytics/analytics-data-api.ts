@@ -417,10 +417,14 @@ async function classifyResponseError(response: Response): Promise<AnalyticsDataA
       { status: response.status, apiMessage },
     );
   }
+  // `apiMessage` is the response body's `error.message` and nothing else: the
+  // funnel's v1alpha rejections all land here, and the message is the only
+  // thing that separates an unknown request field from an event parameter the
+  // property never registered.
   return new AnalyticsDataApiError(
     "request",
     "Google Analytics 보고서 요청을 처리하지 못했습니다.",
-    { status: response.status },
+    { status: response.status, apiMessage },
   );
 }
 

@@ -60,11 +60,18 @@ export function AnalyticsErrorState({
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
             <AlertCircle className="size-5" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="font-semibold">{presentation.title}</h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
               {presentation.description}
             </p>
+            {/* Google's own sentence, verbatim: it is usually the only thing
+                that says which field or request key GA4 refused. */}
+            {presentation.detail ? (
+              <p className="mt-2 max-w-2xl break-words font-mono text-xs leading-5 text-muted-foreground">
+                GA4 응답: {presentation.detail}
+              </p>
+            ) : null}
           </div>
         </div>
         <Button variant="outline" onClick={retry}>
@@ -75,15 +82,34 @@ export function AnalyticsErrorState({
   );
 }
 
+/**
+ * The field GA4 refused, read out of its own sentence.
+ *
+ * Every report that filters by a custom definition can land here —
+ * `customUser:dopa_uid` from the user timeline, `customUser:account_type`
+ * from the account-type filter — so the copy names whichever one the property
+ * is actually missing instead of guessing one of them.
+ */
+function missingFieldName(apiMessage: string | undefined): string | null {
+  const matched = apiMessage?.match(
+    /([A-Za-z][A-Za-z0-9_.]*(?::[A-Za-z0-9_.]+)?)\s+is not a valid (?:dimension|metric)/i,
+  );
+  return matched?.[1] ?? null;
+}
+
 export function errorPresentation(error: AnalyticsDataApiError | null): {
   title: string;
   description: string;
+  /** Google's raw message, shown verbatim when the copy cannot say more. */
+  detail?: string;
 } {
   if (error?.kind === "unknown-field") {
+    const field = missingFieldName(error.apiMessage);
     return {
-      title: "GA4에 사용자 식별 측정기준이 아직 없어요",
-      description:
-        "GA4 맞춤 정의에 사용자 범위 맞춤 측정기준 dopa_uid를 등록하면 조회할 수 있습니다.",
+      title: `GA4에 ${field ?? "요청한 사용자 속성"} 측정기준이 아직 없어요`,
+      description: field
+        ? `GA4 맞춤 정의에서 사용자 범위 맞춤 측정기준 ${field} 등록이 필요합니다. 등록한 이후에 수집된 이벤트부터 조회할 수 있습니다.`
+        : "GA4 맞춤 정의에서 요청한 사용자 속성 측정기준 등록이 필요합니다. 등록한 이후에 수집된 이벤트부터 조회할 수 있습니다.",
     };
   }
   if (error?.kind === "permission") {
@@ -105,6 +131,10 @@ export function errorPresentation(error: AnalyticsDataApiError | null): {
     return {
       title: "보고서 정의를 처리하지 못했습니다.",
       description: "GA4 맞춤 정의와 dimension·metric 호환성을 확인해 주세요.",
+      // A v1alpha funnel rejects an unknown request field and an unregistered
+      // event parameter with the same generic copy; only Google's sentence
+      // tells the two apart.
+      ...(error.apiMessage ? { detail: error.apiMessage } : {}),
     };
   }
   return {

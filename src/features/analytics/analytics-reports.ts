@@ -57,6 +57,8 @@ export type FetchAnalyticsReportInput = {
   funnelBreakdown?: boolean;
   accessToken: string;
   signal?: AbortSignal;
+  /** Injectable clock: the trend series has to know which day is "yesterday". */
+  now?: Date;
 };
 
 type ReportDefinition = {
@@ -200,41 +202,37 @@ function trendValues(row: Record<string, string>): AnalyticsTrendValues {
   };
 }
 
-function parseGaDay(value: string): number {
-  return Date.UTC(
-    Number(value.slice(0, 4)),
-    Number(value.slice(4, 6)) - 1,
-    Number(value.slice(6, 8)),
-  );
-}
-
 function formatGaDay(timestamp: number): string {
   return new Date(timestamp).toISOString().slice(0, 10).replaceAll("-", "");
 }
 
 /**
- * GA4 omits a day with no events entirely. Left as-is, the chart would draw a
- * straight line across the gap and hide the outage that caused it.
+ * The last day the request asked for.
+ *
+ * `analyticsDateRange` ends the current window at GA4's `yesterday`, so the
+ * series has to end there too. The day is read from the operator's local
+ * calendar and then carried in UTC purely as a day counter, the same way
+ * `analytics-retention.ts` reads its cohort weeks: taking UTC fields directly
+ * would put an operator in Seoul on yesterday's date for nine hours every
+ * morning. The GA4 property's own time zone can still differ by a day; that
+ * shows up as one zero-filled day at an edge, never as a shifted comparison.
  */
-function fillMissingDates(dates: readonly string[]): string[] {
-  const valid = [...dates].filter((date) => /^\d{8}$/.test(date)).sort();
-  const first = valid[0];
-  const last = valid.at(-1);
-  if (first === undefined || last === undefined) return [];
-
-  const filled: string[] = [];
-  for (
-    let cursor = parseGaDay(first);
-    cursor <= parseGaDay(last);
-    cursor += DAY_MS
-  ) {
-    filled.push(formatGaDay(cursor));
-  }
-  return filled;
+function windowEndDay(now: Date): number {
+  return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - DAY_MS;
 }
 
+/**
+ * GA4 omits a day with no events entirely — in either window, at either end.
+ * So the series is built from the window that was *requested*, not from the
+ * days that came back: `RANGE_DAYS[range]` days ending at `yesterday`, each
+ * paired with the same calendar day one window earlier. Pairing by position
+ * instead would shift every "이전 기간" value by however many days GA4 left
+ * out, and drop the tail of the comparison entirely.
+ */
 function shapeSeries(
   report: AnalyticsReportResponse | undefined,
+  range: AnalyticsDateRange,
+  now: Date,
 ): AnalyticsTrendSeries {
   if (!report) return { points: [] };
   const current = new Map<string, AnalyticsTrendValues>();
@@ -246,22 +244,25 @@ function shapeSeries(
     (slot === "current" ? current : previous).set(row.date ?? "", trendValues(row));
   }
 
-  const currentDates = fillMissingDates([...current.keys()]);
-  const previousDates = fillMissingDates([...previous.keys()]);
-  return {
-    points: currentDates.map((date, index) => {
-      const previousDate = previousDates[index] ?? null;
-      return {
-        date,
-        previousDate,
-        current: current.get(date) ?? ZERO_TREND,
-        previous:
-          previousDate === null
-            ? null
-            : (previous.get(previousDate) ?? ZERO_TREND),
-      };
-    }),
-  };
+  // A property that returned nothing at all for the current window has no
+  // trend to draw: a full window of zeros would read as a measured collapse.
+  if (current.size === 0) return { points: [] };
+
+  const days = RANGE_DAYS[range];
+  const end = windowEndDay(now);
+  const points = Array.from({ length: days }, (_unused, index) => {
+    const timestamp = end - (days - 1 - index) * DAY_MS;
+    const date = formatGaDay(timestamp);
+    const previousDate = formatGaDay(timestamp - days * DAY_MS);
+    return {
+      date,
+      previousDate,
+      current: current.get(date) ?? ZERO_TREND,
+      // A day GA4 omitted had no events, which is a zero — never a hole.
+      previous: previous.get(previousDate) ?? ZERO_TREND,
+    };
+  });
+  return { points };
 }
 
 function shapePlatforms(
@@ -349,7 +350,7 @@ async function fetchOverview(
     previousValue: firstMetric(previous, key),
     format: FIELD_FORMATS[key] ?? "integer",
   }));
-  const series = shapeSeries(seriesReport);
+  const series = shapeSeries(seriesReport, input.range, input.now ?? new Date());
   const platforms = shapePlatforms(platformReport);
   const currencyCode = currencyFromReports(response.reports);
   const qualityDefinitions = [

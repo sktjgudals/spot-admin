@@ -56,7 +56,7 @@ afterEach(cleanup);
 function renderPanel(overrides: Partial<React.ComponentProps<typeof FunnelPanel>> = {}) {
   const onFunnelIdChange = vi.fn();
   const onBreakdownChange = vi.fn();
-  render(
+  const view = render(
     <FunnelPanel
       result={result()}
       funnelId="party-apply"
@@ -66,7 +66,10 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof FunnelPanel>
       {...overrides}
     />,
   );
-  return { onFunnelIdChange, onBreakdownChange };
+  // Every preset title is also an <option>, so the card's own title has to be
+  // read from the card rather than from the document.
+  const cardTitle = () => view.container.querySelector('[data-slot="card-title"]');
+  return { onFunnelIdChange, onBreakdownChange, cardTitle };
 }
 
 describe("FunnelPanel", () => {
@@ -129,11 +132,14 @@ describe("FunnelPanel", () => {
     expect(screen.getByText("600명")).toBeInTheDocument();
   });
 
-  it("drops the breakdown rows the moment the box is unchecked", () => {
+  it("keeps the result whole while the unchecked request is in flight", () => {
     // `keepPreviousData` hands back the previous result while the unbroken-down
-    // one loads, so the checkbox — not the stale payload — decides what shows.
+    // one loads. Steps, title and breakdown rows all come from that one result,
+    // so the panel never shows a half-old, half-new funnel; the busy marker
+    // says the checkbox has been heard.
     renderPanel({
       breakdown: false,
+      isRefreshing: true,
       result: result({
         breakdown: {
           dimension: "platform",
@@ -151,9 +157,29 @@ describe("FunnelPanel", () => {
       }),
     });
 
-    expect(screen.queryByText("iOS")).not.toBeInTheDocument();
-    expect(screen.queryByText("600명")).not.toBeInTheDocument();
+    expect(screen.getAllByText("iOS")).toHaveLength(3);
     expect(screen.getByText("1. 파티 상세")).toBeInTheDocument();
+    expect(screen.getByText("보고서 갱신 중…")).toBeInTheDocument();
+  });
+
+  it("keeps the title on the funnel that is drawn and the select on the one that was asked for", () => {
+    // Mid-refetch the select is already 결제 while the steps on screen are
+    // still 파티 신청's. Labelling those steps 결제 would be a lie.
+    const { cardTitle } = renderPanel({
+      funnelId: "party-payment",
+      isRefreshing: true,
+      result: result({ funnelId: "party-apply", title: "파티 신청" }),
+    });
+
+    expect(screen.getByLabelText("퍼널")).toHaveValue("party-payment");
+    expect(cardTitle()).toHaveTextContent("파티 신청");
+    expect(screen.getByText("보고서 갱신 중…")).toBeInTheDocument();
+  });
+
+  it("shows no busy marker once the result matches the controls", () => {
+    renderPanel();
+
+    expect(screen.queryByText("보고서 갱신 중…")).not.toBeInTheDocument();
   });
 
   it("blames the instrumentation, not the product, when step one is empty", () => {

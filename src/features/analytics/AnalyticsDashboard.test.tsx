@@ -213,9 +213,13 @@ describe("AnalyticsDashboard", () => {
     await screen.findByText("선택한 기간에 수집된 데이터가 없습니다.");
     await user.click(screen.getByRole("button", { name: "유입" }));
 
-    const loading = screen.getByRole("status", {
-      name: "Google Analytics 보고서 로딩 중",
-    });
+    // The live region carries no `aria-label`: its content is the message, and
+    // a label would have a screen reader read the announcement twice.
+    const loading = screen.getByText(
+      "Google Analytics 보고서를 불러오는 중입니다.",
+    );
+    expect(loading).toHaveAttribute("role", "status");
+    expect(loading).not.toHaveAttribute("aria-label");
     expect(loading).toHaveAttribute("aria-live", "polite");
     expect(loading).toHaveAttribute("aria-atomic", "true");
     expect(loading).toHaveAttribute("aria-busy", "true");
@@ -727,11 +731,15 @@ describe("AnalyticsDashboard", () => {
 
     await user.click(screen.getByRole("button", { name: "iOS" }));
 
-    const busy = await screen.findByRole("status", { name: "필터 적용 중" });
-    expect(busy).toHaveAttribute("aria-busy", "true");
-    expect(busy).toHaveTextContent(
-      "필터 적용 중입니다. 이전 결과를 표시하고 있습니다.",
+    // A filter is only one of the things that can be in flight — the same
+    // state covers a preset, a breakdown and a date range — so the wording
+    // names the refresh, not the control.
+    const busy = await screen.findByText(
+      "보고서 갱신 중입니다. 이전 결과를 표시하고 있습니다.",
     );
+    expect(busy).toHaveAttribute("role", "status");
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    expect(busy).not.toHaveAttribute("aria-label");
     // No skeleton flash: the row an operator was reading is still there.
     expect(screen.getByText("Organic Search")).toBeInTheDocument();
   });

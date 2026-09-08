@@ -61,6 +61,33 @@ describe("AnalyticsFilterBar", () => {
     ).toBeInTheDocument();
   });
 
+  it("says the property metadata could not be read when availability is unknown", () => {
+    renderBar({ accountTypeAvailability: "unknown" });
+
+    expect(screen.getByLabelText("계정 유형")).toBeDisabled();
+    expect(
+      screen.getByText(
+        "GA4 속성 정보를 읽지 못해 계정 유형 필터를 사용할 수 없습니다.",
+      ),
+    ).toBeInTheDocument();
+    // Not the "register account_type" hint: nothing says the property lacks it.
+    expect(
+      screen.queryByText(
+        "GA4 맞춤 정의에 사용자 속성 account_type을 등록하면 사용할 수 있습니다.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("leaves the account-type filter enabled and unexplained when it is available", () => {
+    renderBar({ accountTypeAvailability: "available" });
+
+    expect(screen.getByLabelText("계정 유형")).toBeEnabled();
+    expect(
+      screen.queryByText(/계정 유형 필터를 사용할 수 없습니다/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/account_type을 등록하면/)).not.toBeInTheDocument();
+  });
+
   it("says the realtime report ignores filters rather than silently dropping them", () => {
     renderBar({ disabled: true });
 

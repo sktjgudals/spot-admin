@@ -566,7 +566,13 @@ function AnalyticsQueryView({
       </div>
     );
   } else {
-    content = <AnalyticsReportContent result={query.data} {...controls} />;
+    content = (
+      <AnalyticsReportContent
+        result={query.data}
+        isRefreshing={query.isPlaceholderData}
+        {...controls}
+      />
+    );
   }
 
   return (
@@ -580,18 +586,15 @@ function AnalyticsQueryView({
           aria-busy={
             query.isPending || query.isPlaceholderData ? "true" : undefined
           }
-          aria-label={
-            query.isPending
-              ? "Google Analytics 보고서 로딩 중"
-              : query.isPlaceholderData
-                ? "필터 적용 중"
-                : undefined
-          }
         >
+          {/* No `aria-label`: it would override this text as the region's
+              accessible name and have the announcement read twice. */}
           {query.isPending
             ? "Google Analytics 보고서를 불러오는 중입니다."
             : query.isPlaceholderData
-              ? "필터 적용 중입니다. 이전 결과를 표시하고 있습니다."
+              ? // A filter is only one of the controls that lands here; the
+                // funnel preset, its breakdown and the date range do too.
+                "보고서 갱신 중입니다. 이전 결과를 표시하고 있습니다."
               : completionAnnouncement}
         </p>
       ) : null}
@@ -674,6 +677,7 @@ function AnalyticsEmptyState({
 
 function AnalyticsReportContent({
   result,
+  isRefreshing,
   funnelId,
   funnelBreakdown,
   trendMetric,
@@ -682,7 +686,11 @@ function AnalyticsReportContent({
   onFunnelBreakdownChange,
   onTrendMetricChange,
   onShowPreviousChange,
-}: AnalyticsViewControls & { result: AnalyticsReportResult }) {
+}: AnalyticsViewControls & {
+  result: AnalyticsReportResult;
+  /** `keepPreviousData` is on screen while the new request is in flight. */
+  isRefreshing: boolean;
+}) {
   return (
     <div className="space-y-4">
       <DataQualityPanel notices={result.dataQualityNotices} />
@@ -707,6 +715,7 @@ function AnalyticsReportContent({
           onFunnelIdChange={onFunnelIdChange}
           breakdown={funnelBreakdown}
           onBreakdownChange={onFunnelBreakdownChange}
+          isRefreshing={isRefreshing}
         />
       ) : result.view === "retention" ? (
         <RetentionHeatmap result={result} />
