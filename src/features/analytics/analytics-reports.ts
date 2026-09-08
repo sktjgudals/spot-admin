@@ -1,30 +1,64 @@
 import {
-  AnalyticsDataApiError,
   batchRunAnalyticsReports,
   runAnalyticsRealtimeReport,
+  DATE_RANGE_DIMENSION,
+  getAnalyticsMetadata,
   type AnalyticsDataApiOptions,
+  type AnalyticsFilterExpression,
   type AnalyticsReportResponse,
   type AnalyticsRunRealtimeReportRequest,
   type AnalyticsRunReportRequest,
 } from "./analytics-data-api";
+import {
+  ACCOUNT_TYPE_DIMENSION,
+  buildDimensionFilter,
+  normalizePlatform,
+  type AnalyticsFilters,
+} from "./analytics-filters";
+import { fetchFunnel } from "./analytics-funnel";
+import { buildInsights } from "./analytics-insights";
+import { fetchRetention } from "./analytics-retention";
+import { FUNNEL_IDS, type FunnelId } from "./funnel-definitions";
+import {
+  RANGE_DAYS,
+  analyticsDateRange,
+  currencyFromReports,
+  dataQualityNoticesForReport,
+  emptyReport,
+  firstMetric,
+  numericValue,
+  quotaFromReports,
+  reportRows,
+  type AnalyticsReportScope,
+  type ReportQualityMetadata,
+} from "./analytics-report-shaping";
 import type {
   AnalyticsDateRange,
   AnalyticsDataQualityNotice,
   AnalyticsMetricValue,
   AnalyticsPropertyConfig,
-  AnalyticsQuotaState,
+  AnalyticsPlatformBreakdown,
   AnalyticsReportColumn,
   AnalyticsReportResult,
   AnalyticsReportTable,
   AnalyticsReportView,
+  AnalyticsTrendSeries,
+  AnalyticsTrendValues,
 } from "./types";
+import { ANALYTICS_TREND_METRICS } from "./types";
 
-type FetchAnalyticsReportInput = {
+export type FetchAnalyticsReportInput = {
   view: AnalyticsReportView;
   property: AnalyticsPropertyConfig;
   range: AnalyticsDateRange;
+  filters: AnalyticsFilters;
+  /** Only read by the funnel view. */
+  funnelId?: FunnelId;
+  funnelBreakdown?: boolean;
   accessToken: string;
   signal?: AbortSignal;
+  /** Injectable clock: the trend series has to know which day is "yesterday". */
+  now?: Date;
 };
 
 type ReportDefinition = {
@@ -32,12 +66,6 @@ type ReportDefinition = {
   title: string;
   description: string;
   request: AnalyticsRunReportRequest;
-};
-
-const RANGE_DAYS: Record<AnalyticsDateRange, number> = {
-  "7d": 7,
-  "28d": 28,
-  "90d": 90,
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -83,59 +111,12 @@ const OVERVIEW_METRICS = [
   "totalRevenue",
 ] as const;
 
-function dateRange(range: AnalyticsDateRange, previous = false) {
-  const days = RANGE_DAYS[range];
-  return previous
-    ? { startDate: `${days * 2}daysAgo`, endDate: `${days + 1}daysAgo` }
-    : { startDate: `${days}daysAgo`, endDate: "yesterday" };
-}
-
 function metricRequests(names: readonly string[]) {
   return names.map((name) => ({ name }));
 }
 
 function dimensionRequests(names: readonly string[]) {
   return names.map((name) => ({ name }));
-}
-
-function assertFiniteNumericString(value: string | undefined): asserts value is string {
-  const parsed = typeof value === "string" && value.trim() !== "" ? Number(value) : NaN;
-  if (!Number.isFinite(parsed)) {
-    throw new AnalyticsDataApiError(
-      "invalid-response",
-      "Google Analytics 응답에 올바르지 않은 숫자 값이 포함되어 있습니다.",
-    );
-  }
-}
-
-function numericValue(value: string | undefined): number {
-  assertFiniteNumericString(value);
-  const parsed = Number(value);
-  return parsed;
-}
-
-function firstMetric(report: AnalyticsReportResponse | undefined, metricName: string): number {
-  if (!report) return 0;
-  const metricIndex = report.metricHeaders.findIndex(({ name }) => name === metricName);
-  if (metricIndex < 0) return 0;
-  const row = report.rows[0] ?? report.totals[0];
-  if (!row) return 0;
-  return numericValue(row.metricValues[metricIndex]?.value);
-}
-
-function reportRows(report: AnalyticsReportResponse): Array<Record<string, string>> {
-  return report.rows.map((row) => {
-    const output: Record<string, string> = {};
-    report.dimensionHeaders.forEach(({ name }, index) => {
-      output[name] = row.dimensionValues[index]?.value ?? "";
-    });
-    report.metricHeaders.forEach(({ name }, index) => {
-      const value = row.metricValues[index]?.value;
-      assertFiniteNumericString(value);
-      output[name] = value;
-    });
-    return output;
-  });
 }
 
 function reportColumns(report: AnalyticsReportResponse): AnalyticsReportColumn[] {
@@ -166,99 +147,202 @@ function toTable(
   };
 }
 
-export function dataQualityNoticesForReport(
-  report: AnalyticsReportResponse | undefined,
-  definition: Pick<ReportDefinition, "key" | "title">,
-): AnalyticsDataQualityNotice[] {
-  if (!report?.metadata) return [];
-  const scope = { reportKey: definition.key, reportTitle: definition.title };
-  const notices: AnalyticsDataQualityNotice[] = [];
-
-  if (report.metadata.subjectToThresholding === true) {
-    notices.push({ ...scope, kind: "thresholding" });
-  }
-  for (const sampling of report.metadata.samplingMetadatas ?? []) {
-    notices.push({
-      ...scope,
-      kind: "sampling",
-      samplesReadCount: sampling.samplesReadCount,
-      samplingSpaceSize: sampling.samplingSpaceSize,
-    });
-  }
-  if (report.metadata.dataLossFromOtherRow === true) {
-    notices.push({ ...scope, kind: "other-row" });
-  }
-  return notices;
-}
-
 function dataQualityNoticesFromReports(
-  reports: readonly AnalyticsReportResponse[],
-  definitions: ReadonlyArray<Pick<ReportDefinition, "key" | "title">>,
+  reports: readonly { metadata?: ReportQualityMetadata }[],
+  definitions: ReadonlyArray<AnalyticsReportScope>,
 ): AnalyticsDataQualityNotice[] {
   return reports.flatMap((report, index) => {
     const definition = definitions[index];
-    return definition ? dataQualityNoticesForReport(report, definition) : [];
+    return definition
+      ? dataQualityNoticesForReport(report.metadata, definition)
+      : [];
   });
-}
-
-function quotaFromReports(reports: AnalyticsReportResponse[]): AnalyticsQuotaState | null {
-  const byKey = new Map<string, { consumed: number; remaining: number }>();
-  reports.forEach((report) => {
-    Object.entries(report.propertyQuota ?? {}).forEach(([key, entry]) => {
-      const existing = byKey.get(key);
-      byKey.set(key, {
-        consumed: Math.max(existing?.consumed ?? 0, entry.consumed),
-        remaining: Math.min(existing?.remaining ?? Number.MAX_SAFE_INTEGER, entry.remaining),
-      });
-    });
-  });
-  if (byKey.size === 0) return null;
-  return {
-    entries: Array.from(byKey, ([key, entry]) => ({ key, ...entry })).sort((a, b) =>
-      a.key.localeCompare(b.key),
-    ),
-  };
-}
-
-function currencyFromReports(reports: AnalyticsReportResponse[]): string {
-  return reports.find((report) => report.metadata?.currencyCode)?.metadata?.currencyCode ?? "KRW";
 }
 
 function apiOptions(input: FetchAnalyticsReportInput): AnalyticsDataApiOptions {
   return { accessToken: input.accessToken, signal: input.signal };
 }
 
+const CURRENT_RANGE_NAME = "current";
+const PREVIOUS_RANGE_NAME = "previous";
+const DAY_MS = 86_400_000;
+
+const ZERO_TREND: AnalyticsTrendValues = {
+  activeUsers: 0,
+  newUsers: 0,
+  sessions: 0,
+};
+
+function namedRanges(range: AnalyticsDateRange) {
+  return [
+    { ...analyticsDateRange(range), name: CURRENT_RANGE_NAME },
+    { ...analyticsDateRange(range, true), name: PREVIOUS_RANGE_NAME },
+  ];
+}
+
+/**
+ * Which of the two requested windows a row belongs to.
+ *
+ * GA4's documented values for the implicit `dateRange` column are positional
+ * (`date_range_0`, `date_range_1`); what it does with a supplied `name` is not
+ * documented. Accept both, and drop anything else rather than guess — a row
+ * assigned to the wrong window shifts the entire comparison by one period.
+ */
+function rangeSlot(value: string): "current" | "previous" | null {
+  if (value === CURRENT_RANGE_NAME || value === "date_range_0") return "current";
+  if (value === PREVIOUS_RANGE_NAME || value === "date_range_1") return "previous";
+  return null;
+}
+
+function trendValues(row: Record<string, string>): AnalyticsTrendValues {
+  return {
+    activeUsers: numericValue(row.activeUsers),
+    newUsers: numericValue(row.newUsers),
+    sessions: numericValue(row.sessions),
+  };
+}
+
+function formatGaDay(timestamp: number): string {
+  return new Date(timestamp).toISOString().slice(0, 10).replaceAll("-", "");
+}
+
+/**
+ * The last day the request asked for.
+ *
+ * `analyticsDateRange` ends the current window at GA4's `yesterday`, so the
+ * series has to end there too. The day is read from the operator's local
+ * calendar and then carried in UTC purely as a day counter, the same way
+ * `analytics-retention.ts` reads its cohort weeks: taking UTC fields directly
+ * would put an operator in Seoul on yesterday's date for nine hours every
+ * morning. The GA4 property's own time zone can still differ by a day; that
+ * shows up as one zero-filled day at an edge, never as a shifted comparison.
+ */
+function windowEndDay(now: Date): number {
+  return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - DAY_MS;
+}
+
+/**
+ * GA4 omits a day with no events entirely — in either window, at either end.
+ * So the series is built from the window that was *requested*, not from the
+ * days that came back: `RANGE_DAYS[range]` days ending at `yesterday`, each
+ * paired with the same calendar day one window earlier. Pairing by position
+ * instead would shift every "이전 기간" value by however many days GA4 left
+ * out, and drop the tail of the comparison entirely.
+ */
+function shapeSeries(
+  report: AnalyticsReportResponse | undefined,
+  range: AnalyticsDateRange,
+  now: Date,
+): AnalyticsTrendSeries {
+  if (!report) return { points: [] };
+  const current = new Map<string, AnalyticsTrendValues>();
+  const previous = new Map<string, AnalyticsTrendValues>();
+
+  for (const row of reportRows(report)) {
+    const slot = rangeSlot(row[DATE_RANGE_DIMENSION] ?? "");
+    if (slot === null) continue;
+    (slot === "current" ? current : previous).set(row.date ?? "", trendValues(row));
+  }
+
+  // A property that returned nothing at all for the current window has no
+  // trend to draw: a full window of zeros would read as a measured collapse.
+  if (current.size === 0) return { points: [] };
+
+  const days = RANGE_DAYS[range];
+  const end = windowEndDay(now);
+  const points = Array.from({ length: days }, (_unused, index) => {
+    const timestamp = end - (days - 1 - index) * DAY_MS;
+    const date = formatGaDay(timestamp);
+    const previousDate = formatGaDay(timestamp - days * DAY_MS);
+    return {
+      date,
+      previousDate,
+      current: current.get(date) ?? ZERO_TREND,
+      // A day GA4 omitted had no events, which is a zero — never a hole.
+      previous: previous.get(previousDate) ?? ZERO_TREND,
+    };
+  });
+  return { points };
+}
+
+function shapePlatforms(
+  report: AnalyticsReportResponse | undefined,
+): AnalyticsPlatformBreakdown[] {
+  if (!report) return [];
+  const byPlatform = new Map<
+    string,
+    { current: AnalyticsTrendValues; previous: AnalyticsTrendValues }
+  >();
+
+  for (const row of reportRows(report)) {
+    const slot = rangeSlot(row[DATE_RANGE_DIMENSION] ?? "");
+    if (slot === null) continue;
+    const platform = normalizePlatform(row.platform ?? "");
+    const entry = byPlatform.get(platform) ?? {
+      current: ZERO_TREND,
+      previous: ZERO_TREND,
+    };
+    // Assigned by branch, not by a computed key: a union-typed computed
+    // property name widens the object type and loses `current`/`previous`.
+    const next = { ...entry };
+    if (slot === "current") next.current = trendValues(row);
+    else next.previous = trendValues(row);
+    byPlatform.set(platform, next);
+  }
+
+  return Array.from(byPlatform, ([platform, entry]) => ({ platform, ...entry })).sort(
+    (a, b) =>
+      b.current.activeUsers - a.current.activeUsers ||
+      a.platform.localeCompare(b.platform),
+  );
+}
+
 async function fetchOverview(
   input: FetchAnalyticsReportInput,
 ): Promise<AnalyticsReportResult> {
+  const dimensionFilter = buildDimensionFilter(input.filters);
+  const filtered = (request: AnalyticsRunReportRequest) =>
+    dimensionFilter ? { ...request, dimensionFilter } : request;
+
   const requests: AnalyticsRunReportRequest[] = [
-    {
-      dateRanges: [dateRange(input.range)],
+    filtered({
+      dateRanges: [analyticsDateRange(input.range)],
       metrics: metricRequests(OVERVIEW_METRICS),
       returnPropertyQuota: true,
-    },
-    {
-      dateRanges: [dateRange(input.range, true)],
+    }),
+    filtered({
+      dateRanges: [analyticsDateRange(input.range, true)],
       metrics: metricRequests(OVERVIEW_METRICS),
       returnPropertyQuota: true,
-    },
-    {
-      dateRanges: [dateRange(input.range)],
+    }),
+    // Both windows in one request: GA4 adds its own trailing `dateRange`
+    // dimension, which is one report instead of two and keeps the comparison
+    // inside a single quota charge.
+    filtered({
+      dateRanges: namedRanges(input.range),
       dimensions: dimensionRequests(["date"]),
-      metrics: metricRequests(["sessions"]),
+      metrics: metricRequests(ANALYTICS_TREND_METRICS),
       orderBys: [{ dimension: { dimensionName: "date" } }],
-      limit: RANGE_DAYS[input.range],
+      limit: 2 * RANGE_DAYS[input.range],
       returnPropertyQuota: true,
-    },
+    }),
+    filtered({
+      dateRanges: namedRanges(input.range),
+      dimensions: dimensionRequests(["platform"]),
+      metrics: metricRequests(ANALYTICS_TREND_METRICS),
+      orderBys: [{ desc: true, metric: { metricName: "activeUsers" } }],
+      limit: 20,
+      returnPropertyQuota: true,
+    }),
   ];
+
   const response = await batchRunAnalyticsReports(
     input.property.id,
     { requests },
     apiOptions(input),
   );
-  const current = response.reports[0];
-  const previous = response.reports[1];
-  const trend = response.reports[2];
+  const [current, previous, seriesReport, platformReport] = response.reports;
+
   const metrics = OVERVIEW_METRICS.map<AnalyticsMetricValue>((key) => ({
     key,
     label: FIELD_LABELS[key],
@@ -266,24 +350,34 @@ async function fetchOverview(
     previousValue: firstMetric(previous, key),
     format: FIELD_FORMATS[key] ?? "integer",
   }));
-  const trendRows = trend ? reportRows(trend) : [];
-  const trendHasData = trendRows.some((row) => numericValue(row.sessions) > 0);
+  const series = shapeSeries(seriesReport, input.range, input.now ?? new Date());
+  const platforms = shapePlatforms(platformReport);
+  const currencyCode = currencyFromReports(response.reports);
   const qualityDefinitions = [
     { key: "current-summary", title: "현재 기간 핵심 지표" },
     { key: "previous-summary", title: "이전 기간 핵심 지표" },
-    { key: "daily-trend", title: "일별 흐름" },
+    { key: "daily-series", title: "일별 추세" },
+    { key: "platform-split", title: "플랫폼 비교" },
   ];
+
   return {
     view: "overview",
     metrics,
-    trend: trendRows,
-    currencyCode: currencyFromReports(response.reports),
-    quota: quotaFromReports(response.reports),
+    series,
+    platforms,
+    insights: buildInsights({ metrics, platforms, currencyCode }),
+    currencyCode,
+    quota: quotaFromReports(response.reports, "core"),
     dataQualityNotices: dataQualityNoticesFromReports(
       response.reports,
       qualityDefinitions,
     ),
-    isEmpty: metrics.every(({ value }) => value === 0) && !trendHasData,
+    isEmpty:
+      metrics.every(({ value }) => value === 0) &&
+      series.points.every(
+        ({ current: point }) =>
+          point.activeUsers === 0 && point.newUsers === 0 && point.sessions === 0,
+      ),
   };
 }
 
@@ -292,13 +386,15 @@ function coreRequest(
   dimensions: readonly string[],
   metrics: readonly string[],
   orderMetric: string,
+  dimensionFilter?: AnalyticsFilterExpression,
 ): AnalyticsRunReportRequest {
   return {
-    dateRanges: [dateRange(range)],
+    dateRanges: [analyticsDateRange(range)],
     dimensions: dimensionRequests(dimensions),
     metrics: metricRequests(metrics),
     orderBys: [{ desc: true, metric: { metricName: orderMetric } }],
     limit: 25,
+    ...(dimensionFilter ? { dimensionFilter } : {}),
     returnPropertyQuota: true,
   };
 }
@@ -306,6 +402,7 @@ function coreRequest(
 function definitionsForView(
   view: "acquisition" | "engagement" | "conversion-revenue",
   range: AnalyticsDateRange,
+  dimensionFilter?: AnalyticsFilterExpression,
 ): ReportDefinition[] {
   if (view === "acquisition") {
     return [
@@ -315,9 +412,15 @@ function definitionsForView(
         description: "세션 기준 유입 경로와 주요 이벤트를 비교합니다.",
         request: coreRequest(
           range,
-          ["sessionDefaultChannelGroup", "sessionSource", "sessionMedium", "sessionCampaignName"],
+          [
+            "sessionDefaultChannelGroup",
+            "sessionSource",
+            "sessionMedium",
+            "sessionCampaignName",
+          ],
           ["sessions", "engagedSessions", "keyEvents"],
           "sessions",
+          dimensionFilter,
         ),
       },
       {
@@ -329,6 +432,7 @@ function definitionsForView(
           ["landingPagePlusQueryString"],
           ["activeUsers", "sessions", "engagementRate", "keyEvents"],
           "sessions",
+          dimensionFilter,
         ),
       },
     ];
@@ -344,6 +448,7 @@ function definitionsForView(
           ["unifiedPageScreen"],
           ["screenPageViews", "activeUsers", "userEngagementDuration"],
           "screenPageViews",
+          dimensionFilter,
         ),
       },
       {
@@ -355,6 +460,7 @@ function definitionsForView(
           ["eventName"],
           ["eventCount", "totalUsers", "keyEvents"],
           "eventCount",
+          dimensionFilter,
         ),
       },
     ];
@@ -369,6 +475,7 @@ function definitionsForView(
         ["eventName"],
         ["eventCount", "keyEvents", "totalUsers"],
         "keyEvents",
+        dimensionFilter,
       ),
     },
     {
@@ -376,8 +483,13 @@ function definitionsForView(
       title: "구매·매출",
       description: "GA4 전자상거래 이벤트가 수집된 경우에만 표시됩니다.",
       request: {
-        dateRanges: [dateRange(range)],
-        metrics: metricRequests(["ecommercePurchases", "purchaseRevenue", "totalRevenue"]),
+        dateRanges: [analyticsDateRange(range)],
+        metrics: metricRequests([
+          "ecommercePurchases",
+          "purchaseRevenue",
+          "totalRevenue",
+        ]),
+        ...(dimensionFilter ? { dimensionFilter } : {}),
         returnPropertyQuota: true,
       },
     },
@@ -389,7 +501,11 @@ async function fetchCoreTables(
     view: "acquisition" | "engagement" | "conversion-revenue";
   },
 ): Promise<AnalyticsReportResult> {
-  const definitions = definitionsForView(input.view, input.range);
+  const definitions = definitionsForView(
+    input.view,
+    input.range,
+    buildDimensionFilter(input.filters),
+  );
   const response = await batchRunAnalyticsReports(
     input.property.id,
     { requests: definitions.map(({ request }) => request) },
@@ -416,19 +532,9 @@ async function fetchCoreTables(
     tables,
     metrics,
     currencyCode: currencyFromReports(reports),
-    quota: quotaFromReports(reports),
+    quota: quotaFromReports(reports, "core"),
     dataQualityNotices: dataQualityNoticesFromReports(reports, definitions),
     isEmpty: tables.every(({ rows }) => rows.length === 0) && metrics.every(({ value }) => value === 0),
-  };
-}
-
-function emptyReport(): AnalyticsReportResponse {
-  return {
-    dimensionHeaders: [],
-    metricHeaders: [],
-    rows: [],
-    totals: [],
-    rowCount: 0,
   };
 }
 
@@ -510,7 +616,7 @@ async function fetchRealtime(
     tables,
     metrics,
     currencyCode: currencyFromReports(reports),
-    quota: quotaFromReports(reports),
+    quota: quotaFromReports(reports, "realtime"),
     dataQualityNotices: dataQualityNoticesFromReports(
       reports,
       requests.map(({ definition }) => definition),
@@ -524,5 +630,57 @@ export function fetchAnalyticsReport(
 ): Promise<AnalyticsReportResult> {
   if (input.view === "overview") return fetchOverview(input);
   if (input.view === "realtime") return fetchRealtime(input);
+  if (input.view === "funnel") {
+    return fetchFunnel({
+      property: input.property,
+      range: input.range,
+      filters: input.filters,
+      funnelId: input.funnelId ?? FUNNEL_IDS[0],
+      breakdown: input.funnelBreakdown ?? false,
+      accessToken: input.accessToken,
+      signal: input.signal,
+    });
+  }
+  if (input.view === "retention") {
+    // No `range`: the cohort window is fixed at the last six complete weeks.
+    return fetchRetention({
+      property: input.property,
+      filters: input.filters,
+      accessToken: input.accessToken,
+      signal: input.signal,
+    });
+  }
   return fetchCoreTables({ ...input, view: input.view });
+}
+
+export type AnalyticsCapabilities = {
+  accountTypeDimension: boolean;
+  customDimensions: string[];
+};
+
+/**
+ * What this GA4 property can actually be asked.
+ *
+ * Offering an account-type filter a property has no custom dimension for turns
+ * every filtered report into a 400 that reads like an app bug. One metadata
+ * read, cached forever, answers it instead.
+ */
+export async function fetchAnalyticsCapabilities(input: {
+  propertyId: string;
+  accessToken: string;
+  signal?: AbortSignal;
+}): Promise<AnalyticsCapabilities> {
+  const metadata = await getAnalyticsMetadata(input.propertyId, {
+    accessToken: input.accessToken,
+    signal: input.signal,
+  });
+  return {
+    accountTypeDimension: metadata.dimensions.some(
+      ({ apiName }) => apiName === ACCOUNT_TYPE_DIMENSION,
+    ),
+    customDimensions: metadata.dimensions
+      .filter((dimension) => dimension.customDefinition === true)
+      .map(({ apiName }) => apiName)
+      .sort(),
+  };
 }

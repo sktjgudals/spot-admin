@@ -13,12 +13,31 @@ import type { UserBehaviorRange } from "./user-behavior-report";
  */
 export const analyticsQueryKeys = {
   all: ["google-analytics"] as const,
+  /**
+   * `filters` and `variant` are separate segments so a filter change is a new
+   * cache entry (and `keepPreviousData` can hold the old table on screen)
+   * while the view/range/property prefix stays intact for invalidation.
+   * `variant` carries the funnel preset and breakdown; other views pass "".
+   */
   report: (
     generation: number,
     propertyId: string,
     view: AnalyticsReportView,
     range: AnalyticsDateRange,
-  ) => ["google-analytics", generation, propertyId, view, range] as const,
+    filters: string,
+    variant: string,
+  ) =>
+    [
+      "google-analytics",
+      generation,
+      propertyId,
+      view,
+      range,
+      filters,
+      variant,
+    ] as const,
+  capabilities: (generation: number, propertyId: string) =>
+    ["google-analytics", generation, propertyId, "capabilities"] as const,
   userBehavior: (
     generation: number,
     propertyId: string,

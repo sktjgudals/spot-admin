@@ -95,7 +95,7 @@ describe("buildUserBehaviorRequest", () => {
 
   it("switches the start date for the 28-day range and carries the offset", () => {
     const request = buildUserBehaviorRequest("user-1", "28d", PAGE_LIMIT);
-    expect(request.dateRanges[0]).toEqual({
+    expect(request.dateRanges?.[0]).toEqual({
       startDate: "28daysAgo",
       endDate: "today",
     });
