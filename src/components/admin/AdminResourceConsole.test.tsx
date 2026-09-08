@@ -77,6 +77,7 @@ describe("AdminResourceConsole", () => {
   afterEach(() => {
     cleanup();
     document.body.replaceChildren();
+    vi.unstubAllGlobals();
   });
 
   it("does not treat a partial first page as the full list", async () => {
@@ -411,6 +412,36 @@ describe("AdminResourceConsole", () => {
     expect(link).toHaveAttribute("href", "/super-admin/users/user-1");
     // The sheet is still the quick look; the link is the full screen.
     expect(screen.getAllByRole("button", { name: "상세" }).length).toBeGreaterThan(0);
+  });
+
+  it("links only the first column's cell inside the desktop table layout", async () => {
+    // jsdom has no matchMedia; useDesktopResourceLayout() defaults to the
+    // mobile card branch unless this is mocked to match. Scoped to this test
+    // only and undone in afterEach, so every other test keeps exercising the
+    // mobile layout as before.
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(min-width: 768px)",
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    navigation.pathname = "/super-admin/users";
+    vi.mocked(listAdminResources).mockResolvedValue({
+      items: [{ id: "user-1", nickname: "민정", status: "ACTIVE" }],
+      nextCursor: null,
+      asOf: page.asOf,
+    });
+    renderConsole(resourceConfigs.users);
+
+    const table = await screen.findByRole("table");
+    const link = within(table).getByRole("link", { name: "민정" });
+    expect(link).toHaveAttribute("href", "/super-admin/users/user-1");
+    // The other columns (email/role/status/createdAt) render plainly — only
+    // the row's identity cell is a link.
+    expect(within(table).getAllByRole("link")).toHaveLength(1);
   });
 
   it("offers the detail page from the sheet only for resources that have one", async () => {
