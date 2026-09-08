@@ -60,6 +60,9 @@ describe("business role request resource config", () => {
     const options = ["NONE", "DEEPLINK", "WEB", "INSTAGRAM", "YOUTUBE", "PHONE", "EMAIL", "CUSTOM"];
     expect(create.find((field) => field.key === "actionType")?.options).toEqual(options);
     expect(edit.find((field) => field.key === "actionType")?.options).toEqual(options);
+    // action_type can be NULL on the row (never set); the edit select must
+    // still land on a valid option instead of rendering blank.
+    expect(edit.find((field) => field.key === "actionType")?.defaultValue).toBe("NONE");
 
     expect(create.find((field) => field.key === "startsAt")).toMatchObject({ label: "노출 시작", type: "datetime" });
     expect(edit.find((field) => field.key === "endsAt")).toMatchObject({ label: "노출 종료", type: "datetime" });

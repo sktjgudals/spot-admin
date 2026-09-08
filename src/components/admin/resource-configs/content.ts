@@ -161,7 +161,7 @@ export const bannersConfig: ResourceConfig = {
     fields: [
       text("title", "제목", true),
       bannerImageField,
-      { key: "actionType", label: "액션", options: BANNER_ACTION_TYPES },
+      { key: "actionType", label: "액션", options: BANNER_ACTION_TYPES, defaultValue: "NONE" },
       text("actionValue", "액션 값"),
       text("linkUrl", "링크 URL"),
       number("sortOrder", "순서"),

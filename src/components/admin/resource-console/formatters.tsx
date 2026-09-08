@@ -115,9 +115,12 @@ export function renderResourceValue(value: unknown, key: string): ReactNode {
       // eslint-disable-next-line @next/next/no-img-element -- 운영 썸네일, 원격 호스트가 가변이라 next/image 미사용
       <img
         src={value}
-        alt=""
+        alt="배너 이미지"
         title={value}
-        className="h-10 w-auto max-w-24 rounded border object-cover"
+        loading="lazy"
+        width={64}
+        height={40}
+        className="h-10 w-16 rounded border object-cover"
       />
     );
   }

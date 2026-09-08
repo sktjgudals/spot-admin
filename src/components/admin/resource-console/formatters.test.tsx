@@ -38,9 +38,10 @@ describe("resource console formatters", () => {
 
   it("renders image URLs as thumbnails", () => {
     render(<>{renderResourceValue("https://media.dopa.ing/banners/a.webp", "imageUrl")}</>);
-    const image = document.querySelector("img");
+    const image = screen.getByRole("img", { name: "배너 이미지" });
     expect(image).toHaveAttribute("src", "https://media.dopa.ing/banners/a.webp");
     expect(image).toHaveAttribute("title", "https://media.dopa.ing/banners/a.webp");
+    expect(image).toHaveAttribute("loading", "lazy");
   });
 
   it("renders non-URL imageUrl values as plain text", () => {

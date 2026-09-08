@@ -38,6 +38,18 @@ describe("PartyImageUploader presentation props", () => {
     expect(image).toHaveAttribute("src", "https://media.dopa.ing/banners/a.webp");
     expect(image.parentElement).toHaveClass("aspect-video");
   });
+
+  it("offers a replace button next to an existing single-mode image", () => {
+    render(
+      <PartyImageUploader
+        mode="single"
+        value="https://media.dopa.ing/banners/a.webp"
+        onChange={() => {}}
+        uploadUrl="/x"
+      />,
+    );
+    expect(screen.getByRole("button", { name: "이미지 교체" })).toBeInTheDocument();
+  });
 });
 
 describe("PartyImageUploader upload behavior", () => {
