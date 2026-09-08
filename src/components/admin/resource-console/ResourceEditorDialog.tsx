@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PartyImageUploader } from "@/components/party-image-uploader";
 
 export type ResourceEditorState = {
   mode: "create" | "edit";
@@ -63,7 +64,10 @@ export function ResourceEditorDialog({
           <div className="grid gap-4 py-1">
             {fields?.map((field) => (
               <div key={field.key} className="grid gap-1.5">
-                <Label htmlFor={`${config.key}-${field.key}`}>
+                <Label
+                  htmlFor={`${config.key}-${field.key}`}
+                  id={field.type === "image" ? `${config.key}-${field.key}-label` : undefined}
+                >
                   {field.label}{field.required ? <span aria-hidden="true"> *</span> : null}
                 </Label>
                 {field.type === "textarea" ? (
@@ -73,6 +77,29 @@ export function ResourceEditorDialog({
                     value={String(values[field.key] ?? "")}
                     onChange={(event) => onValueChange(field.key, event.target.value)}
                   />
+                ) : field.type === "image" && field.upload ? (
+                  <div
+                    className="grid gap-2"
+                    role="group"
+                    aria-labelledby={`${config.key}-${field.key}-label`}
+                  >
+                    <PartyImageUploader
+                      mode="single"
+                      value={String(values[field.key] ?? "")}
+                      onChange={(url) => onValueChange(field.key, url)}
+                      uploadUrl={field.upload.url}
+                      hint={field.upload.hint}
+                      preview={field.upload.preview}
+                    />
+                    <Input
+                      id={`${config.key}-${field.key}`}
+                      type="url"
+                      placeholder="또는 이미지 URL 직접 입력 (https://…)"
+                      required={field.required}
+                      value={String(values[field.key] ?? "")}
+                      onChange={(event) => onValueChange(field.key, event.target.value)}
+                    />
+                  </div>
                 ) : field.options ? (
                   <select
                     id={`${config.key}-${field.key}`}

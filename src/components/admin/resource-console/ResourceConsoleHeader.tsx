@@ -51,7 +51,7 @@ export function ResourceConsoleHeader({
       <header className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 id={`${config.key}-title`} className="text-xl font-semibold tracking-tight sm:text-2xl">
+            <h1 id={`${config.key}-heading`} className="text-xl font-semibold tracking-tight sm:text-2xl">
               {config.title}
             </h1>
             {isFetching && !isPending ? (

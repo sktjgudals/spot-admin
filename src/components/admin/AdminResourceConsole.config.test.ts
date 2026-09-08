@@ -35,4 +35,36 @@ describe("business role request resource config", () => {
       "REJECTED",
     ]);
   });
+
+  it("uploads banner images, exposes the schedule and keeps action options in sync", () => {
+    const banners = resourceConfigs.banners;
+    const create = banners.create?.fields ?? [];
+    const edit = banners.edit?.fields ?? [];
+
+    expect(create.map((field) => field.key)).toEqual([
+      "title", "imageUrl", "actionType", "actionValue", "linkUrl", "sortOrder", "isActive", "startsAt", "endsAt",
+    ]);
+    expect(edit.map((field) => field.key)).toEqual(create.map((field) => field.key));
+
+    const image = create.find((field) => field.key === "imageUrl");
+    expect(image).toMatchObject({
+      type: "image",
+      required: true,
+      upload: {
+        url: "/admin/v2/media/upload-url",
+        hint: "jpeg/png/webp · 최대 10MB · 권장 1600×900 (16:9)",
+        preview: "wide",
+      },
+    });
+
+    const options = ["NONE", "DEEPLINK", "WEB", "INSTAGRAM", "YOUTUBE", "PHONE", "EMAIL", "CUSTOM"];
+    expect(create.find((field) => field.key === "actionType")?.options).toEqual(options);
+    expect(edit.find((field) => field.key === "actionType")?.options).toEqual(options);
+    // action_type can be NULL on the row (never set); the edit select must
+    // still land on a valid option instead of rendering blank.
+    expect(edit.find((field) => field.key === "actionType")?.defaultValue).toBe("NONE");
+
+    expect(create.find((field) => field.key === "startsAt")).toMatchObject({ label: "노출 시작", type: "datetime" });
+    expect(edit.find((field) => field.key === "endsAt")).toMatchObject({ label: "노출 종료", type: "datetime" });
+  });
 });

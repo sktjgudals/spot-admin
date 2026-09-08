@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminFetchJson } from "@/auth/api/admin-http";
+import { Button } from "@/components/ui/button";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_INPUT_BYTES = 10 * 1024 * 1024;
@@ -17,6 +18,8 @@ type SingleProps = {
   onChange: (url: string) => void;
   uploadUrl: string;
   maxFiles?: never;
+  hint?: string;
+  preview?: "square" | "wide";
 };
 
 type MultipleProps = {
@@ -25,6 +28,8 @@ type MultipleProps = {
   onChange: (urls: string[]) => void;
   uploadUrl: string;
   maxFiles?: number;
+  hint?: string;
+  preview?: "square" | "wide";
 };
 
 type Props = SingleProps | MultipleProps;
@@ -60,6 +65,12 @@ async function optimizeImage(file: File): Promise<{ blob: Blob; contentType: str
   return { blob: file, contentType: file.type || "image/jpeg" };
 }
 
+function deploymentGapStatus(err: unknown): number | undefined {
+  if (!err || typeof err !== "object") return undefined;
+  const status = (err as { status?: unknown }).status;
+  return typeof status === "number" ? status : undefined;
+}
+
 async function uploadOptimized(
   file: File,
   uploadUrl: string,
@@ -73,23 +84,41 @@ async function uploadOptimized(
 
   const { blob, contentType } = await optimizeImage(file);
 
-  const ticket = await adminFetchJson<{
-    uploadUrl: string;
-    publicUrl: string;
-  }>(uploadUrl, {
-    method: "POST",
-    body: JSON.stringify({ contentType, sizeBytes: blob.size }),
-  });
+  let ticket: { uploadUrl: string; publicUrl: string };
+  try {
+    ticket = await adminFetchJson<{
+      uploadUrl: string;
+      publicUrl: string;
+    }>(uploadUrl, {
+      method: "POST",
+      body: JSON.stringify({ contentType, sizeBytes: blob.size }),
+    });
+  } catch (err) {
+    const status = deploymentGapStatus(err);
+    if (status === 404 || status === 502 || status === 503) {
+      throw new Error(
+        "업로드 서버에 연결할 수 없습니다 — 배포 상태를 확인해 주세요",
+      );
+    }
+    throw err;
+  }
   const { uploadUrl: putUrl, publicUrl } = ticket;
   if (!putUrl || !publicUrl) {
     throw new Error("업로드 URL 응답이 올바르지 않습니다");
   }
 
-  const putRes = await fetch(putUrl, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
+  let putRes: Response;
+  try {
+    putRes = await fetch(putUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: blob,
+    });
+  } catch {
+    throw new Error(
+      "스토리지에 업로드하지 못했습니다 — 브라우저 콘솔에서 CORS/CSP 차단을 확인해 주세요",
+    );
+  }
   if (!putRes.ok) {
     throw new Error("스토리지 업로드에 실패했습니다");
   }
@@ -99,6 +128,8 @@ async function uploadOptimized(
 
 export function PartyImageUploader(props: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const removeButtonRef = useRef<HTMLButtonElement>(null);
+  const justUploadedRef = useRef(false);
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -110,13 +141,25 @@ export function PartyImageUploader(props: Props) {
       : props.value;
   const maxFiles = props.mode === "single" ? 1 : (props.maxFiles ?? 10);
   const canAdd = urls.length < maxFiles;
+  const singleValue = props.mode === "single" ? props.value : null;
+
+  // 업로드 직후 드롭존이 언마운트되므로, 남은 "이미지 제거" 버튼으로 포커스를 옮긴다.
+  useEffect(() => {
+    if (!justUploadedRef.current || !singleValue) return;
+    justUploadedRef.current = false;
+    const raf = requestAnimationFrame(() => {
+      removeButtonRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [singleValue]);
 
   const handleFiles = useCallback(
     async (files: FileList | File[]) => {
       const list = Array.from(files);
       if (list.length === 0) return;
 
-      const slots = maxFiles - urls.length;
+      // 단일 모드는 항상 교체이므로 이미 값이 있어도 슬롯이 막히지 않는다.
+      const slots = props.mode === "single" ? 1 : maxFiles - urls.length;
       if (slots <= 0) {
         toast.error(`이미지는 최대 ${maxFiles}장까지 올릴 수 있습니다`);
         return;
@@ -143,6 +186,7 @@ export function PartyImageUploader(props: Props) {
         if (uploaded.length === 0) return;
 
         if (props.mode === "single") {
+          justUploadedRef.current = true;
           props.onChange(uploaded[0]);
         } else {
           props.onChange([...props.value, ...uploaded].slice(0, maxFiles));
@@ -170,11 +214,15 @@ export function PartyImageUploader(props: Props) {
           {urls.map((url, i) => (
             <div
               key={`${url}-${i}`}
-              className="relative h-24 w-24 overflow-hidden rounded-md border bg-muted"
+              className={cn(
+                "relative overflow-hidden rounded-md border bg-muted",
+                props.preview === "wide" ? "aspect-video w-full max-w-sm" : "h-24 w-24",
+              )}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" className="h-full w-full object-cover" />
               <button
+                ref={props.mode === "single" && i === 0 ? removeButtonRef : undefined}
                 type="button"
                 className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white"
                 onClick={() => removeAt(i)}
@@ -185,6 +233,17 @@ export function PartyImageUploader(props: Props) {
             </div>
           ))}
         </div>
+      )}
+
+      {props.mode === "single" && props.value && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => inputRef.current?.click()}
+        >
+          이미지 교체
+        </Button>
       )}
 
       {canAdd && (
@@ -198,7 +257,10 @@ export function PartyImageUploader(props: Props) {
           )}
           onClick={() => inputRef.current?.click()}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              inputRef.current?.click();
+            }
           }}
           onDragEnter={(e) => {
             e.preventDefault();
@@ -223,29 +285,30 @@ export function PartyImageUploader(props: Props) {
           ) : (
             <ImagePlus className="h-6 w-6 text-muted-foreground" />
           )}
-          <div className="space-y-0.5">
+          <div className="space-y-0.5" aria-live="polite">
             <p className="text-sm font-medium">
               {uploading
                 ? "업로드 중..."
                 : "이미지를 드래그하거나 클릭해서 업로드"}
             </p>
             <p className="text-xs text-muted-foreground">
-              jpeg/png/webp · 최대 10MB · 자동 리사이즈(1920px)
-              {props.mode === "multiple" ? ` · 최대 ${maxFiles}장` : ""}
+              {props.hint ??
+                `jpeg/png/webp · 최대 10MB · 자동 리사이즈(1920px)${props.mode === "multiple" ? ` · 최대 ${maxFiles}장` : ""}`}
             </p>
           </div>
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            multiple={props.mode === "multiple"}
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) void handleFiles(e.target.files);
-            }}
-          />
         </div>
       )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        multiple={props.mode === "multiple"}
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) void handleFiles(e.target.files);
+        }}
+      />
     </div>
   );
 }

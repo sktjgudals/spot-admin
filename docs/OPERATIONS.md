@@ -84,6 +84,8 @@ production release는 `e6872e3`, 최종 Secret Change Worker는 `e34b0baa`이며
 알림 캠페인, 배너, 파티 카테고리, 리뷰 태그, 런타임 설정을 제공한다. 모든 요청은
 `requireUser`와 서버의 역할 검사를 통과해야 한다.
 
+배너 이미지는 "배너 추가/수정" 다이얼로그에서 파일을 직접 올린다(SUPER_ADMIN 전용 `POST /admin/v2/media/upload-url` → R2 `banners/` → `https://media.dopa.ing/banners/…`). 권장 크기 1600×900(16:9), jpeg/png/webp 10MB 이하, 업로드 전 브라우저가 1920px로 리사이즈한다. 외부 호스팅 이미지는 URL 직접 입력으로도 저장할 수 있다. 노출 시작/종료를 비우면 무제한 노출이며, 수정 화면에서 비우면 일정이 해제된다. 기존 배너의 이미지는 "이미지 교체"로 바꾼다.
+
 ### Google Analytics 4 제품 분석
 
 `/super-admin/analytics`는 Dopa 백엔드나 Admin Worker를 경유하지 않고 브라우저에서
