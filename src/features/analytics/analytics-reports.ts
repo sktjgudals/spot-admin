@@ -166,7 +166,7 @@ function toTable(
   };
 }
 
-function dataQualityNoticesForReport(
+export function dataQualityNoticesForReport(
   report: AnalyticsReportResponse | undefined,
   definition: Pick<ReportDefinition, "key" | "title">,
 ): AnalyticsDataQualityNotice[] {

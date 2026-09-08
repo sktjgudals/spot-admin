@@ -3,6 +3,14 @@ import { z } from "zod/mini";
 const ANALYTICS_DATA_API_ROOT = "https://analyticsdata.googleapis.com/v1beta";
 const MAX_RETRIES = 2;
 
+/**
+ * GA4 answers a request naming a dimension the property has never registered
+ * with a plain 400. Telling an operator "요청을 처리하지 못했습니다" there sends
+ * them looking for a bug in this app instead of at the GA4 custom definition
+ * they still have to create.
+ */
+const UNKNOWN_FIELD_PATTERN = /is not a valid (?:dimension|metric)/i;
+
 export type AnalyticsDateRangeRequest = {
   startDate: string;
   endDate: string;
@@ -18,12 +26,43 @@ export type AnalyticsOrderByRequest = {
   metric?: { metricName: string };
 };
 
+export type AnalyticsStringFilter = {
+  matchType?:
+    | "EXACT"
+    | "BEGINS_WITH"
+    | "ENDS_WITH"
+    | "CONTAINS"
+    | "FULL_REGEXP"
+    | "PARTIAL_REGEXP";
+  value: string;
+  caseSensitive?: boolean;
+};
+
+export type AnalyticsInListFilter = {
+  values: readonly string[];
+  caseSensitive?: boolean;
+};
+
+export type AnalyticsFieldFilter = {
+  fieldName: string;
+  stringFilter?: AnalyticsStringFilter;
+  inListFilter?: AnalyticsInListFilter;
+};
+
+export type AnalyticsFilterExpression =
+  | { filter: AnalyticsFieldFilter }
+  | { andGroup: { expressions: readonly AnalyticsFilterExpression[] } }
+  | { orGroup: { expressions: readonly AnalyticsFilterExpression[] } }
+  | { notExpression: AnalyticsFilterExpression };
+
 export type AnalyticsRunReportRequest = {
   dateRanges: readonly AnalyticsDateRangeRequest[];
   dimensions?: readonly AnalyticsDimensionRequest[];
   metrics: readonly AnalyticsMetricRequest[];
+  dimensionFilter?: AnalyticsFilterExpression;
   orderBys?: readonly AnalyticsOrderByRequest[];
   limit?: number;
+  offset?: number;
   keepEmptyRows?: boolean;
   returnPropertyQuota?: boolean;
 };
@@ -83,6 +122,7 @@ const apiErrorBodySchema = z.looseObject({
     z.looseObject({
       status: z.optional(z.string()),
       code: z.optional(z.number()),
+      message: z.optional(z.string()),
     }),
   ),
 });
@@ -98,13 +138,19 @@ export type AnalyticsDataApiErrorKind =
   | "service"
   | "network"
   | "invalid-response"
-  | "configuration";
+  | "configuration"
+  /** The property has no such dimension or metric — usually an unregistered custom definition. */
+  | "unknown-field";
 
 export class AnalyticsDataApiError extends Error {
   constructor(
     readonly kind: AnalyticsDataApiErrorKind,
     message: string,
-    readonly options: { status?: number; retryAfterMs?: number } = {},
+    readonly options: {
+      status?: number;
+      retryAfterMs?: number;
+      apiMessage?: string;
+    } = {},
   ) {
     super(message);
     this.name = "AnalyticsDataApiError";
@@ -116,6 +162,11 @@ export class AnalyticsDataApiError extends Error {
 
   get retryAfterMs(): number | undefined {
     return this.options.retryAfterMs;
+  }
+
+  /** Google's own sentence, kept so the UI can name the missing field. */
+  get apiMessage(): string | undefined {
+    return this.options.apiMessage;
   }
 }
 
@@ -175,6 +226,7 @@ async function classifyResponseError(response: Response): Promise<AnalyticsDataA
     await response.json().catch(() => null),
   );
   const apiStatus = parsed.success ? parsed.data.error?.status : undefined;
+  const apiMessage = parsed.success ? parsed.data.error?.message : undefined;
   const retryAfterMs = parseRetryAfter(response.headers.get("Retry-After"));
 
   if (response.status === 401) {
@@ -203,6 +255,17 @@ async function classifyResponseError(response: Response): Promise<AnalyticsDataA
       "service",
       "Google Analytics 서비스가 일시적으로 응답하지 않습니다.",
       { status: response.status, retryAfterMs },
+    );
+  }
+  if (
+    response.status === 400 &&
+    apiMessage !== undefined &&
+    UNKNOWN_FIELD_PATTERN.test(apiMessage)
+  ) {
+    return new AnalyticsDataApiError(
+      "unknown-field",
+      "GA4 속성에 요청한 측정기준 또는 측정항목이 없습니다.",
+      { status: response.status, apiMessage },
     );
   }
   return new AnalyticsDataApiError(

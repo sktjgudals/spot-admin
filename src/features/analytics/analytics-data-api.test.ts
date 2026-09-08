@@ -209,4 +209,85 @@ describe("Google Analytics Data API client", () => {
     expect(error).toBeInstanceOf(AnalyticsDataApiError);
     expect(String(error)).not.toContain("never-leak-this-token");
   });
+
+  it("serializes a dimension filter and an offset for user-scoped paging", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          dimensionHeaders: [{ name: "dateHourMinute" }],
+          metricHeaders: [{ name: "eventCount" }],
+          rows: [],
+          rowCount: 0,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const request = {
+      dateRanges: [{ startDate: "7daysAgo", endDate: "today" }],
+      dimensions: [{ name: "dateHourMinute" }],
+      metrics: [{ name: "eventCount" }],
+      dimensionFilter: {
+        filter: {
+          fieldName: "customUser:dopa_uid",
+          stringFilter: { matchType: "EXACT" as const, value: "user-1" },
+        },
+      },
+      limit: 10_000,
+      offset: 10_000,
+      returnPropertyQuota: true,
+    };
+
+    await runAnalyticsReport("1234", request, {
+      accessToken: "secret-access-token",
+      fetchImpl,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual(request);
+  });
+
+  it("classifies an unregistered custom dimension as unknown-field and keeps Google's message", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 400,
+            status: "INVALID_ARGUMENT",
+            message:
+              "Field customUser:dopa_uid is not a valid dimension. For a list of valid dimensions, see …",
+          },
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    const error = await runAnalyticsReport("1234", reportBody, {
+      accessToken: "secret-access-token",
+      fetchImpl,
+    }).catch((reason: unknown) => reason);
+
+    expect(error).toBeInstanceOf(AnalyticsDataApiError);
+    expect((error as AnalyticsDataApiError).kind).toBe("unknown-field");
+    expect((error as AnalyticsDataApiError).apiMessage).toContain(
+      "is not a valid dimension",
+    );
+  });
+
+  it("leaves other 400 responses as generic request errors", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ error: { code: 400, message: "Invalid date range." } }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+
+    await expect(
+      runAnalyticsReport("1234", reportBody, {
+        accessToken: "secret-access-token",
+        fetchImpl,
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<AnalyticsDataApiError>>({ kind: "request" }),
+    );
+  });
 });
