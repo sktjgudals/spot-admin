@@ -64,6 +64,12 @@ async function optimizeImage(file: File): Promise<{ blob: Blob; contentType: str
   return { blob: file, contentType: file.type || "image/jpeg" };
 }
 
+function deploymentGapStatus(err: unknown): number | undefined {
+  if (!err || typeof err !== "object") return undefined;
+  const status = (err as { status?: unknown }).status;
+  return typeof status === "number" ? status : undefined;
+}
+
 async function uploadOptimized(
   file: File,
   uploadUrl: string,
@@ -77,23 +83,41 @@ async function uploadOptimized(
 
   const { blob, contentType } = await optimizeImage(file);
 
-  const ticket = await adminFetchJson<{
-    uploadUrl: string;
-    publicUrl: string;
-  }>(uploadUrl, {
-    method: "POST",
-    body: JSON.stringify({ contentType, sizeBytes: blob.size }),
-  });
+  let ticket: { uploadUrl: string; publicUrl: string };
+  try {
+    ticket = await adminFetchJson<{
+      uploadUrl: string;
+      publicUrl: string;
+    }>(uploadUrl, {
+      method: "POST",
+      body: JSON.stringify({ contentType, sizeBytes: blob.size }),
+    });
+  } catch (err) {
+    const status = deploymentGapStatus(err);
+    if (status === 404 || status === 502 || status === 503) {
+      throw new Error(
+        "업로드 서버에 연결할 수 없습니다 — 배포 상태를 확인해 주세요",
+      );
+    }
+    throw err;
+  }
   const { uploadUrl: putUrl, publicUrl } = ticket;
   if (!putUrl || !publicUrl) {
     throw new Error("업로드 URL 응답이 올바르지 않습니다");
   }
 
-  const putRes = await fetch(putUrl, {
-    method: "PUT",
-    headers: { "Content-Type": contentType },
-    body: blob,
-  });
+  let putRes: Response;
+  try {
+    putRes = await fetch(putUrl, {
+      method: "PUT",
+      headers: { "Content-Type": contentType },
+      body: blob,
+    });
+  } catch {
+    throw new Error(
+      "스토리지에 업로드하지 못했습니다 — 브라우저 콘솔에서 CORS/CSP 차단을 확인해 주세요",
+    );
+  }
   if (!putRes.ok) {
     throw new Error("스토리지 업로드에 실패했습니다");
   }

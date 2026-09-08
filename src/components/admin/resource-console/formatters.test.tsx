@@ -36,12 +36,14 @@ describe("resource console formatters", () => {
     ).toBe("주문번호 order-1 · 금액 ₩20,000");
   });
 
-  it("renders image URLs as thumbnails and other strings as text", () => {
+  it("renders image URLs as thumbnails", () => {
     render(<>{renderResourceValue("https://media.dopa.ing/banners/a.webp", "imageUrl")}</>);
     const image = document.querySelector("img");
     expect(image).toHaveAttribute("src", "https://media.dopa.ing/banners/a.webp");
     expect(image).toHaveAttribute("title", "https://media.dopa.ing/banners/a.webp");
+  });
 
+  it("renders non-URL imageUrl values as plain text", () => {
     render(<>{renderResourceValue("not-a-url", "imageUrl")}</>);
     expect(screen.getByText("not-a-url")).toBeInTheDocument();
   });

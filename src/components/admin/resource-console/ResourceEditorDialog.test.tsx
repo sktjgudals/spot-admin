@@ -70,18 +70,14 @@ describe("ResourceEditorDialog image field", () => {
     const stub = screen.getByRole("button", { name: "업로드 스텁" });
     expect(stub).toHaveAttribute("data-upload-url", "/admin/v2/media/upload-url");
 
-    // exact: false — the field is required, so the label also carries a visually
-    // hidden " *" marker (`<span aria-hidden>`); @testing-library/dom's label-text
-    // matcher reads the label's full text content (unlike getByRole's accessible-name
-    // computation), so an exact "이미지" query never matches "이미지 *".
     await user.click(stub);
-    expect(screen.getByLabelText("이미지", { exact: false })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: "이미지" })).toHaveValue(
       "https://media.dopa.ing/banners/test.webp",
     );
 
-    await user.clear(screen.getByLabelText("이미지", { exact: false }));
-    await user.type(screen.getByLabelText("이미지", { exact: false }), "https://cdn.example.com/manual.png");
-    expect(screen.getByLabelText("이미지", { exact: false })).toHaveValue(
+    await user.clear(screen.getByRole("textbox", { name: "이미지" }));
+    await user.type(screen.getByRole("textbox", { name: "이미지" }), "https://cdn.example.com/manual.png");
+    expect(screen.getByRole("textbox", { name: "이미지" })).toHaveValue(
       "https://cdn.example.com/manual.png",
     );
   });

@@ -40,7 +40,9 @@ const bannerRow = {
   linkUrl: null,
   sortOrder: 0,
   isActive: true,
-  startsAt: "2026-09-10T03:00:00.000Z",
+  // The backend stores starts_at as epoch-ms INTEGER; the projection returns
+  // it as a number, not an ISO string.
+  startsAt: new Date(2026, 8, 10, 12, 0).getTime(),
   endsAt: null,
 };
 
@@ -80,13 +82,9 @@ describe("AdminResourceConsole banners", () => {
     await screen.findByText("배너 관리");
 
     await user.click(screen.getByRole("button", { name: "배너 추가" }));
-    // exact: false — both fields are required, so their labels also carry a
-    // visually hidden " *" marker (`<span aria-hidden>`) that @testing-library/dom's
-    // label-text matcher includes in the label's matched text content (unlike
-    // getByRole's accessible-name computation, which strips aria-hidden content).
-    await user.type(screen.getByLabelText("제목", { exact: false }), "가을 파티");
+    await user.type(screen.getByRole("textbox", { name: "제목" }), "가을 파티");
     await user.click(screen.getByRole("button", { name: "업로드 스텁" }));
-    expect(screen.getByLabelText("이미지", { exact: false })).toHaveValue(
+    expect(screen.getByRole("textbox", { name: "이미지" })).toHaveValue(
       "https://media.dopa.ing/banners/new.webp",
     );
     await user.click(screen.getByRole("button", { name: "저장" }));

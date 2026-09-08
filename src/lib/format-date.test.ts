@@ -21,6 +21,13 @@ describe("toDateTimeLocalInputValue", () => {
     expect(toDateTimeLocalInputValue(local.toISOString())).toBe("2026-09-10T12:30");
   });
 
+  it("renders an epoch-ms number as the browser-local datetime-local value", () => {
+    // The backend stores starts_at/ends_at as epoch-ms INTEGER; the projection
+    // returns it as a number, not an ISO string.
+    const local = new Date(2026, 8, 10, 12, 30);
+    expect(toDateTimeLocalInputValue(local.getTime())).toBe("2026-09-10T12:30");
+  });
+
   it("passes an already-local datetime-local string through unchanged", () => {
     expect(toDateTimeLocalInputValue("2026-09-10T12:30")).toBe("2026-09-10T12:30");
   });
