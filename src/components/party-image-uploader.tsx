@@ -17,6 +17,8 @@ type SingleProps = {
   onChange: (url: string) => void;
   uploadUrl: string;
   maxFiles?: never;
+  hint?: string;
+  preview?: "square" | "wide";
 };
 
 type MultipleProps = {
@@ -25,6 +27,8 @@ type MultipleProps = {
   onChange: (urls: string[]) => void;
   uploadUrl: string;
   maxFiles?: number;
+  hint?: string;
+  preview?: "square" | "wide";
 };
 
 type Props = SingleProps | MultipleProps;
@@ -170,7 +174,10 @@ export function PartyImageUploader(props: Props) {
           {urls.map((url, i) => (
             <div
               key={`${url}-${i}`}
-              className="relative h-24 w-24 overflow-hidden rounded-md border bg-muted"
+              className={cn(
+                "relative overflow-hidden rounded-md border bg-muted",
+                props.preview === "wide" ? "aspect-video w-full max-w-sm" : "h-24 w-24",
+              )}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" className="h-full w-full object-cover" />
@@ -230,8 +237,8 @@ export function PartyImageUploader(props: Props) {
                 : "이미지를 드래그하거나 클릭해서 업로드"}
             </p>
             <p className="text-xs text-muted-foreground">
-              jpeg/png/webp · 최대 10MB · 자동 리사이즈(1920px)
-              {props.mode === "multiple" ? ` · 최대 ${maxFiles}장` : ""}
+              {props.hint ??
+                `jpeg/png/webp · 최대 10MB · 자동 리사이즈(1920px)${props.mode === "multiple" ? ` · 최대 ${maxFiles}장` : ""}`}
             </p>
           </div>
           <input
