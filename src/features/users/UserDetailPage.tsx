@@ -83,13 +83,18 @@ function detailFromSummary(
     nickname: summary.profile.nickname,
     profileImage: summary.profile.profileImage,
     provider: null,
-    role: "USER",
+    // The summary route never carries a role. "USER" here used to read as
+    // a real fact about the account; an empty string is guarded out of the
+    // header instead of standing in for data this route does not have.
+    role: "",
     status: summary.profile.status,
     averageRating: null,
     createdAt: summary.profile.createdAt,
     updatedAt: null,
     assignedBusinessId: null,
-    blocked: false,
+    // Unknown, not "confirmed not blocked" — `false` would have quietly
+    // cleared a real "로그인 제한" fact this reconstruction cannot see.
+    blocked: null,
     asOf: summary.asOf || null,
     summary,
   };
@@ -167,6 +172,10 @@ export function UserDetailPage({ userId, analytics }: UserDetailPageProps) {
     );
   }
 
+  // A withdrawn account is gone, not merely suspended: banning or unbanning
+  // it is not a real operation, so its actions never reach the header.
+  const withdrawn = detailMissing || Boolean(summary?.profile.deletedAt);
+
   const actionRow: AdminResource = {
     id: user.id,
     nickname: user.nickname,
@@ -210,8 +219,8 @@ export function UserDetailPage({ userId, analytics }: UserDetailPageProps) {
         user={user}
         summary={summary}
         summaryPending={summaryQuery.isPending && summaryQuery.fetchStatus !== "idle"}
-        withdrawn={detailMissing || Boolean(summary?.profile.deletedAt)}
-        actions={actions}
+        withdrawn={withdrawn}
+        actions={withdrawn ? [] : actions}
       />
 
       <nav aria-label="사용자 상세 섹션" className="flex gap-2 xl:hidden">

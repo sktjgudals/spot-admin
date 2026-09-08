@@ -48,6 +48,20 @@ export type AdminUserRestriction = {
   issuedBy: string | null;
 };
 
+/**
+ * `PENDING/APPROVED/REJECTED/CANCELED` (one L) plus a `total` the backend
+ * either sends itself or this normalizer sums. A `Record<string, number>`
+ * used to let an unrelated sibling key (like a stray `total`) get rendered
+ * as if it were a status — this fixed shape makes that impossible.
+ */
+export type AdminUserApplicationCounts = {
+  PENDING: number;
+  APPROVED: number;
+  REJECTED: number;
+  CANCELED: number;
+  total: number;
+};
+
 export type AdminUserSummary = {
   profile: {
     id: string;
@@ -65,7 +79,7 @@ export type AdminUserSummary = {
     pushTokens: AdminUserPushToken[];
   };
   counts: {
-    applications: Record<string, number>;
+    applications: AdminUserApplicationCounts;
     payments: {
       count: number;
       paidCount: number;
@@ -97,8 +111,12 @@ export type AdminUserDetail = {
   createdAt: string | null;
   updatedAt: string | null;
   assignedBusinessId: string | null;
-  /** Login is blocked for this account (distinct from `status`). */
-  blocked: boolean;
+  /**
+   * Login is blocked for this account (distinct from `status`). `null` means
+   * "not known" — the summary-only reconstruction of a withdrawn account
+   * uses this rather than guessing `false`.
+   */
+  blocked: boolean | null;
   asOf: string | null;
   summary: AdminUserSummary | null;
 };
@@ -189,13 +207,24 @@ function nullableNum(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function normalizeCountMap(value: unknown): Record<string, number> {
+/**
+ * Zero-fills the four statuses so a missing one reads as "none", never as
+ * absent-and-therefore-invisible, and keeps or computes `total`: the backend
+ * may send its own (tolerated even if it disagrees with the four statuses —
+ * it is the one that also knows about statuses this UI does not chart), or
+ * this sums PENDING+APPROVED+REJECTED+CANCELED when it omits one.
+ */
+function normalizeApplicationCounts(value: unknown): AdminUserApplicationCounts {
   const source = record(value);
-  const counts: Record<string, number> = {};
-  for (const [key, count] of Object.entries(source)) {
-    if (typeof count === "number" && Number.isFinite(count)) counts[key] = count;
-  }
-  return counts;
+  const pending = num(source.PENDING);
+  const approved = num(source.APPROVED);
+  const rejected = num(source.REJECTED);
+  const canceled = num(source.CANCELED);
+  const total =
+    typeof source.total === "number" && Number.isFinite(source.total)
+      ? source.total
+      : pending + approved + rejected + canceled;
+  return { PENDING: pending, APPROVED: approved, REJECTED: rejected, CANCELED: canceled, total };
 }
 
 function normalizeSession(raw: unknown): AdminUserSession {
@@ -268,7 +297,7 @@ function normalizeUserSummary(raw: unknown): AdminUserSummary {
       pushTokens: list(devices.pushTokens).map(normalizePushToken),
     },
     counts: {
-      applications: normalizeCountMap(counts.applications),
+      applications: normalizeApplicationCounts(counts.applications),
       payments: {
         count: num(payments.count),
         paidCount: num(payments.paidCount),
@@ -359,7 +388,10 @@ function normalizeTimelineItem(raw: unknown, index: number): UserTimelineItem {
     status: nullableStr(row.status),
     amount: nullableNum(row.amount),
     meta: record(row.meta),
-    source: str(row.source, "db"),
+    // Real wire values are identity/domain/notification/admin — "domain" is
+    // the common case, and the screen's `TIMELINE_SOURCE_LABELS[item.source]
+    // ?? item.source` safety net still shows an unrecognised value verbatim.
+    source: str(row.source, "domain"),
   };
 }
 
@@ -372,7 +404,7 @@ function normalizeCoverage(value: unknown): UserTimelineCoverage {
     return [
       {
         category: str(row.category, "ALL"),
-        source: str(row.source, "db"),
+        source: str(row.source, "domain"),
         retainedFrom: nullableStr(row.retainedFrom),
         note,
       },

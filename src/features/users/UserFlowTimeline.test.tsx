@@ -176,6 +176,37 @@ describe("UserFlowTimeline", () => {
     expect(screen.getByText("접속 기록은 90일만 보관합니다.")).toBeInTheDocument();
   });
 
+  it("keeps the first page's retention warning visible after loading a page with no coverage", async () => {
+    vi.mocked(getAdminUserTimeline).mockImplementation(async (_userId, params = {}) => {
+      if (params.cursor === "cursor-2") {
+        return page(
+          [item({ id: "e2", title: "환불 완료", kind: "REFUND_DECIDED" })],
+          null,
+          [],
+        );
+      }
+      return page([item({ id: "e1" })], "cursor-2", [
+        {
+          category: "SESSION",
+          source: "identity",
+          retainedFrom: "2026-06-10T00:00:00.000Z",
+          note: "접속 기록은 90일만 보관합니다.",
+        },
+      ]);
+    });
+    const user = userEvent.setup();
+    renderTimeline();
+
+    expect(
+      await screen.findByText("접속 기록은 90일만 보관합니다."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "더 보기" }));
+
+    await screen.findByText("환불 완료");
+    expect(screen.getByText("접속 기록은 90일만 보관합니다.")).toBeInTheDocument();
+  });
+
   it("links the references that resolve and shows the rest as plain labels", async () => {
     vi.mocked(getAdminUserTimeline).mockResolvedValue(
       page(
@@ -213,5 +244,21 @@ describe("UserFlowTimeline", () => {
     await user.selectOptions(screen.getByLabelText("기간"), "all");
 
     await waitFor(() => expect(getAdminUserTimeline).toHaveBeenLastCalledWith("u1", {}));
+  });
+
+  it("says there is no history yet instead of suggesting a wider window when 전체 is already empty", async () => {
+    vi.mocked(getAdminUserTimeline).mockResolvedValue(page([], null));
+    const user = userEvent.setup();
+    renderTimeline();
+
+    await screen.findByText("표시할 활동이 없습니다");
+    await user.selectOptions(screen.getByLabelText("기간"), "all");
+
+    expect(
+      await screen.findByText("이 사용자의 기록이 아직 없습니다."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/기간을 넓혀 다시 확인해 주세요/),
+    ).not.toBeInTheDocument();
   });
 });

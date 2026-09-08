@@ -3,7 +3,7 @@
 import { createElement, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, RefreshCw, TriangleAlert } from "lucide-react";
-import type { UserTimelineItem } from "@/auth/api/admin-users.api";
+import type { UserTimelineCoverage, UserTimelineItem } from "@/auth/api/admin-users.api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCursorAppendFocus } from "@/hooks/use-cursor-append-focus";
@@ -28,6 +28,27 @@ import {
 } from "./user-timeline-model";
 import { useUserTimelineQuery } from "./use-user-timeline-query";
 
+/**
+ * Coverage (retention/gap warnings) describes the window, not one page of
+ * it. A page fetched by "더 보기" that happens to carry no coverage of its
+ * own must not erase a warning an earlier page already surfaced — so this
+ * merges every page's coverage instead of reading only the latest one, and
+ * dedupes by the fields that make two entries the same warning.
+ */
+function mergeTimelineCoverage(
+  pages: readonly { coverage: UserTimelineCoverage }[],
+): UserTimelineCoverage {
+  const seen = new Set<string>();
+  const merged: UserTimelineCoverage = [];
+  for (const entry of pages.flatMap((entry) => entry.coverage)) {
+    const key = `${entry.category}:${entry.source}:${entry.note}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(entry);
+  }
+  return merged;
+}
+
 export function UserFlowTimeline({ userId }: { userId: string }) {
   const [categories, setCategories] = useState<readonly string[]>([]);
   const [period, setPeriod] = useState<TimelinePeriod>("28d");
@@ -51,6 +72,11 @@ export function UserFlowTimeline({ userId }: { userId: string }) {
   );
   const groups = useMemo(() => groupTimelineByDay(visibleItems), [visibleItems]);
   const lastPage = pages.at(-1);
+  // Coverage (retention/gap warnings) is a property of the whole window this
+  // screen is showing, not of whichever page loaded most recently — a later
+  // page with no coverage of its own must not make an earlier warning
+  // disappear from under the operator mid-scroll.
+  const coverage = useMemo(() => mergeTimelineCoverage(pages), [pages]);
 
   const { beginAppend, setFallbackRef, setItemRef, setRetryButtonRef } =
     useCursorAppendFocus<HTMLLIElement>({
@@ -127,13 +153,13 @@ export function UserFlowTimeline({ userId }: { userId: string }) {
             {coverageSummaryText({
               from,
               asOf: lastPage.asOf,
-              coverage: lastPage.coverage,
+              coverage,
               categories,
             })}
           </p>
-          {lastPage.coverage.length > 0 ? (
+          {coverage.length > 0 ? (
             <ul className="mt-2 space-y-1.5">
-              {lastPage.coverage.map((entry, index) => (
+              {coverage.map((entry, index) => (
                 <li
                   key={`${entry.category}:${index}`}
                   className="flex gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2"
@@ -188,7 +214,9 @@ export function UserFlowTimeline({ userId }: { userId: string }) {
           </p>
           <p className="mt-1 max-w-md text-sm text-muted-foreground">
             {items.length === 0
-              ? "이 기간에 기록된 활동이 없습니다. 기간을 넓혀 다시 확인해 주세요."
+              ? period === "all"
+                ? "이 사용자의 기록이 아직 없습니다."
+                : "이 기간에 기록된 활동이 없습니다. 기간을 넓혀 다시 확인해 주세요."
               : "선택한 분류를 해제하면 나머지 활동이 다시 보입니다."}
           </p>
         </div>

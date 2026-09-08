@@ -3,7 +3,11 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
-import type { AdminUserDetail, AdminUserSummary } from "@/auth/api/admin-users.api";
+import type {
+  AdminUserApplicationCounts,
+  AdminUserDetail,
+  AdminUserSummary,
+} from "@/auth/api/admin-users.api";
 import { ROUTE_SUPER_ADMIN_USERS } from "@/auth/model/admin-routes";
 import { renderResourceValue } from "@/components/admin/resource-console/formatters";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,9 +19,28 @@ const APPLICATION_LABELS: Record<string, string> = {
   PENDING: "대기",
   APPROVED: "승인",
   REJECTED: "거절",
+  // The wire sends "CANCELED" (one L). "CANCELLED" stays mapped too, in case
+  // an older backend build or a cached response still spells it that way.
+  CANCELED: "취소",
   CANCELLED: "취소",
   WAITLISTED: "대기열",
 };
+
+const APPLICATION_STATUS_ORDER = ["PENDING", "APPROVED", "REJECTED", "CANCELED"] as const;
+
+/**
+ * "신청 6건 (대기 1 · 승인 3 · 취소 2)" — the total first, as a fact an operator
+ * can read at a glance, then only the statuses that are non-zero. `total` is
+ * a count, never a label: printing `Object.entries(applications)` used to
+ * walk it as if it were a fifth status and show the literal word "total".
+ */
+function applicationsFact(applications: AdminUserApplicationCounts): string {
+  const breakdown = APPLICATION_STATUS_ORDER.map((status) => [status, applications[status]] as const)
+    .filter(([, count]) => count > 0)
+    .map(([status, count]) => `${APPLICATION_LABELS[status] ?? status} ${count}`)
+    .join(" · ");
+  return breakdown ? `신청 ${applications.total}건 (${breakdown})` : `신청 ${applications.total}건`;
+}
 
 function deviceSummary(summary: AdminUserSummary): string {
   const named = summary.devices.sessions
@@ -29,11 +52,8 @@ function deviceSummary(summary: AdminUserSummary): string {
 }
 
 function activitySummary(counts: AdminUserSummary["counts"]): string {
-  const applications = Object.entries(counts.applications)
-    .map(([status, count]) => `${APPLICATION_LABELS[status] ?? status} ${count}`)
-    .join(" · ");
   return [
-    applications ? `신청 ${applications}` : null,
+    applicationsFact(counts.applications),
     `결제 ${counts.payments.paidCount}/${counts.payments.count}건`,
     counts.refunds.count > 0 ? `환불 ${counts.refunds.count}건` : null,
     `신고 접수 ${counts.reportsFiled}건`,
@@ -97,9 +117,9 @@ export function UserDetailHeader({
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
               {user.nickname}
             </h1>
-            {renderResourceValue(user.role, "role")}
+            {user.role ? renderResourceValue(user.role, "role") : null}
             {renderResourceValue(user.status, "status")}
-            {user.blocked ? (
+            {user.blocked === true ? (
               <Badge variant="outline" className="gap-1">
                 <ShieldAlert aria-hidden /> 로그인 제한
               </Badge>

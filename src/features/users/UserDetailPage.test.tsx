@@ -72,7 +72,7 @@ function summary(overrides: Partial<AdminUserSummary> = {}): AdminUserSummary {
       pushTokens: [],
     },
     counts: {
-      applications: { APPROVED: 3 },
+      applications: { PENDING: 0, APPROVED: 3, REJECTED: 0, CANCELED: 0, total: 3 },
       payments: { count: 4, paidCount: 3, paidAmount: 90000, businessCount: 2 },
       refunds: { count: 1, completedAmount: 20000 },
       reportsFiled: 1,
@@ -188,6 +188,11 @@ describe("UserDetailPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("탈퇴")).toBeInTheDocument();
     expect(screen.queryByText("사용자를 찾을 수 없습니다")).not.toBeInTheDocument();
+    // The summary-only reconstruction has no real `role` to show, and a
+    // withdrawn account cannot be banned or unbanned.
+    expect(screen.queryByText("USER")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "정지" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "정지 해제" })).not.toBeInTheDocument();
   });
 
   it("says the account does not exist when neither route has a row", async () => {

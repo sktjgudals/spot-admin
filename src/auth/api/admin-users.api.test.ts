@@ -57,7 +57,7 @@ describe("getAdminUser", () => {
           pushTokens: [{ id: "p1", platform: "ios", appVersion: "1.0.5" }],
         },
         counts: {
-          applications: { APPROVED: 3, PENDING: "nope" },
+          applications: { APPROVED: 3, PENDING: "nope", CANCELED: 2 },
           payments: { count: 4, paidCount: 3, paidAmount: 90000, businessCount: 2 },
           refunds: { count: 1, completedAmount: 20000 },
           reportsFiled: 1,
@@ -76,7 +76,13 @@ describe("getAdminUser", () => {
     expect(user.asOf).toBe("2026-09-08T00:00:00.000Z");
     expect(user.summary?.profile.lastSeenAt).toBe("2026-09-07T10:00:00.000Z");
     expect(user.summary?.devices.pushTokens[0]?.appVersion).toBe("1.0.5");
-    expect(user.summary?.counts.applications).toEqual({ APPROVED: 3 });
+    expect(user.summary?.counts.applications).toEqual({
+      PENDING: 0,
+      APPROVED: 3,
+      REJECTED: 0,
+      CANCELED: 2,
+      total: 5,
+    });
     expect(user.summary?.counts.payments.paidAmount).toBe(90000);
     expect(user.summary?.counts.activeRestrictions[0]).toEqual({
       id: "r1",
@@ -110,7 +116,7 @@ describe("getAdminUserSummary", () => {
       },
       devices: { activeSessionCount: 0, sessions: [], pushTokens: [] },
       counts: {
-        applications: {},
+        applications: { PENDING: 0, APPROVED: 0, REJECTED: 0, CANCELED: 0, total: 0 },
         payments: { count: 0, paidCount: 0, paidAmount: 0, businessCount: 0 },
         refunds: { count: 0, completedAmount: 0 },
         reportsFiled: 0,
@@ -136,6 +142,40 @@ describe("getAdminUserSummary", () => {
     );
 
     await expect(getAdminUserSummary("u1")).rejects.toBeInstanceOf(AdminAuthError);
+  });
+});
+
+describe("application counts normalization", () => {
+  it("zero-fills the four statuses and computes the total when the backend omits it", async () => {
+    fetchJson.mockResolvedValue({
+      counts: { applications: { PENDING: 1, APPROVED: 3, CANCELED: 2 } },
+    });
+
+    const summary = await getAdminUserSummary("u1");
+
+    expect(summary?.counts.applications).toEqual({
+      PENDING: 1,
+      APPROVED: 3,
+      REJECTED: 0,
+      CANCELED: 2,
+      total: 6,
+    });
+  });
+
+  it("keeps the backend's own total instead of recomputing it, tolerating missing keys", async () => {
+    fetchJson.mockResolvedValue({
+      counts: { applications: { APPROVED: 5, total: 9 } },
+    });
+
+    const summary = await getAdminUserSummary("u1");
+
+    expect(summary?.counts.applications).toEqual({
+      PENDING: 0,
+      APPROVED: 5,
+      REJECTED: 0,
+      CANCELED: 0,
+      total: 9,
+    });
   });
 });
 
@@ -185,7 +225,7 @@ describe("getAdminUserTimeline", () => {
           title: "결제 완료",
           amount: 20000,
           refs: { paymentId: "pay-1", partyId: "party-1", businessId: "", extra: "drop" },
-          source: "db",
+          source: "domain",
         },
         { at: "2026-09-08T01:00:00.000Z" },
       ],
@@ -213,10 +253,13 @@ describe("getAdminUserTimeline", () => {
       status: null,
       amount: 20000,
       meta: {},
-      source: "db",
+      source: "domain",
     });
     expect(page.items[1]?.id).toBe("UNKNOWN:2026-09-08T01:00:00.000Z:1");
     expect(page.items[1]?.category).toBe("ACCOUNT");
+    // No `source` on the wire row: defaults to a real wire value, not the
+    // legacy "db" placeholder.
+    expect(page.items[1]?.source).toBe("domain");
     expect(page.nextCursor).toBe("cursor-2");
     expect(page.coverage).toEqual([]);
   });
@@ -226,7 +269,7 @@ describe("getAdminUserTimeline", () => {
       items: [],
       nextCursor: null,
       coverage: [
-        { category: "SESSION", source: "audit", retainedFrom: "2026-06-01T00:00:00.000Z", note: "접속 기록은 90일만 보관합니다." },
+        { category: "SESSION", source: "admin", retainedFrom: "2026-06-01T00:00:00.000Z", note: "접속 기록은 90일만 보관합니다." },
         { category: "PARTY" },
       ],
     });
@@ -236,7 +279,7 @@ describe("getAdminUserTimeline", () => {
     expect(page.coverage).toEqual([
       {
         category: "SESSION",
-        source: "audit",
+        source: "admin",
         retainedFrom: "2026-06-01T00:00:00.000Z",
         note: "접속 기록은 90일만 보관합니다.",
       },
