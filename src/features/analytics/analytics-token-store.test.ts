@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  __resetAccessTokenForTests,
+  setAuthenticatedAdminSession,
+  setRefreshedAdminSession,
+} from "@/auth/store/admin-auth.store";
+import {
   __resetAnalyticsTokenForTests,
   clearAnalyticsAccessToken,
   getAnalyticsAccessToken,
@@ -8,6 +13,12 @@ import {
   subscribeAnalyticsToken,
 } from "./analytics-token-store";
 
+const PRINCIPAL = {
+  id: "admin-1",
+  role: "SUPER_ADMIN" as const,
+  businessId: null,
+};
+
 describe("analytics token store", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -15,6 +26,7 @@ describe("analytics token store", () => {
     localStorage.clear();
     sessionStorage.clear();
     __resetAnalyticsTokenForTests();
+    __resetAccessTokenForTests();
   });
 
   it("keeps the access token outside the public snapshot and browser storage", () => {
@@ -52,5 +64,39 @@ describe("analytics token store", () => {
       status: "connected",
       generation: 3,
     });
+  });
+
+  it("clears the token when the admin session generation changes", () => {
+    setAuthenticatedAdminSession("admin-token", PRINCIPAL);
+    setAnalyticsAccessToken({ accessToken: "ga-token", expiresInSeconds: 3600 });
+
+    setAuthenticatedAdminSession("other-token", { ...PRINCIPAL, id: "admin-2" });
+
+    expect(getAnalyticsAccessToken()).toBeNull();
+    expect(getAnalyticsTokenSnapshot().status).toBe("disconnected");
+  });
+
+  it("tells mounted subscribers the moment the admin session is replaced", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeAnalyticsToken(listener);
+    setAuthenticatedAdminSession("admin-token", PRINCIPAL);
+    setAnalyticsAccessToken({ accessToken: "ga-token", expiresInSeconds: 3600 });
+    listener.mockClear();
+
+    setAuthenticatedAdminSession("other-token", { ...PRINCIPAL, id: "admin-2" });
+
+    expect(listener).toHaveBeenCalled();
+    expect(getAnalyticsTokenSnapshot().status).toBe("disconnected");
+    unsubscribe();
+  });
+
+  it("keeps the token across a same-principal refresh", () => {
+    setAuthenticatedAdminSession("admin-token", PRINCIPAL);
+    setAnalyticsAccessToken({ accessToken: "ga-token", expiresInSeconds: 3600 });
+
+    setRefreshedAdminSession("rotated-admin-token", PRINCIPAL);
+
+    expect(getAnalyticsAccessToken()).toBe("ga-token");
+    expect(getAnalyticsTokenSnapshot().status).toBe("connected");
   });
 });

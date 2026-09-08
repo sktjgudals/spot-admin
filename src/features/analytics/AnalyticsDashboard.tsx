@@ -1,17 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
-  AlertCircle,
   BarChart3,
   Clock3,
   Database,
   Link2,
   Loader2,
-  RefreshCw,
   ShieldCheck,
-  TriangleAlert,
   Unplug,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,20 +30,22 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { AnalyticsDataApiError } from "./analytics-data-api";
+import { EVENT_LABELS } from "./analytics-labels";
+import { analyticsQueryKeys } from "./analytics-query-keys";
 import { fetchAnalyticsReport } from "./analytics-reports";
+import {
+  AnalyticsErrorState,
+  ConnectionFact,
+  DataQualityPanel,
+  QuotaFooter,
+  StatusCard,
+} from "./AnalyticsStates";
 import {
   clearAnalyticsAccessToken,
   getAnalyticsAccessToken,
-  setAnalyticsAccessToken,
 } from "./analytics-token-store";
-import {
-  GoogleAnalyticsOAuthError,
-  loadGoogleAnalyticsIdentityServices,
-  requestGoogleAnalyticsToken,
-} from "./google-analytics-oauth";
 import type {
   AnalyticsDateRange,
-  AnalyticsDataQualityNotice,
   AnalyticsMetricValue,
   AnalyticsPropertyConfig,
   AnalyticsReportColumn,
@@ -54,22 +53,12 @@ import type {
   AnalyticsReportTable,
   AnalyticsReportView,
 } from "./types";
-import { useAnalyticsToken } from "./use-analytics-token";
+import { useAnalyticsConnection } from "./use-analytics-connection";
 
 type AnalyticsDashboardProps = {
   properties: AnalyticsPropertyConfig[];
   googleClientId: string;
   configError: string | null;
-};
-
-const analyticsQueryKeys = {
-  all: ["google-analytics"] as const,
-  report: (
-    generation: number,
-    propertyId: string,
-    view: AnalyticsReportView,
-    range: AnalyticsDateRange,
-  ) => ["google-analytics", generation, propertyId, view, range] as const,
 };
 
 const VIEW_OPTIONS: Array<{ value: AnalyticsReportView; label: string }> = [
@@ -86,84 +75,20 @@ const DATE_RANGE_OPTIONS: Array<{ value: AnalyticsDateRange; label: string }> = 
   { value: "90d", label: "최근 90일" },
 ];
 
-const EVENT_LABELS: Record<string, string> = {
-  screen_view: "화면 조회",
-  api_mutation: "데이터 변경",
-  login_started: "로그인 시작",
-  login_success: "로그인 성공",
-  login_failed: "로그인 실패",
-  signup_completed: "가입 완료",
-  banner_click: "배너 클릭",
-  notification_received: "알림 수신",
-  notification_open: "알림 열기",
-  withdraw_started: "탈퇴 시작",
-  withdraw_completed: "탈퇴 완료",
-  purchase: "구매",
-};
-
 export function AnalyticsDashboard({
   properties,
   googleClientId,
   configError,
 }: AnalyticsDashboardProps) {
-  const queryClient = useQueryClient();
-  const token = useAnalyticsToken();
-  const mountedRef = useRef(false);
-  const [connecting, setConnecting] = useState(false);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const configured = !configError && properties.length > 0;
+  const { token, connecting, connectionError, connect, disconnect } =
+    useAnalyticsConnection({ googleClientId, enabled: configured });
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
   const [view, setView] = useState<AnalyticsReportView>("overview");
   const [range, setRange] = useState<AnalyticsDateRange>("28d");
 
-  useEffect(() => {
-    if (!configError && properties.length > 0 && googleClientId.trim()) {
-      void loadGoogleAnalyticsIdentityServices().catch(() => undefined);
-    }
-  }, [configError, googleClientId, properties.length]);
-
-  useEffect(() => {
-    if (token.status !== "connected") {
-      void queryClient.cancelQueries({ queryKey: analyticsQueryKeys.all }).then(() => {
-        queryClient.removeQueries({ queryKey: analyticsQueryKeys.all });
-      });
-    }
-  }, [queryClient, token.status]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      if (getAnalyticsAccessToken()) clearAnalyticsAccessToken("disconnected");
-      queryClient.removeQueries({ queryKey: analyticsQueryKeys.all });
-    };
-  }, [queryClient]);
-
   const selectedProperty =
     properties.find((property) => property.id === propertyId) ?? properties[0];
-
-  async function connect(): Promise<void> {
-    setConnecting(true);
-    setConnectionError(null);
-    try {
-      const grant = await requestGoogleAnalyticsToken(googleClientId);
-      if (!mountedRef.current) return;
-      setAnalyticsAccessToken(grant);
-    } catch (reason) {
-      if (!mountedRef.current) return;
-      setConnectionError(
-        reason instanceof GoogleAnalyticsOAuthError
-          ? reason.message
-          : "Google Analytics 연결을 완료하지 못했습니다.",
-      );
-    } finally {
-      if (mountedRef.current) setConnecting(false);
-    }
-  }
-
-  function disconnect(): void {
-    clearAnalyticsAccessToken("disconnected");
-    queryClient.removeQueries({ queryKey: analyticsQueryKeys.all });
-  }
 
   if (configError || !selectedProperty) {
     return (
@@ -201,7 +126,7 @@ export function AnalyticsDashboard({
         >
           <div className="grid gap-3 rounded-lg border bg-muted/35 p-4 text-sm sm:grid-cols-3">
             <ConnectionFact title="권한" value="analytics.readonly만 요청" />
-            <ConnectionFact title="보관" value="현재 화면의 메모리에만 유지" />
+            <ConnectionFact title="보관" value="이 탭의 메모리에만 유지 · 로그아웃 시 삭제" />
             <ConnectionFact title="전송" value="Google Data API로 직접 요청" />
           </div>
           {connectionError ? (
@@ -258,7 +183,7 @@ export function AnalyticsDashboard({
           </label>
         </div>
         <Button variant="outline" onClick={disconnect}>
-          <Unplug /> 이 화면 연결 끊기
+          <Unplug /> 연결 끊기
         </Button>
       </div>
 
@@ -312,40 +237,6 @@ function AnalyticsPageFrame({ children }: { children: React.ReactNode }) {
         </span>
       </header>
       {children}
-    </div>
-  );
-}
-
-function StatusCard({
-  icon: Icon,
-  title,
-  description,
-  children,
-}: {
-  icon: typeof ShieldCheck;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card className="mx-auto w-full max-w-4xl">
-      <CardHeader>
-        <div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Icon className="size-5" />
-        </div>
-        <h2 className="text-lg font-semibold leading-snug">{title}</h2>
-        <CardDescription className="max-w-2xl leading-6">{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">{children}</CardContent>
-    </Card>
-  );
-}
-
-function ConnectionFact({ title, value }: { title: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{title}</p>
-      <p className="mt-1 font-medium text-foreground">{value}</p>
     </div>
   );
 }
@@ -470,62 +361,6 @@ function reportCompletionSummary(
 
   const rowCount = result.tables.reduce((total, table) => total + table.rows.length, 0);
   return `${prefix} 표 ${result.tables.length}개, 행 ${rowCount}개가 표시됩니다.`;
-}
-
-function AnalyticsErrorState({ error, retry }: { error: Error; retry: () => void }) {
-  const apiError = error instanceof AnalyticsDataApiError ? error : null;
-  const presentation = errorPresentation(apiError);
-  return (
-    <Card className="border-destructive/30" role="alert" aria-live="assertive">
-      <CardContent className="flex flex-col gap-4 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-            <AlertCircle className="size-5" />
-          </div>
-          <div>
-            <h2 className="font-semibold">{presentation.title}</h2>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-              {presentation.description}
-            </p>
-          </div>
-        </div>
-        <Button variant="outline" onClick={retry}>
-          <RefreshCw /> 다시 시도
-        </Button>
-      </CardContent>
-    </Card>
-  );
-}
-
-function errorPresentation(error: AnalyticsDataApiError | null): {
-  title: string;
-  description: string;
-} {
-  if (error?.kind === "permission") {
-    return {
-      title: "GA4 속성 권한이 없습니다.",
-      description: "연결한 Google 계정에 이 속성의 Viewer 이상 권한이 있는지 확인해 주세요.",
-    };
-  }
-  if (error?.kind === "quota") {
-    const retry = error.retryAfterMs
-      ? ` 약 ${Math.ceil(error.retryAfterMs / 1_000)}초 후 다시 시도할 수 있습니다.`
-      : " 잠시 후 다시 시도해 주세요.";
-    return {
-      title: "GA API 할당량을 모두 사용했습니다.",
-      description: `데이터를 임의 값으로 대체하지 않았습니다.${retry}`,
-    };
-  }
-  if (error?.kind === "invalid-response" || error?.kind === "request") {
-    return {
-      title: "보고서 정의를 처리하지 못했습니다.",
-      description: "GA4 맞춤 정의와 dimension·metric 호환성을 확인해 주세요.",
-    };
-  }
-  return {
-    title: "Google Analytics 보고서를 불러오지 못했습니다.",
-    description: "연결 상태를 확인한 뒤 다시 시도해 주세요. 다른 관리자 기능에는 영향을 주지 않습니다.",
-  };
 }
 
 function AnalyticsEmptyState({
@@ -717,77 +552,6 @@ function AnalyticsTable({
   );
 }
 
-function DataQualityPanel({ notices }: { notices: AnalyticsDataQualityNotice[] }) {
-  if (notices.length === 0) return null;
-  return (
-    <section
-      aria-labelledby="analytics-data-quality-title"
-      className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-foreground"
-    >
-      <div className="flex gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning-foreground">
-          <TriangleAlert className="size-5" aria-hidden />
-        </div>
-        <div className="min-w-0">
-          <h2 id="analytics-data-quality-title" className="font-semibold">
-            데이터 품질 안내
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            GA4가 반환한 보고서별 품질 신호입니다. 아래 제한을 고려해 수치를 해석해 주세요.
-          </p>
-          <ul className="mt-3 space-y-2">
-            {notices.map((notice, index) => (
-              <li key={`${notice.reportKey}:${notice.kind}:${index}`} className="leading-6">
-                <span className="font-medium">{notice.reportTitle}</span>
-                <span className="text-muted-foreground"> · {dataQualityDescription(notice)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function dataQualityDescription(notice: AnalyticsDataQualityNotice): string {
-  if (notice.kind === "thresholding") {
-    return "개인정보 보호 임계값이 적용되어 소규모 사용자 행이 제외되었을 수 있습니다.";
-  }
-  if (notice.kind === "other-row") {
-    return "고유값이 많은 차원의 일부 값이 (other) 행으로 합쳐졌습니다.";
-  }
-  const percentage = samplingPercentage(
-    notice.samplesReadCount,
-    notice.samplingSpaceSize,
-  );
-  const counts = `${formatIntegerString(notice.samplesReadCount)} / ${formatIntegerString(
-    notice.samplingSpaceSize,
-  )}개 이벤트`;
-  return percentage
-    ? `${counts}를 사용한 표본 보고서입니다 (${percentage}).`
-    : `${counts}를 사용한 표본 보고서입니다.`;
-}
-
-function samplingPercentage(samplesReadCount: string, samplingSpaceSize: string): string | null {
-  try {
-    const samples = BigInt(samplesReadCount);
-    const space = BigInt(samplingSpaceSize);
-    if (samples < 0n || space <= 0n) return null;
-    const tenthsOfPercent = (samples * 1_000n + space / 2n) / space;
-    return `${(Number(tenthsOfPercent) / 10).toFixed(1)}%`;
-  } catch {
-    return null;
-  }
-}
-
-function formatIntegerString(value: string): string {
-  try {
-    return BigInt(value).toLocaleString("ko-KR");
-  } catch {
-    return value;
-  }
-}
-
 function tableRowCountLabel(table: AnalyticsReportTable): string {
   const displayed = table.rows.length;
   const total = table.totalRowCount;
@@ -795,23 +559,6 @@ function tableRowCountLabel(table: AnalyticsReportTable): string {
     return `상위 ${displayed.toLocaleString("ko-KR")}개 표시 · 전체 ${total.toLocaleString("ko-KR")}개 결과`;
   }
   return `전체 ${total.toLocaleString("ko-KR")}개 결과 표시`;
-}
-
-function QuotaFooter({ quota }: { quota: AnalyticsReportResult["quota"] }) {
-  if (!quota || quota.entries.length === 0) return null;
-  return (
-    <details className="rounded-lg border bg-muted/25 px-3 py-2 text-xs text-muted-foreground">
-      <summary className="cursor-pointer font-medium text-foreground">GA API 할당량 상태</summary>
-      <ul className="mt-2 grid gap-1 sm:grid-cols-2">
-        {quota.entries.map((entry) => (
-          <li key={entry.key} className="flex justify-between gap-3">
-            <span>{entry.key}</span>
-            <span className="tabular-nums">잔여 {entry.remaining.toLocaleString("ko-KR")}</span>
-          </li>
-        ))}
-      </ul>
-    </details>
-  );
 }
 
 function formatCell(
