@@ -73,6 +73,12 @@ describe("security headers", () => {
     expect(headers).not.toHaveProperty("Strict-Transport-Security");
   });
 
+  it("allows the direct R2 upload endpoint used by admin image uploads", () => {
+    expect(CONTENT_SECURITY_POLICY).toMatch(
+      /connect-src[^;]*https:\/\/8c676e7121f390b03c3af9a59a9445ca\.r2\.cloudflarestorage\.com/,
+    );
+  });
+
   it("does not add local development transports to the production policy", () => {
     const headers = createSecurityHeaders({
       environment: "production",

@@ -110,6 +110,17 @@ export function renderResourceValue(value: unknown, key: string): ReactNode {
       </Badge>
     );
   }
+  if (key === "imageUrl" && typeof value === "string" && /^https?:\/\//.test(value)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- 운영 썸네일, 원격 호스트가 가변이라 next/image 미사용
+      <img
+        src={value}
+        alt=""
+        title={value}
+        className="h-10 w-auto max-w-24 rounded border object-cover"
+      />
+    );
+  }
   const text = formatResourceText(value, key);
   if (/(?:^id$|Id$|orderId$|campaignId$)/.test(key)) {
     return <span className="font-mono text-xs tracking-tight">{text}</span>;

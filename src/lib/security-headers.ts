@@ -18,6 +18,8 @@ const PRODUCTION_CONNECT_SOURCES = [
   "https://accounts.google.com",
   "https://appleid.apple.com",
   "https://analyticsdata.googleapis.com",
+  // 배너 이미지 업로드: presign 응답의 S3 PUT URL. 워커 티켓 경로는 api.dopa.ing이라 이미 허용된다.
+  "https://8c676e7121f390b03c3af9a59a9445ca.r2.cloudflarestorage.com",
 ] as const;
 
 function parseOrigin(value: string | undefined): URL | null {
