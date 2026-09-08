@@ -1,4 +1,4 @@
-import type { ResourceConfig } from "./types";
+import type { Field, ResourceConfig } from "./types";
 import { number, text } from "./helpers";
 
 export const couponsConfig: ResourceConfig = {
@@ -109,10 +109,31 @@ export const notificationsConfig: ResourceConfig = {
   ],
 };
 
+const BANNER_ACTION_TYPES = [
+  "NONE", "DEEPLINK", "WEB", "INSTAGRAM", "YOUTUBE", "PHONE", "EMAIL", "CUSTOM",
+] as const;
+
+const bannerImageField: Field = {
+  key: "imageUrl",
+  label: "이미지",
+  type: "image",
+  required: true,
+  upload: {
+    url: "/admin/v2/media/upload-url",
+    hint: "jpeg/png/webp · 최대 10MB · 권장 1600×900 (16:9)",
+    preview: "wide",
+  },
+};
+
+const bannerScheduleFields: readonly Field[] = [
+  { key: "startsAt", label: "노출 시작", type: "datetime" },
+  { key: "endsAt", label: "노출 종료", type: "datetime" },
+];
+
 export const bannersConfig: ResourceConfig = {
   key: "banners",
   title: "배너 관리",
-  description: "앱 메인 배너의 이미지, 노출 순서와 액션을 관리합니다.",
+  description: "앱 홈 상단 배너의 이미지, 노출 순서·기간과 액션을 관리합니다.",
   resource: "banners",
   columns: [
     { key: "title", label: "제목" },
@@ -126,29 +147,26 @@ export const bannersConfig: ResourceConfig = {
     path: "/admin/v2/banners",
     fields: [
       text("title", "제목", true),
-      text("imageUrl", "이미지 URL", true),
-      {
-        key: "actionType",
-        label: "액션",
-        options: ["NONE", "DEEPLINK", "WEB", "INSTAGRAM", "YOUTUBE", "PHONE", "EMAIL", "CUSTOM"],
-        defaultValue: "NONE",
-      },
+      bannerImageField,
+      { key: "actionType", label: "액션", options: BANNER_ACTION_TYPES, defaultValue: "NONE" },
       text("actionValue", "액션 값"),
       text("linkUrl", "링크 URL"),
       number("sortOrder", "순서"),
       { key: "isActive", label: "활성", type: "boolean", defaultValue: true },
+      ...bannerScheduleFields,
     ],
   },
   edit: {
     path: (row) => `/admin/v2/banners/${encodeURIComponent(String(row.id))}`,
     fields: [
       text("title", "제목", true),
-      text("imageUrl", "이미지 URL", true),
-      { key: "actionType", label: "액션", options: ["NONE", "DEEPLINK", "WEB", "CUSTOM"] },
+      bannerImageField,
+      { key: "actionType", label: "액션", options: BANNER_ACTION_TYPES, defaultValue: "NONE" },
       text("actionValue", "액션 값"),
       text("linkUrl", "링크 URL"),
       number("sortOrder", "순서"),
       { key: "isActive", label: "활성", type: "boolean" },
+      ...bannerScheduleFields,
     ],
   },
   actions: [

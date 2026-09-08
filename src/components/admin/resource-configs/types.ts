@@ -3,10 +3,12 @@ import type { AdminResource } from "@/auth/api/admin-resources.api";
 export type Field = {
   key: string;
   label: string;
-  type?: "text" | "number" | "textarea" | "boolean" | "datetime";
+  type?: "text" | "number" | "textarea" | "boolean" | "datetime" | "image";
   required?: boolean;
   options?: readonly string[];
   defaultValue?: string | number | boolean;
+  /** type === "image" 전용: presign 엔드포인트와 업로더 표시 옵션 */
+  upload?: { url: string; hint?: string; preview?: "square" | "wide" };
 };
 
 export type ActionFields = {
