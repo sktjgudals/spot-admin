@@ -28,4 +28,28 @@ describe("adminQueryKeys", () => {
       "party-1",
     ]);
   });
+
+  it("nests user summary and timeline under one detail key", () => {
+    expect(adminQueryKeys.users.all).toEqual(["admin", "users"]);
+    expect(adminQueryKeys.users.detail("u1")).toEqual([
+      "admin",
+      "users",
+      "detail",
+      "u1",
+    ]);
+    expect(adminQueryKeys.users.summary("u1")).toEqual([
+      ...adminQueryKeys.users.detail("u1"),
+      "summary",
+    ]);
+    expect(adminQueryKeys.users.timeline("u1")).toEqual([
+      ...adminQueryKeys.users.detail("u1"),
+      "timeline",
+      {},
+    ]);
+    expect(adminQueryKeys.users.timeline("u1", { categories: "PARTY" })).toEqual([
+      ...adminQueryKeys.users.detail("u1"),
+      "timeline",
+      { categories: "PARTY" },
+    ]);
+  });
 });

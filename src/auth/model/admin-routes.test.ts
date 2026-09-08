@@ -4,6 +4,8 @@ import {
   homePathForRole,
   AdminApi,
   resolveBusinessScope,
+  ROUTE_SUPER_ADMIN_USERS,
+  superAdminUserDetailPath,
 } from "@/auth/model/admin-routes";
 
 describe("admin-routes scope contract", () => {
@@ -91,5 +93,15 @@ describe("admin-routes scope contract", () => {
       routeBusinessId: "biz-b",
     });
     expect(r).toEqual({ error: "CROSS_TENANT_BLOCKED" });
+  });
+
+  it("exposes encoded SUPER_ADMIN user endpoints and the detail route", () => {
+    expect(AdminApi.user("u/1")).toBe("/admin/v2/users/u%2F1");
+    expect(AdminApi.userTimeline("u/1")).toBe("/admin/v2/users/u%2F1/timeline");
+    expect(AdminApi.userSummary("u/1")).toBe("/admin/v2/users/u%2F1/summary");
+    expect(AdminApi.userBan("u 1")).toBe("/admin/v2/users/u%201/ban");
+    expect(AdminApi.userUnban("u 1")).toBe("/admin/v2/users/u%201/unban");
+    expect(ROUTE_SUPER_ADMIN_USERS).toBe("/super-admin/users");
+    expect(superAdminUserDetailPath("u/1")).toBe("/super-admin/users/u%2F1");
   });
 });

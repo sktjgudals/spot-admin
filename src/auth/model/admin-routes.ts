@@ -59,6 +59,20 @@ export function myPartyDetailPath(partyId: string): string {
   return `/app/parties/${encodeURIComponent(partyId)}`;
 }
 
+/** SUPER_ADMIN user list — the generic `[section]` console renders it. */
+export const ROUTE_SUPER_ADMIN_USERS = "/super-admin/users";
+
+/**
+ * SUPER_ADMIN user detail.
+ *
+ * `/super-admin/users` stays on the generic `[section]` page; only the nested
+ * `[id]` segment has its own `page.tsx`, so adding this path does not shadow
+ * the list route.
+ */
+export function superAdminUserDetailPath(userId: string): string {
+  return `/super-admin/users/${encodeURIComponent(userId)}`;
+}
+
 export function homePathForRole(role: AdminWebRole): string {
   return role === "SUPER_ADMIN" ? ROUTE_SUPER_ADMIN_HOME : ROUTE_BUSINESS_HOME;
 }
@@ -143,6 +157,15 @@ export const AdminApi = {
     `/admin/v2/parties/${encodeURIComponent(partyId)}`,
   /** Kakao place search provided by the Cloudflare API. */
   placesKakaoSearch: () => `/places/kakao/search`,
+  user: (userId: string) => `/admin/v2/users/${encodeURIComponent(userId)}`,
+  userTimeline: (userId: string) =>
+    `/admin/v2/users/${encodeURIComponent(userId)}/timeline`,
+  userSummary: (userId: string) =>
+    `/admin/v2/users/${encodeURIComponent(userId)}/summary`,
+  userBan: (userId: string) =>
+    `/admin/v2/users/${encodeURIComponent(userId)}/ban`,
+  userUnban: (userId: string) =>
+    `/admin/v2/users/${encodeURIComponent(userId)}/unban`,
   partyTransitions: (partyId: string, scope: PartyAdminScope = "business") =>
     scope === "super"
       ? `/admin/v2/parties/${encodeURIComponent(partyId)}/transitions`

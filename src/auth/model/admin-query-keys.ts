@@ -29,6 +29,18 @@ export const adminQueryKeys = {
   },
   insights: (partyId?: string) =>
     ["admin", "insights", partyId && partyId.length > 0 ? partyId : "all"] as const,
+  users: {
+    all: ["admin", "users"] as const,
+    detail: (userId: string) => ["admin", "users", "detail", userId] as const,
+    summary: (userId: string) =>
+      ["admin", "users", "detail", userId, "summary"] as const,
+    /**
+     * The generic list console caches under `["admin-v2", "users", …]`.
+     * These keys are the detail-page cache; ban/unban invalidates both.
+     */
+    timeline: (userId: string, filters: Record<string, unknown> = {}) =>
+      ["admin", "users", "detail", userId, "timeline", filters] as const,
+  },
   mailOutbox: {
     all: ["admin", "mail-outbox"] as const,
     list: (params: Record<string, unknown> = {}) =>
