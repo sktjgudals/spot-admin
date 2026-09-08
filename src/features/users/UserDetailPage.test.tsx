@@ -159,6 +159,10 @@ describe("UserDetailPage", () => {
     expect(screen.getByText(/마케팅 동의/)).toBeInTheDocument();
     // The inline summary means the separate route is never called.
     expect(getAdminUserSummary).not.toHaveBeenCalled();
+    // The mobile chip nav's "#flow"/"#behavior" anchors need a focusable
+    // target so following one actually moves focus, not just the scroll.
+    expect(document.getElementById("flow")).toHaveAttribute("tabindex", "-1");
+    expect(document.getElementById("behavior")).toHaveAttribute("tabindex", "-1");
   });
 
   it("hands the lazy GA panel this user's id", async () => {

@@ -114,13 +114,24 @@ export function errorPresentation(error: AnalyticsDataApiError | null): {
 
 export function DataQualityPanel({
   notices,
+  headingLevel = "h2",
+  headingId = "analytics-data-quality-title",
 }: {
   notices: AnalyticsDataQualityNotice[];
+  /**
+   * `AnalyticsDashboard.tsx` renders this as the page's own top-level
+   * finding, so it keeps the default `h2`/id pair. `UserBehaviorPanel.tsx`
+   * nests it under that page's own `<h2>앱 행동 흐름</h2>`, so it passes
+   * `h3` and a distinct id instead of a second, duplicate `h2`.
+   */
+  headingLevel?: "h2" | "h3";
+  headingId?: string;
 }) {
   if (notices.length === 0) return null;
+  const Heading = headingLevel;
   return (
     <section
-      aria-labelledby="analytics-data-quality-title"
+      aria-labelledby={headingId}
       className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-foreground"
     >
       <div className="flex gap-3">
@@ -128,9 +139,9 @@ export function DataQualityPanel({
           <TriangleAlert className="size-5" aria-hidden />
         </div>
         <div className="min-w-0">
-          <h2 id="analytics-data-quality-title" className="font-semibold">
+          <Heading id={headingId} className="font-semibold">
             데이터 품질 안내
-          </h2>
+          </Heading>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
             GA4가 반환한 보고서별 품질 신호입니다. 아래 제한을 고려해 수치를 해석해 주세요.
           </p>

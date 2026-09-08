@@ -206,6 +206,33 @@ describe("shapeUserBehaviorRows", () => {
     expect(flow.sessions[1]?.day).toBe("2026-09-08");
   });
 
+  it("tracks the day the session ends on separately when it runs past midnight", () => {
+    const flow = shapeUserBehaviorRows(
+      [
+        row("202609072350", "screen_view", "Home"),
+        row("202609080010", "screen_view", "Home"),
+      ],
+      meta(),
+    );
+
+    expect(flow.sessions).toHaveLength(1);
+    expect(flow.sessions[0]?.day).toBe("2026-09-07");
+    expect(flow.sessions[0]?.endDay).toBe("2026-09-08");
+  });
+
+  it("keeps day and endDay equal for a session that stays within one day", () => {
+    const flow = shapeUserBehaviorRows(
+      [
+        row("202609080900", "screen_view", "Home"),
+        row("202609080910", "screen_view", "Home"),
+      ],
+      meta(),
+    );
+
+    expect(flow.sessions[0]?.day).toBe("2026-09-08");
+    expect(flow.sessions[0]?.endDay).toBe("2026-09-08");
+  });
+
   it("drops unparseable minutes and reports an empty flow rather than inventing one", () => {
     const flow = shapeUserBehaviorRows([row("nope", "screen_view", "Home")], meta());
 
@@ -257,6 +284,24 @@ describe("fetchUserBehaviorFlow", () => {
     ).toEqual([0, PAGE_LIMIT, PAGE_LIMIT * 2]);
     expect(flow.truncated).toBe(true);
     expect(flow.rowCount).toBe(90_000);
+  });
+
+  it("keeps timeZone null instead of guessing Asia/Seoul when GA omits metadata.timeZone", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        gaResponse([row("202609080900", "screen_view", "Home")], 1, { metadata: {} }),
+      );
+
+    const flow = await fetchUserBehaviorFlow({
+      property,
+      userId: "user-1",
+      range: "7d",
+      accessToken: "token",
+      fetchImpl,
+    });
+
+    expect(flow.timeZone).toBeNull();
   });
 
   it("collects GA4 quality notices once even across pages", async () => {

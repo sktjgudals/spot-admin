@@ -206,6 +206,67 @@ describe("UserBehaviorPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the calendar date on a session's end time when it runs past midnight", async () => {
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchUserBehaviorFlow).mockResolvedValue(
+      shapeUserBehaviorRows(
+        [
+          row("202609072350", "screen_view", "Home"),
+          row("202609080010", "screen_view", "Home"),
+        ],
+        {
+          timeZone: "Asia/Seoul",
+          quota: null,
+          dataQualityNotices: [],
+          rowCount: 2,
+          truncated: false,
+        },
+      ),
+    );
+    renderPanel();
+
+    expect(await screen.findByText("23:50–09-08 00:10")).toBeInTheDocument();
+  });
+
+  it("marks the shared data-quality heading as a subsection, not a duplicate page heading", async () => {
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchUserBehaviorFlow).mockResolvedValue(
+      emptyFlow({
+        dataQualityNotices: [
+          {
+            kind: "thresholding",
+            reportKey: "user-behavior",
+            reportTitle: "사용자 행동 흐름",
+          },
+        ],
+      }),
+    );
+    renderPanel();
+
+    const heading = await screen.findByRole("heading", { name: "데이터 품질 안내" });
+    expect(heading.tagName).toBe("H3");
+  });
+
+  it("omits the time-zone prefix from the processing-delay caption when GA sent none", async () => {
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchUserBehaviorFlow).mockResolvedValue(
+      shapeUserBehaviorRows([row("202609080900", "screen_view", "Home")], {
+        timeZone: null,
+        quota: null,
+        dataQualityNotices: [],
+        rowCount: 1,
+        truncated: false,
+      }),
+    );
+    renderPanel();
+
+    expect(await screen.findByText("Home")).toBeInTheDocument();
+    expect(
+      screen.getByText("GA4 처리 지연으로 최근 24–48시간은 누락될 수 있어요"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/기준, GA4 처리 지연/)).not.toBeInTheDocument();
+  });
+
   it("re-queries when the operator widens the range", async () => {
     const user = userEvent.setup();
     setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });

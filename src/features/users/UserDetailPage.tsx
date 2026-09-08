@@ -239,7 +239,16 @@ export function UserDetailPage({ userId, analytics }: UserDetailPageProps) {
       </nav>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <section id="flow" aria-labelledby="user-flow-title" className="min-w-0 space-y-3">
+        <section
+          id="flow"
+          aria-labelledby="user-flow-title"
+          // The mobile chip nav above links to "#flow"/"#behavior"; a plain
+          // anchor jump to a non-focusable section scrolls but never moves
+          // keyboard/screen-reader focus. tabIndex={-1} makes the section a
+          // valid focus target for that jump without adding it to Tab order.
+          tabIndex={-1}
+          className="min-w-0 space-y-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <h2 id="user-flow-title" className="text-lg font-semibold tracking-tight">
             활동 플로우
           </h2>
@@ -248,7 +257,8 @@ export function UserDetailPage({ userId, analytics }: UserDetailPageProps) {
         <section
           id="behavior"
           aria-labelledby="user-behavior-title"
-          className="min-w-0 space-y-3"
+          tabIndex={-1}
+          className="min-w-0 space-y-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <h2 id="user-behavior-title" className="text-lg font-semibold tracking-tight">
             앱 행동 흐름

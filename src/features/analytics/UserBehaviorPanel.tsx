@@ -27,8 +27,10 @@ import type { AnalyticsPropertyConfig } from "./types";
 import { useAnalyticsConnection } from "./use-analytics-connection";
 import { useUserBehaviorQuery } from "./use-user-behavior-query";
 import {
+  USER_BEHAVIOR_RANGES,
   formatFlowDay,
   formatFlowMinute,
+  formatFlowMinuteWithDay,
   pickUserBehaviorProperty,
   type UserBehaviorEvent,
   type UserBehaviorRange,
@@ -54,10 +56,20 @@ export type UserBehaviorPanelProps = {
   configError: string | null;
 };
 
-const RANGE_OPTIONS: Array<{ value: UserBehaviorRange; label: string }> = [
-  { value: "7d", label: "최근 7일" },
-  { value: "28d", label: "최근 28일" },
-];
+const RANGE_LABELS: Record<UserBehaviorRange, string> = {
+  "7d": "최근 7일",
+  "28d": "최근 28일",
+};
+
+const RANGE_OPTIONS = USER_BEHAVIOR_RANGES.map((value) => ({
+  value,
+  label: RANGE_LABELS[value],
+}));
+
+/** Shared with `AnalyticsDashboard.tsx`'s "데이터 품질 안내": this panel's copy
+ * nests under the page's own `<h2>앱 행동 흐름</h2>`, so its heading is an
+ * `<h3>` with an id distinct from the dashboard's `analytics-data-quality-title`. */
+const DATA_QUALITY_HEADING_ID = "user-behavior-data-quality-title";
 
 export function UserBehaviorPanel({
   userId,
@@ -190,7 +202,11 @@ function UserBehaviorFlowView({
   } else if (query.data.isEmpty) {
     content = (
       <div className="space-y-4">
-        <DataQualityPanel notices={query.data.dataQualityNotices} />
+        <DataQualityPanel
+          notices={query.data.dataQualityNotices}
+          headingLevel="h3"
+          headingId={DATA_QUALITY_HEADING_ID}
+        />
         <BehaviorEmptyState
           thresholded={query.data.dataQualityNotices.some(
             (notice) => notice.kind === "thresholding",
@@ -203,7 +219,11 @@ function UserBehaviorFlowView({
     const flow = query.data;
     content = (
       <div className="space-y-4">
-        <DataQualityPanel notices={flow.dataQualityNotices} />
+        <DataQualityPanel
+          notices={flow.dataQualityNotices}
+          headingLevel="h3"
+          headingId={DATA_QUALITY_HEADING_ID}
+        />
         <dl className="grid grid-cols-3 gap-3 rounded-xl border bg-card p-4">
           <BehaviorTotal label="세션" value={flow.totals.sessions} />
           <BehaviorTotal label="이벤트" value={flow.totals.events} />
@@ -219,7 +239,7 @@ function UserBehaviorFlowView({
         ))}
         <QuotaFooter quota={flow.quota} />
         <p className="text-xs leading-5 text-muted-foreground">
-          {flow.timeZone} 기준, GA4 처리 지연으로 최근 24–48시간은 누락될 수 있어요
+          {`${flow.timeZone ? `${flow.timeZone} 기준, ` : ""}GA4 처리 지연으로 최근 24–48시간은 누락될 수 있어요`}
         </p>
       </div>
     );
@@ -394,7 +414,14 @@ function mergeVisitEvents(
 function BehaviorSessionCard({ session }: { session: UserBehaviorSession }) {
   const dayLabel = formatFlowDay(session.day);
   const start = formatFlowMinute(session.startMinute);
-  const end = formatFlowMinute(session.endMinute);
+  // A session that ran past midnight ends on a different calendar day than
+  // the one in its header (`dayLabel`, from `session.day`) — bare "00:10"
+  // next to that header would misreport which day the session actually
+  // ended on, so the end time carries its own date in that case.
+  const end =
+    session.endDay === session.day
+      ? formatFlowMinute(session.endMinute)
+      : formatFlowMinuteWithDay(session.endMinute);
   return (
     <section className="rounded-xl border bg-card" aria-label={`${dayLabel} ${start} 세션`}>
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-3 text-sm">

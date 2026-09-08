@@ -63,7 +63,16 @@ export type UserBehaviorScreenVisit = {
 export type UserBehaviorSession = {
   id: string;
   platform: string;
+  /** Calendar day of the session's first bucket, Asia/Seoul-free wall clock. */
   day: string;
+  /**
+   * Calendar day of the session's last bucket. Equal to `day` unless the
+   * session ran past midnight — a 23:50→00:10 session is one continuous
+   * session (the gap is 20 minutes, well under the 30-minute break), and
+   * rendering its end time bare as "00:10" next to a "day" header of the
+   * previous date would misreport which day it actually ended on.
+   */
+  endDay: string;
   startMinute: number;
   endMinute: number;
   durationMinutes: number;
@@ -72,7 +81,8 @@ export type UserBehaviorSession = {
 };
 
 export type UserBehaviorFlow = {
-  timeZone: string;
+  /** `null` when GA4 omitted `metadata.timeZone` — never guessed. */
+  timeZone: string | null;
   sessions: UserBehaviorSession[];
   totals: { sessions: number; events: number; screenViews: number };
   dataQualityNotices: AnalyticsDataQualityNotice[];
@@ -84,7 +94,7 @@ export type UserBehaviorFlow = {
 };
 
 export type UserBehaviorFlowMeta = {
-  timeZone: string;
+  timeZone: string | null;
   quota: AnalyticsQuotaState | null;
   dataQualityNotices: AnalyticsDataQualityNotice[];
   rowCount: number;
@@ -155,6 +165,18 @@ export function formatFlowMinute(epochMinutes: number): string {
   const hours = String(date.getUTCHours()).padStart(2, "0");
   const minutes = String(date.getUTCMinutes()).padStart(2, "0");
   return `${hours}:${minutes}`;
+}
+
+/**
+ * Same wall clock as `formatFlowMinute`, with the calendar date in front —
+ * for a session's end time when it fell on a later day than its start, so
+ * "23:50–00:10" (which reads as ten minutes, not twenty) never appears.
+ */
+export function formatFlowMinuteWithDay(epochMinutes: number): string {
+  const date = new Date(epochMinutes * 60_000);
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${month}-${day} ${formatFlowMinute(epochMinutes)}`;
 }
 
 export function formatFlowDay(day: string): string {
@@ -234,6 +256,7 @@ export function shapeUserBehaviorRows(
         id: `session-${bucket.epochMinutes}`,
         platform: bucket.platform || "unknown",
         day: bucket.day,
+        endDay: bucket.day,
         startMinute: bucket.epochMinutes,
         endMinute: bucket.epochMinutes,
         durationMinutes: 0,
@@ -252,6 +275,7 @@ export function shapeUserBehaviorRows(
     }
 
     current.endMinute = bucket.epochMinutes;
+    current.endDay = bucket.day;
     current.durationMinutes = current.endMinute - current.startMinute;
     current.eventCount += bucket.eventCount;
 
@@ -387,7 +411,7 @@ export async function fetchUserBehaviorFlow(input: {
   }
 
   return shapeUserBehaviorRows(rows, {
-    timeZone: responses.at(-1)?.metadata?.timeZone ?? "Asia/Seoul",
+    timeZone: responses.at(-1)?.metadata?.timeZone ?? null,
     quota: quotaFromResponses(responses),
     dataQualityNotices: dedupeNotices(notices),
     rowCount,
