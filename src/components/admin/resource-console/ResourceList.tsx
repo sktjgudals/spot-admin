@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import Link from "next/link";
 import { AlertTriangle, FilterX, Inbox, RefreshCw } from "lucide-react";
 import type { AdminResource } from "@/auth/api/admin-resources.api";
 import type { ResourceConfig } from "@/components/admin/resource-configs";
@@ -148,6 +149,33 @@ function ResourceEmpty({
   );
 }
 
+/**
+ * The first column is the row's identity, so it is the row's link.
+ *
+ * Linking the whole row would swallow the action buttons inside it; linking a
+ * separate icon would add a target too small to hit on the operator's laptop
+ * trackpad.
+ */
+function primaryCellContent(
+  config: ResourceConfig,
+  row: AdminResource,
+  columnKey: string,
+) {
+  const value = renderResourceValue(row[columnKey], columnKey);
+  const href =
+    columnKey === config.columns[0]?.key ? config.detailHref?.(row) : undefined;
+  if (!href) return value;
+  return (
+    <Link
+      href={href}
+      prefetch={false}
+      className="rounded-sm font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {value}
+    </Link>
+  );
+}
+
 export function ResourceList({
   config,
   items,
@@ -230,7 +258,7 @@ export function ResourceList({
                   return (
                     <TableCell key={column.key} className="h-11 max-w-72 px-3 py-1.5">
                       <div className="truncate" title={fullText === "—" ? undefined : fullText}>
-                        {renderResourceValue(row[column.key], column.key)}
+                        {primaryCellContent(config, row, column.key)}
                       </div>
                     </TableCell>
                   );
@@ -264,7 +292,7 @@ export function ResourceList({
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-muted-foreground">{primaryColumn?.label ?? "ID"}</p>
                   <p className="mt-0.5 truncate font-medium" title={formatResourceText(row[primaryKey], primaryKey)}>
-                    {renderResourceValue(row[primaryKey], primaryKey)}
+                    {primaryCellContent(config, row, primaryKey)}
                   </p>
                 </div>
                 {config.columns.some((column) => column.key === "status") ? (

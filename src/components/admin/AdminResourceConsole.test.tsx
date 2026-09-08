@@ -397,6 +397,48 @@ describe("AdminResourceConsole", () => {
       scroll: false,
     });
   });
+
+  it("turns the users list's first column into a link to the detail page", async () => {
+    navigation.pathname = "/super-admin/users";
+    vi.mocked(listAdminResources).mockResolvedValue({
+      items: [{ id: "user-1", nickname: "민정", status: "ACTIVE" }],
+      nextCursor: null,
+      asOf: page.asOf,
+    });
+    renderConsole(resourceConfigs.users);
+
+    const link = await screen.findByRole("link", { name: "민정" });
+    expect(link).toHaveAttribute("href", "/super-admin/users/user-1");
+    // The sheet is still the quick look; the link is the full screen.
+    expect(screen.getAllByRole("button", { name: "상세" }).length).toBeGreaterThan(0);
+  });
+
+  it("offers the detail page from the sheet only for resources that have one", async () => {
+    navigation.pathname = "/super-admin/users";
+    vi.mocked(listAdminResources).mockResolvedValue({
+      items: [{ id: "user-1", nickname: "민정", status: "ACTIVE" }],
+      nextCursor: null,
+      asOf: page.asOf,
+    });
+    const user = userEvent.setup();
+    renderConsole(resourceConfigs.users);
+
+    await user.click((await screen.findAllByRole("button", { name: "상세" }))[0]);
+
+    // Base UI keeps role="button" on the rendered anchor.
+    const open = await screen.findByRole("button", { name: "상세 페이지 열기" });
+    expect(open).toHaveAttribute("href", "/super-admin/users/user-1");
+
+    cleanup();
+    navigation.pathname = "/super-admin/payments";
+    vi.mocked(listAdminResources).mockResolvedValue({ ...page, nextCursor: null });
+    renderConsole(resourceConfigs.payments);
+    await user.click((await screen.findAllByRole("button", { name: "상세" }))[0]);
+
+    expect(
+      screen.queryByRole("button", { name: "상세 페이지 열기" }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("resource action contracts", () => {

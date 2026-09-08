@@ -10,5 +10,10 @@ describe("adminRouteLabel", () => {
   it("falls back without exposing a raw pathname", () => {
     expect(adminRouteLabel("/unmapped")).toBe("운영 콘솔");
   });
+
+  it("keeps the user detail route under the 사용자 menu", () => {
+    expect(adminRouteLabel("/super-admin/users")).toBe("사용자");
+    expect(adminRouteLabel("/super-admin/users/user-1")).toBe("사용자");
+  });
 });
 

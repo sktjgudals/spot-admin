@@ -35,4 +35,14 @@ describe("business role request resource config", () => {
       "REJECTED",
     ]);
   });
+
+  it("gives only the users console a detail page", () => {
+    expect(resourceConfigs.users.detailHref?.({ id: "user 1" })).toBe(
+      "/super-admin/users/user%201",
+    );
+    for (const [key, config] of Object.entries(resourceConfigs)) {
+      if (key === "users") continue;
+      expect(config.detailHref).toBeUndefined();
+    }
+  });
 });
