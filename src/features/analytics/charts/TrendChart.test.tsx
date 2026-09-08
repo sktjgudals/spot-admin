@@ -76,6 +76,69 @@ describe("TrendChart", () => {
     expect(screen.queryByTestId("trend-tooltip")).not.toBeInTheDocument();
   });
 
+  it("tiles the hover bands across the plot so the last point is reachable", () => {
+    const { container } = render(
+      <TrendChart series={series} metric="activeUsers" showPrevious={false} />,
+    );
+    const bands = [...container.querySelectorAll("[data-point]")].map((band) => ({
+      node: band,
+      x: Number(band.getAttribute("x")),
+      width: Number(band.getAttribute("width")),
+    }));
+
+    // Adjacent bands share an edge: no dead strip between two points.
+    for (let index = 1; index < bands.length; index += 1) {
+      expect(bands[index].x).toBeCloseTo(
+        bands[index - 1].x + bands[index - 1].width,
+        5,
+      );
+    }
+
+    // The last point sits at `width - PADDING.right`; its band must cover it.
+    const last = bands[bands.length - 1];
+    expect(720 - 12).toBeGreaterThanOrEqual(last.x);
+    expect(720 - 12).toBeLessThanOrEqual(last.x + last.width);
+
+    fireEvent.mouseEnter(last.node);
+    expect(screen.getByTestId("trend-tooltip")).toHaveTextContent("2026.09.03");
+  });
+
+  it("still gives a single point a band with width", () => {
+    const { container } = render(
+      <TrendChart
+        series={{ points: [series.points[0]] }}
+        metric="activeUsers"
+        showPrevious={false}
+      />,
+    );
+
+    const only = container.querySelector("[data-point]");
+    expect(Number(only?.getAttribute("width"))).toBeGreaterThan(0);
+  });
+
+  it("breaks the previous line at a gap instead of drawing it down to zero", () => {
+    const { container } = render(
+      <TrendChart
+        series={{
+          points: [
+            series.points[0],
+            { ...series.points[1], previousDate: null, previous: null },
+            series.points[2],
+          ],
+        }}
+        metric="activeUsers"
+        showPrevious
+      />,
+    );
+
+    const d =
+      container.querySelector("path[stroke-dasharray]")?.getAttribute("d") ?? "";
+    // One subpath either side of the gap...
+    expect(d.match(/M/g)).toHaveLength(2);
+    // ...and nothing plotted at the missing point's x (52 + 656 / 2).
+    expect(d).not.toContain("380.0");
+  });
+
   it("says there is nothing to draw rather than rendering an empty axis", () => {
     render(
       <TrendChart series={{ points: [] }} metric="newUsers" showPrevious={false} />,

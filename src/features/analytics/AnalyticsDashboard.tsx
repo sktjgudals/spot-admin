@@ -212,9 +212,21 @@ export function AnalyticsDashboard({
   if (selectedProperty?.id !== filteredPropertyId) {
     setFilteredPropertyId(selectedProperty?.id);
     setFilters(EMPTY_FILTERS);
+    setFunnelId(FUNNEL_IDS[0]);
+    setFunnelBreakdown(false);
     setLatestQuota(null);
     setExhaustedPools([]);
   }
+
+  /**
+   * Each view spends a different GA4 token pool, so a reading never outlives
+   * the report that produced it — otherwise the banner names the pool of the
+   * view an operator just left while the next one loads.
+   */
+  const selectView = (nextView: AnalyticsReportView) => {
+    setView(nextView);
+    setLatestQuota(null);
+  };
 
   const capabilities = useQuery<AnalyticsCapabilities, Error>({
     queryKey: analyticsQueryKeys.capabilities(
@@ -389,7 +401,7 @@ export function AnalyticsDashboard({
               "min-h-9 shrink-0 rounded-lg px-3 text-sm font-medium text-muted-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
               view === option.value && "bg-background text-foreground shadow-sm",
             )}
-            onClick={() => setView(option.value)}
+            onClick={() => selectView(option.value)}
           >
             {option.label}
           </button>

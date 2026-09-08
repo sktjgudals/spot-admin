@@ -119,6 +119,7 @@ export function RetentionHeatmap({
             높음
           </span>
           <span>† 아직 끝나지 않은 주</span>
+          <span>— 아직 오지 않은 주 또는 데이터 없음</span>
         </div>
       </CardContent>
     </Card>

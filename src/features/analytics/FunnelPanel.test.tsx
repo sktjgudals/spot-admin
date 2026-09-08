@@ -129,6 +129,33 @@ describe("FunnelPanel", () => {
     expect(screen.getByText("600명")).toBeInTheDocument();
   });
 
+  it("drops the breakdown rows the moment the box is unchecked", () => {
+    // `keepPreviousData` hands back the previous result while the unbroken-down
+    // one loads, so the checkbox — not the stale payload — decides what shows.
+    renderPanel({
+      breakdown: false,
+      result: result({
+        breakdown: {
+          dimension: "platform",
+          rows: [
+            {
+              value: "iOS",
+              steps: [
+                step(0, "파티 상세", 600, 1),
+                step(1, "신청 화면", 300, 0.5),
+                step(2, "신청 완료", 90, 0.15),
+              ],
+            },
+          ],
+        },
+      }),
+    });
+
+    expect(screen.queryByText("iOS")).not.toBeInTheDocument();
+    expect(screen.queryByText("600명")).not.toBeInTheDocument();
+    expect(screen.getByText("1. 파티 상세")).toBeInTheDocument();
+  });
+
   it("blames the instrumentation, not the product, when step one is empty", () => {
     renderPanel({
       result: result({

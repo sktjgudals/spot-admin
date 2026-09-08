@@ -51,15 +51,24 @@ export default function TrendChart({
   }
 
   const currentValues = points.map((point) => point.current[metric]);
-  const previousValues = points.map((point) => point.previous?.[metric] ?? 0);
+  // `null`, never 0: a day the previous range never covered is a gap in the
+  // line, and a zero-filled dip is a lie the sr-only table would contradict.
+  const previousValues = points.map(
+    (point) => point.previous?.[metric] ?? null,
+  );
   const maxValue = Math.max(
     1,
     ...currentValues,
-    ...(showPrevious ? previousValues : []),
+    ...(showPrevious
+      ? previousValues.filter((value): value is number => value !== null)
+      : []),
   );
   const plotWidth = width - PADDING.left - PADDING.right;
   const plotHeight = VIEW_HEIGHT - PADDING.top - PADDING.bottom;
-  const bandWidth = plotWidth / Math.max(1, points.length);
+  // Points are spaced `plotWidth / (n - 1)` apart, so the hover bands have to
+  // be that wide to tile the plot; dividing by `n` left a dead strip between
+  // every pair of points and made the last point unreachable.
+  const bandWidth = plotWidth / Math.max(1, points.length - 1);
 
   const xAt = (index: number) =>
     points.length <= 1
@@ -67,13 +76,21 @@ export default function TrendChart({
       : PADDING.left + (index / (points.length - 1)) * plotWidth;
   const yAt = (value: number) =>
     PADDING.top + plotHeight - (value / maxValue) * plotHeight;
-  const pathOf = (values: readonly number[]) =>
-    values
-      .map(
-        (value, index) =>
-          `${index === 0 ? "M" : "L"}${xAt(index).toFixed(1)},${yAt(value).toFixed(1)}`,
-      )
-      .join(" ");
+  const pathOf = (values: readonly (number | null)[]) => {
+    const commands: string[] = [];
+    let penDown = false;
+    values.forEach((value, index) => {
+      if (value === null) {
+        penDown = false;
+        return;
+      }
+      commands.push(
+        `${penDown ? "L" : "M"}${xAt(index).toFixed(1)},${yAt(value).toFixed(1)}`,
+      );
+      penDown = true;
+    });
+    return commands.join(" ");
+  };
 
   const hoveredPoint = hovered === null ? null : points[hovered];
 

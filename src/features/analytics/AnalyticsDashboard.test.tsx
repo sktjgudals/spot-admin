@@ -69,6 +69,34 @@ function emptyOverview(): AnalyticsReportResult {
   };
 }
 
+function funnelResult(
+  overrides: Partial<Extract<AnalyticsReportResult, { view: "funnel" }>> = {},
+): AnalyticsReportResult {
+  return {
+    view: "funnel",
+    funnelId: "party-apply",
+    title: "파티 신청",
+    description: "파티 상세에서 신청 완료까지의 단계별 이탈입니다.",
+    steps: [
+      {
+        index: 0,
+        name: "파티 상세",
+        users: 1000,
+        completionRate: null,
+        abandonments: null,
+        abandonmentRate: null,
+        shareOfFirst: 1,
+      },
+    ],
+    breakdown: null,
+    currencyCode: "KRW",
+    quota: null,
+    dataQualityNotices: [],
+    isEmpty: false,
+    ...overrides,
+  };
+}
+
 function renderDashboard(overrides: Partial<React.ComponentProps<typeof AnalyticsDashboard>> = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -234,7 +262,13 @@ describe("AnalyticsDashboard", () => {
     expect(completionStatus).toHaveTextContent(summary.textContent ?? "");
     expect(completionStatus).not.toHaveTextContent("Organic Search");
     expect(screen.getByText("Organic Search")).toBeInTheDocument();
-    expect(screen.getAllByRole("status")).toHaveLength(1);
+    // The invariant is that report content never lands inside *any* live
+    // region. Counting one status only held while QuotaBanner rendered
+    // nothing, so assert it of every status on screen instead.
+    expect(screen.getAllByRole("status")).toContain(completionStatus);
+    for (const status of screen.getAllByRole("status")) {
+      expect(status).not.toHaveTextContent("Organic Search");
+    }
   });
 
   it("draws the selected trend metric and compares the previous period on request", async () => {
@@ -589,13 +623,17 @@ describe("AnalyticsDashboard", () => {
   });
 
   it("warns above the tabs once the hourly pool drops below a tenth", async () => {
+    const user = userEvent.setup();
     setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
-    vi.mocked(fetchAnalyticsReport).mockResolvedValue({
-      ...emptyOverview(),
-      quota: {
-        category: "core",
-        entries: [{ key: "tokensPerHour", consumed: 39_000, remaining: 1_000 }],
-      },
+    vi.mocked(fetchAnalyticsReport).mockImplementation(async ({ view }) => {
+      if (view !== "overview") return new Promise<never>(() => {});
+      return {
+        ...emptyOverview(),
+        quota: {
+          category: "core",
+          entries: [{ key: "tokensPerHour", consumed: 39_000, remaining: 1_000 }],
+        },
+      };
     });
     renderDashboard();
 
@@ -604,5 +642,165 @@ describe("AnalyticsDashboard", () => {
         "GA API 시간당 할당량이 10% 미만입니다. 퍼널·리텐션은 토큰을 많이 소비합니다.",
       ),
     ).toBeInTheDocument();
+
+    // Each view spends a different pool, so a reading never outlives the
+    // report that produced it — not even for the length of the next load.
+    await user.click(screen.getByRole("button", { name: "유입" }));
+
+    expect(
+      screen.queryByText(
+        "GA API 시간당 할당량이 10% 미만입니다. 퍼널·리텐션은 토큰을 많이 소비합니다.",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("resets the filters and the funnel selection when the property changes", async () => {
+    const user = userEvent.setup();
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchAnalyticsReport).mockImplementation(async ({ view }) =>
+      view === "funnel" ? funnelResult() : emptyOverview(),
+    );
+    renderDashboard();
+
+    await user.selectOptions(screen.getByLabelText("GA4 속성"), "5678");
+    await user.click(await screen.findByRole("button", { name: "iOS" }));
+    await user.click(screen.getByRole("button", { name: "퍼널" }));
+    await user.selectOptions(await screen.findByLabelText("퍼널"), "party-payment");
+    await user.click(screen.getByLabelText("플랫폼별 보기"));
+
+    expect(fetchAnalyticsReport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        filters: { platforms: ["iOS"], accountType: "all" },
+        funnelId: "party-payment",
+        funnelBreakdown: true,
+      }),
+    );
+
+    await user.selectOptions(screen.getByLabelText("GA4 속성"), "1234");
+
+    expect(fetchAnalyticsReport).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        property: properties[0],
+        filters: { platforms: [], accountType: "all" },
+        funnelId: "party-apply",
+        funnelBreakdown: false,
+      }),
+    );
+    expect(screen.queryByText("필터 1개 적용 중")).not.toBeInTheDocument();
+  });
+
+  it("holds the previous table on screen while a filter change is in flight", async () => {
+    const user = userEvent.setup();
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchAnalyticsReport).mockImplementation(async ({ view, filters }) => {
+      if (view === "overview") return emptyOverview();
+      // The filtered request never settles, so the placeholder state is the
+      // one under test.
+      if (filters.platforms.length > 0) return new Promise<never>(() => {});
+      return {
+        view: "acquisition",
+        metrics: [],
+        tables: [
+          {
+            key: "channels",
+            title: "채널",
+            description: "유입 채널",
+            columns: [
+              { key: "channel", label: "채널", kind: "dimension" },
+              { key: "sessions", label: "세션", kind: "metric", format: "integer" },
+            ],
+            rows: [{ channel: "Organic Search", sessions: "10" }],
+            totalRowCount: 1,
+          },
+        ],
+        currencyCode: "KRW",
+        quota: null,
+        dataQualityNotices: [],
+        isEmpty: false,
+      };
+    });
+    renderDashboard();
+
+    await user.selectOptions(screen.getByLabelText("GA4 속성"), "5678");
+    await user.click(screen.getByRole("button", { name: "유입" }));
+    await screen.findByText("Organic Search");
+
+    await user.click(screen.getByRole("button", { name: "iOS" }));
+
+    const busy = await screen.findByRole("status", { name: "필터 적용 중" });
+    expect(busy).toHaveAttribute("aria-busy", "true");
+    expect(busy).toHaveTextContent(
+      "필터 적용 중입니다. 이전 결과를 표시하고 있습니다.",
+    );
+    // No skeleton flash: the row an operator was reading is still there.
+    expect(screen.getByText("Organic Search")).toBeInTheDocument();
+  });
+
+  it("does not read property metadata before there is anything to read it for", async () => {
+    vi.mocked(fetchAnalyticsReport).mockResolvedValue(emptyOverview());
+    renderDashboard();
+
+    expect(
+      await screen.findByRole("button", { name: "Google Analytics 연결" }),
+    ).toBeInTheDocument();
+    expect(fetchAnalyticsCapabilities).not.toHaveBeenCalled();
+
+    cleanup();
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    renderDashboard({ properties: [], configError: "GA4 속성이 설정되지 않았습니다." });
+
+    expect(
+      await screen.findByRole("heading", { name: "분석 설정 필요" }),
+    ).toBeInTheDocument();
+    expect(fetchAnalyticsCapabilities).not.toHaveBeenCalled();
+  });
+
+  it("names the funnel's own token pool in the quota footer", async () => {
+    const user = userEvent.setup();
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchAnalyticsReport).mockImplementation(async ({ view }) =>
+      view === "funnel"
+        ? funnelResult({
+            quota: {
+              category: "funnel",
+              entries: [{ key: "tokensPerHour", consumed: 10, remaining: 90 }],
+            },
+          })
+        : emptyOverview(),
+    );
+    renderDashboard();
+
+    await screen.findByText("선택한 기간에 수집된 데이터가 없습니다.");
+    await user.click(screen.getByRole("button", { name: "퍼널" }));
+
+    expect(
+      await screen.findByText("GA API 할당량 상태 · 퍼널(별도 풀)"),
+    ).toBeInTheDocument();
+  });
+
+  it("closes only the tab whose pool actually refused a request", async () => {
+    const user = userEvent.setup();
+    setAnalyticsAccessToken({ accessToken: "memory-token", expiresInSeconds: 3600 });
+    vi.mocked(fetchAnalyticsReport).mockImplementation(async ({ view }) => {
+      if (view === "funnel") {
+        throw new AnalyticsDataApiError("quota", "quota", { status: 429 });
+      }
+      return emptyOverview();
+    });
+    renderDashboard();
+
+    await screen.findByText("선택한 기간에 수집된 데이터가 없습니다.");
+    await user.click(screen.getByRole("button", { name: "퍼널" }));
+    await screen.findByRole("heading", {
+      name: "GA API 할당량을 모두 사용했습니다.",
+    });
+
+    await user.click(screen.getByRole("button", { name: "개요" }));
+    await screen.findByText("선택한 기간에 수집된 데이터가 없습니다.");
+
+    expect(screen.getByRole("button", { name: "퍼널" })).toBeDisabled();
+    // The Core pool never refused anything, so its tabs stay open.
+    expect(screen.getByRole("button", { name: "유입" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "리텐션" })).toBeEnabled();
   });
 });

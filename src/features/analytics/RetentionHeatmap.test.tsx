@@ -22,6 +22,19 @@ const result: AnalyticsRetentionResult = {
       ],
     },
     {
+      name: "2026-08-16",
+      startDate: "2026-08-16",
+      endDate: "2026-08-22",
+      totalUsers: 150,
+      cells: [
+        { week: 0, activeUsers: 150, rate: 1, state: "complete" },
+        { week: 1, activeUsers: 45, rate: 0.3, state: "complete" },
+        { week: 2, activeUsers: 22, rate: 0.147, state: "complete" },
+        { week: 3, activeUsers: 6, rate: 0.04, state: "complete" },
+        { week: 4, activeUsers: 3, rate: 0.02, state: "complete" },
+      ],
+    },
+    {
       name: "2026-08-30",
       startDate: "2026-08-30",
       endDate: "2026-09-05",
@@ -68,8 +81,14 @@ describe("RetentionHeatmap", () => {
     const cells = container.querySelectorAll("td[data-intensity]");
     const intensities = [...cells].map((cell) => cell.getAttribute("data-intensity"));
     expect(intensities.slice(0, 4)).toEqual(["4", "2", "1", "0"]);
+    // The middle cohort walks the remaining buckets: 0.3 → 3, 0.147 → 1,
+    // 0.04 → 0, so every grade the legend advertises is reachable.
+    expect(intensities.slice(4, 8)).toEqual(["3", "1", "0", "0"]);
     expect(cells[2]?.getAttribute("data-state")).toBe("partial");
     expect(screen.getByText("† 아직 끝나지 않은 주")).toBeInTheDocument();
+    expect(
+      screen.getByText("— 아직 오지 않은 주 또는 데이터 없음"),
+    ).toBeInTheDocument();
   });
 
   it("leaves an empty cohort blank rather than drawing it as a total loss", () => {

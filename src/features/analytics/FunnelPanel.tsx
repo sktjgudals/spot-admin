@@ -82,7 +82,7 @@ export function FunnelPanel({
             {result.steps.map((step) => (
               <li key={step.index} className="space-y-2">
                 <FunnelStepRow step={step} color="var(--chart-1)" />
-                {result.breakdown ? (
+                {breakdown && result.breakdown ? (
                   <ul className="space-y-2 border-l pl-4">
                     {result.breakdown.rows.map((row, rowIndex) => {
                       const rowStep = row.steps[step.index];
