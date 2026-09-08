@@ -29,6 +29,7 @@ import {
 } from "@/components/admin/resource-console/ResourceEditorDialog";
 import { ResourceList } from "@/components/admin/resource-console/ResourceList";
 import { useCursorAppendFocus } from "@/hooks/use-cursor-append-focus";
+import { toDateTimeLocalInputValue } from "@/lib/format-date";
 
 const PAGE_SIZE = 50;
 
@@ -37,10 +38,10 @@ export { getResourceConfig, resourceConfigs };
 
 function initialValues(fields: readonly Field[], row?: AdminResource): Record<string, unknown> {
   return Object.fromEntries(
-    fields.map((field) => [
-      field.key,
-      row?.[field.key] ?? field.defaultValue ?? (field.type === "boolean" ? false : ""),
-    ]),
+    fields.map((field) => {
+      const raw = row?.[field.key] ?? field.defaultValue ?? (field.type === "boolean" ? false : "");
+      return [field.key, field.type === "datetime" ? toDateTimeLocalInputValue(raw) : raw];
+    }),
   );
 }
 
@@ -60,11 +61,19 @@ function validateValues(fields: readonly Field[], values: Record<string, unknown
   return null;
 }
 
-function normalizeValues(fields: readonly Field[], values: Record<string, unknown>) {
+function normalizeValues(
+  fields: readonly Field[],
+  values: Record<string, unknown>,
+  mode: "create" | "edit",
+) {
   const result: Record<string, unknown> = {};
   for (const field of fields) {
     const raw = values[field.key];
-    if (raw === "" && !field.required) continue;
+    if (raw === "" && !field.required) {
+      // 수정 모드에서 비운 일정 필드는 해제(null)로 보낸다 — 서버 patch 스키마가 nullish를 받는다.
+      if (mode === "edit" && field.type === "datetime") result[field.key] = null;
+      continue;
+    }
     if (field.type === "number") result[field.key] = Number(raw);
     else if (field.type === "boolean") result[field.key] = Boolean(raw);
     else if (field.type === "datetime" && typeof raw === "string") {
@@ -223,7 +232,7 @@ export function AdminResourceConsole({
       toast.error(validationError);
       return;
     }
-    const body = normalizeValues(fields, values);
+    const body = normalizeValues(fields, values, editor.mode);
     const path = editor.mode === "create"
       ? typeof config.create?.path === "function"
         ? config.create.path(body)
@@ -302,7 +311,7 @@ export function AdminResourceConsole({
   const mutationError = mutation.error instanceof Error ? mutation.error : null;
 
   return (
-    <section className="space-y-4" aria-labelledby={`${config.key}-title`}>
+    <section className="space-y-4" aria-labelledby={`${config.key}-heading`}>
       <ResourceConsoleHeader
         config={config}
         count={items.length}
